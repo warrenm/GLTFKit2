@@ -79,8 +79,8 @@ typedef NS_ENUM(NSInteger, GLTFAlphaMode) {
 };
 
 typedef NS_ENUM(NSInteger, GLTFInterpolationMode) {
-    GLTFInterpolationModeStep,
     GLTFInterpolationModeLinear,
+    GLTFInterpolationModeStep,
     GLTFInterpolationModeCubic
 };
 
@@ -139,7 +139,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) NSString *copyright;
 @property (nonatomic, nullable) NSString *generator;
 @property (nonatomic, copy) NSString *version;
-@property (nonatomic, copy) NSString *minVersion;
+@property (nonatomic, nullable, copy) NSString *minVersion;
 @property (nonatomic, copy) NSArray<NSString *> *extensionsUsed;
 @property (nonatomic, copy) NSArray<NSString *> *extensionsRequired;
 @property (nonatomic, copy) NSArray<GLTFAccessor *> *accessors;
@@ -240,10 +240,13 @@ GLTFKIT2_EXPORT
 GLTFKIT2_EXPORT
 @interface GLTFBuffer : GLTFObject
 
+@property (nonatomic, nullable) NSData *data;
 @property (nonatomic, nullable) NSURL *uri;
 @property (nonatomic, assign) NSInteger length;
 
 - (instancetype)initWithLength:(NSInteger)length NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)initWithData:(NSData *)data NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -371,7 +374,8 @@ GLTFKIT2_EXPORT
 @interface GLTFNode : GLTFObject
 
 @property (nonatomic, nullable, strong) GLTFCamera *camera;
-@property (nonatomic, copy) NSArray<GLTFNode *> *children;
+@property (nonatomic, copy) NSArray<GLTFNode *> *childNodes;
+@property (nonatomic, weak) GLTFNode *parentNode;
 @property (nonatomic, nullable, strong) GLTFSkin *skin;
 @property (nonatomic, assign) simd_float4x4 matrix;
 @property (nonatomic, nullable, strong) GLTFMesh *mesh;

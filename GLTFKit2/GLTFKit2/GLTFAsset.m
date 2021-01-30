@@ -85,7 +85,6 @@
 - (instancetype)init {
     if (self = [super init]) {
         _version = @"2.0";
-        _minVersion = @"2.0";
         _extensionsUsed = @[];
         _extensionsRequired = @[];
         _accessors = @[];
@@ -188,6 +187,14 @@
 - (instancetype)initWithLength:(NSInteger)length {
     if (self = [super init]) {
         _length = length;
+    }
+    return self;
+}
+
+- (instancetype)initWithData:(NSData *)data {
+    if (self = [super init]) {
+        _length = data.length;
+        _data = data;
     }
     return self;
 }
@@ -330,7 +337,7 @@
     if (self = [super init]) {
         _primitiveType = primitiveType;
         _attributes = [attributes copy];
-        _indices = [indices copy];
+        _indices = indices;
     }
     return self;
 }
@@ -339,14 +346,24 @@
 
 @implementation GLTFNode
 
+@synthesize childNodes=_childNodes;
+
 - (instancetype)init {
     if (self = [super init]) {
         _matrix = matrix_identity_float4x4;
         _rotation = simd_quaternion(0.0f, 0.0f, 0.0f, 1.0f);
         _scale = simd_make_float3(1.0f, 1.0f, 1.0f);
         _translation = simd_make_float3(0.0f, 0.0f, 0.0f);
+        _childNodes = @[];
     }
     return self;
+}
+
+- (void)setChildNodes:(NSArray<GLTFNode *> *)childNodes {
+    _childNodes = [childNodes copy];
+    for (GLTFNode *child in _childNodes) {
+        child.parentNode = self;
+    }
 }
 
 @end
