@@ -4,6 +4,35 @@
 #define CGLTF_IMPLEMENTATION
 #import "cgltf.h"
 
+@interface GLTFUniqueNameGenerator : NSObject
+- (NSString *)nextUniqueNameWithPrefix:(NSString *)prefix;
+@end
+
+@interface GLTFUniqueNameGenerator ()
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSNumber *> *countsForPrefixes;
+@end
+
+@implementation GLTFUniqueNameGenerator
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _countsForPrefixes = [NSMutableDictionary dictionary];
+    }
+    return self;
+}
+
+- (NSString *)nextUniqueNameWithPrefix:(NSString *)prefix {
+    NSNumber *existingCount = self.countsForPrefixes[prefix];
+    if (existingCount) {
+        self.countsForPrefixes[prefix] = @(existingCount.integerValue + 1);
+        return [NSString stringWithFormat:@"%@%@", prefix, existingCount];
+    }
+    self.countsForPrefixes[prefix] = @(1);
+    return [NSString stringWithFormat:@"%@%d", prefix, 1];
+}
+
+@end
+
 static NSDictionary *GLTFExtensionsFromCGLTF(cgltf_extension *extensions, size_t extensionCount) {
     return @{}; // TODO: Recursively convert to extension object
 }
@@ -38,7 +67,79 @@ static NSString *GLTFTargetPathForPath(cgltf_animation_path_type path) {
     }
 }
 
-static NSArray *GLTFBuffersFromCGLTF(cgltf_data *const gltf) {
+@interface GLTFAssetReader () {
+    cgltf_data *gltf;
+}
+@property (class, nonatomic, readonly) dispatch_queue_t loaderQueue;
+@property (nonatomic, nullable, strong) NSURL *assetURL;
+@property (nonatomic, strong) GLTFAsset *asset;
+@end
+
+static dispatch_queue_t _loaderQueue;
+
+@implementation GLTFAssetReader
+
++ (dispatch_queue_t)loaderQueue {
+    if (_loaderQueue == nil) {
+        _loaderQueue = dispatch_queue_create("com.metalbyexample.gltfkit2.asset-loader", DISPATCH_QUEUE_CONCURRENT);
+    }
+    return _loaderQueue;
+}
+
++ (void)loadAssetWithURL:(NSURL *)url
+                 options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
+                 handler:(nullable GLTFAssetLoadingHandler)handler
+{
+    dispatch_async(self.loaderQueue, ^{
+        GLTFAssetReader *loader = [[GLTFAssetReader alloc] init];
+        [loader syncLoadAssetWithURL:url data:nil options:options handler:handler];
+    });
+}
+
++ (void)loadAssetWithData:(NSData *)data
+                  options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
+                  handler:(nullable GLTFAssetLoadingHandler)handler
+{
+    dispatch_async(self.loaderQueue, ^{
+        GLTFAssetReader *loader = [[GLTFAssetReader alloc] init];
+        [loader syncLoadAssetWithURL:nil data:data options:options handler:handler];
+    });
+}
+
+- (void)syncLoadAssetWithURL:(NSURL * _Nullable)assetURL
+                        data:(NSData * _Nullable)data
+                     options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
+                     handler:(nullable GLTFAssetLoadingHandler)handler
+{
+    self.assetURL = assetURL;
+
+    BOOL stop = NO;
+    NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
+    if (internalData == nil) {
+        handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
+        return;
+    }
+    
+    cgltf_options parseOptions = {0};
+    //cgltf_data *gltf = NULL;
+    cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
+    
+    if (result != cgltf_result_success) {
+        handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
+    } else {        
+        result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
+        if (result != cgltf_result_success) {
+            handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
+        } else {
+            [self convertAsset];
+            handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
+        }
+    }
+    
+    cgltf_free(gltf);
+}
+
+- (NSArray *)convertBuffers {
     NSMutableArray *buffers = [NSMutableArray arrayWithCapacity:gltf->buffers_count];
     for (int i = 0; i < gltf->buffers_count; ++i) {
         cgltf_buffer *b = gltf->buffers + i;
@@ -53,12 +154,12 @@ static NSArray *GLTFBuffersFromCGLTF(cgltf_data *const gltf) {
     return buffers;
 }
 
-static NSArray *GLTFBufferViewsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset) {
+- (NSArray *)convertBufferViews {
     NSMutableArray *bufferViews = [NSMutableArray arrayWithCapacity:gltf->buffer_views_count];
     for (int i = 0; i < gltf->buffer_views_count; ++i) {
         cgltf_buffer_view *bv = gltf->buffer_views + i;
         size_t bufferIndex = bv->buffer - gltf->buffers;
-        GLTFBufferView *bufferView = [[GLTFBufferView alloc] initWithBuffer:asset.buffers[bufferIndex]
+        GLTFBufferView *bufferView = [[GLTFBufferView alloc] initWithBuffer:self.asset.buffers[bufferIndex]
                                                                      length:bv->size
                                                                      offset:bv->offset
                                                                      stride:bv->stride];
@@ -67,7 +168,7 @@ static NSArray *GLTFBufferViewsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asse
     return bufferViews;
 }
 
-static NSArray *GLTFAccessorsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertAccessors
 {
     NSMutableArray *accessors = [NSMutableArray arrayWithCapacity:gltf->accessors_count];
     for (int i = 0; i < gltf->accessors_count; ++i) {
@@ -75,7 +176,7 @@ static NSArray *GLTFAccessorsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
         GLTFBufferView *bufferView = nil;
         if (a->buffer_view) {
             size_t bufferViewIndex = a->buffer_view - gltf->buffer_views;
-            bufferView = asset.bufferViews[bufferViewIndex];
+            bufferView = self.asset.bufferViews[bufferViewIndex];
         }
         GLTFAccessor *accessor = [[GLTFAccessor alloc] initWithBufferView:bufferView
                                                                    offset:a->offset
@@ -90,7 +191,7 @@ static NSArray *GLTFAccessorsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
     return accessors;
 }
 
-static NSArray *GLTFTextureSamplersFromCGLTF(cgltf_data *const gltf)
+- (NSArray *)convertTextureSamplers
 {
     NSMutableArray *textureSamplers = [NSMutableArray arrayWithCapacity:gltf->samplers_count];
     for (int i = 0; i < gltf->samplers_count; ++i) {
@@ -105,7 +206,7 @@ static NSArray *GLTFTextureSamplersFromCGLTF(cgltf_data *const gltf)
     return textureSamplers;
 }
 
-static NSArray *GLTFImagesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertImages
 {
     NSMutableArray *images = [NSMutableArray arrayWithCapacity:gltf->images_count];
     for (int i = 0; i < gltf->images_count; ++i) {
@@ -113,12 +214,12 @@ static NSArray *GLTFImagesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
         GLTFImage *image = nil;
         if (img->buffer_view) {
             size_t bufferViewIndex = img->buffer_view - gltf->buffer_views;
-            GLTFBufferView *bufferView = asset.bufferViews[bufferViewIndex];
+            GLTFBufferView *bufferView = self.asset.bufferViews[bufferViewIndex];
             NSString *mime = [NSString stringWithUTF8String:img->mime_type ? img->mime_type : "image/jpeg"];
             image = [[GLTFImage alloc] initWithBufferView:bufferView mimeType:mime];
         } else {
             assert(img->uri);
-            NSURL *baseURI = [asset.url URLByDeletingLastPathComponent];
+            NSURL *baseURI = [self.asset.url URLByDeletingLastPathComponent];
             NSURL *imageURI = [baseURI URLByAppendingPathComponent:[NSString stringWithUTF8String:img->uri]];
             image = [[GLTFImage alloc] initWithURI:imageURI];
         }
@@ -127,7 +228,7 @@ static NSArray *GLTFImagesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
     return images;
 }
 
-static NSArray *GLTFTexturesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertTextures
 {
     NSMutableArray *textures = [NSMutableArray arrayWithCapacity:gltf->textures_count];
     for (int i = 0; i < gltf->textures_count; ++i) {
@@ -136,11 +237,11 @@ static NSArray *GLTFTexturesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
         GLTFTextureSampler *sampler = nil;
         if (t->image) {
             size_t imageIndex = t->image - gltf->images;
-            image = asset.images[imageIndex];
+            image = self.asset.images[imageIndex];
         }
         if (t->sampler) {
             size_t samplerIndex = t->sampler - gltf->samplers;
-            sampler = asset.samplers[samplerIndex];
+            sampler = self.asset.samplers[samplerIndex];
         }
         GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image];
         texture.sampler = sampler;
@@ -149,30 +250,30 @@ static NSArray *GLTFTexturesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
     return textures;
 }
 
-static GLTFTextureParams *GLTFTextureParamsFromTextureView(cgltf_texture_view *tv, cgltf_data *gltf, GLTFAsset *asset) {
+- (GLTFTextureParams *)textureParamsFromTextureView:(cgltf_texture_view *)tv {
     size_t textureIndex = tv->texture - gltf->textures;
     GLTFTextureParams *params = [GLTFTextureParams new];
-    params.texture = asset.textures[textureIndex];
+    params.texture = self.asset.textures[textureIndex];
     params.scale = tv->scale;
     params.texCoord = tv->texcoord;
     // TODO: transform
     return params;
 }
 
-static NSArray *GLTFMaterialsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertMaterials
 {
     NSMutableArray *materials = [NSMutableArray arrayWithCapacity:gltf->materials_count];
     for (int i = 0; i < gltf->materials_count; ++i) {
         cgltf_material *m = gltf->materials + i;
         GLTFMaterial *material = [GLTFMaterial new];
         if (m->normal_texture.texture) {
-            material.normalTexture = GLTFTextureParamsFromTextureView(&m->normal_texture, gltf, asset);
+            material.normalTexture = [self textureParamsFromTextureView:&m->normal_texture];
         }
         if (m->occlusion_texture.texture) {
-            material.occlusionTexture = GLTFTextureParamsFromTextureView(&m->occlusion_texture, gltf, asset);
+            material.occlusionTexture = [self textureParamsFromTextureView:&m->occlusion_texture];
         }
         if (m->emissive_texture.texture) {
-            material.emissiveTexture = GLTFTextureParamsFromTextureView(&m->emissive_texture, gltf, asset);
+            material.emissiveTexture = [self textureParamsFromTextureView:&m->emissive_texture];
         }
         float *emissive = m->emissive_factor;
         material.emissiveFactor = (simd_float3){ emissive[0], emissive[1], emissive[2] };
@@ -188,7 +289,7 @@ static NSArray *GLTFMaterialsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
     return materials;
 }
 
-static NSArray *GLTFMeshesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertMeshes
 {
     NSMutableArray *meshes = [NSMutableArray arrayWithCapacity:gltf->meshes_count];
     for (int i = 0; i < gltf->meshes_count; ++i) {
@@ -203,20 +304,20 @@ static NSArray *GLTFMeshesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
                 cgltf_attribute *a = p->attributes + k;
                 NSString *attrName = [NSString stringWithUTF8String:a->name];
                 size_t attrIndex = a->data - gltf->accessors;
-                GLTFAccessor *attrAccessor = asset.accessors[attrIndex];
+                GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
                 attributes[attrName] = attrAccessor;
             }
             GLTFPrimitive *primitive = nil;
             if (p->indices) {
                 size_t accessorIndex = p->indices - gltf->accessors;
-                GLTFAccessor *indices = asset.accessors[accessorIndex];
+                GLTFAccessor *indices = self.asset.accessors[accessorIndex];
                 primitive = [[GLTFPrimitive alloc] initWithPrimitiveType:type attributes:attributes indices:indices];
             } else {
                 primitive = [[GLTFPrimitive alloc] initWithPrimitiveType:type attributes:attributes];
             }
             if (p->material) {
                 size_t materialIndex = p->material - gltf->materials;
-                primitive.material = asset.materials[materialIndex];
+                primitive.material = self.asset.materials[materialIndex];
             }
             [primitives addObject:primitive];
         }
@@ -227,7 +328,7 @@ static NSArray *GLTFMeshesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
     return meshes;
 }
 
-static NSArray *GLTFCamerasFromCGLTF(cgltf_data *const gltf)
+- (NSArray *)convertCameras
 {
     NSMutableArray *cameras = [NSMutableArray array];
     for (int i = 0; i < gltf->cameras_count; ++i) {
@@ -255,7 +356,7 @@ static NSArray *GLTFCamerasFromCGLTF(cgltf_data *const gltf)
     return cameras;
 }
 
-static NSArray *GLTFNodesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertNodes
 {
     NSMutableArray *nodes = [NSMutableArray array];
     for (int i = 0; i < gltf->nodes_count; ++i) {
@@ -263,15 +364,15 @@ static NSArray *GLTFNodesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
         GLTFNode *node = [[GLTFNode alloc] init];
         if (n->camera) {
             size_t cameraIndex = n->camera - gltf->cameras;
-            node.camera = asset.cameras[cameraIndex];
+            node.camera = self.asset.cameras[cameraIndex];
         }
         //if (n->light) {
         //    size_t lightIndex = n->light = gltf->lights;
-        //    node.light = asset.lights[lightIndex];
+        //    node.light = self.asset.lights[lightIndex];
         //}
         if (n->mesh) {
             size_t meshIndex = n->mesh - gltf->meshes;
-            node.mesh = asset.meshes[meshIndex];
+            node.mesh = self.asset.meshes[meshIndex];
         }
         if (n->has_matrix) {
             simd_float4x4 transform;
@@ -313,7 +414,7 @@ static NSArray *GLTFNodesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
     return nodes;
 }
 
-static NSArray *GLTFSkinsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertSkins
 {
     NSMutableArray *skins = [NSMutableArray array];
     for (int i = 0; i < gltf->skins_count; ++i) {
@@ -321,18 +422,18 @@ static NSArray *GLTFSkinsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
         NSMutableArray *joints = [NSMutableArray arrayWithCapacity:s->joints_count];
         for (int j = 0; j < s->joints_count; ++j) {
             size_t jointIndex = s->joints[j] - gltf->nodes;
-            GLTFNode *joint = asset.nodes[jointIndex];
+            GLTFNode *joint = self.asset.nodes[jointIndex];
             [joints addObject:joint];
         }
         GLTFSkin *skin = [[GLTFSkin alloc] initWithJoints:joints];
         if (s->inverse_bind_matrices) {
             size_t ibmIndex = s->inverse_bind_matrices - gltf->accessors;
-            GLTFAccessor *ibms = asset.accessors[ibmIndex];
+            GLTFAccessor *ibms = self.asset.accessors[ibmIndex];
             skin.inverseBindMatrices = ibms;
         }
         if (s->skeleton) {
             size_t skeletonIndex = s->skeleton - gltf->nodes;
-            GLTFNode *skeletonRoot = asset.nodes[skeletonIndex];
+            GLTFNode *skeletonRoot = self.asset.nodes[skeletonIndex];
             skin.skeleton = skeletonRoot;
         }
         [skins addObject:skin];
@@ -340,7 +441,7 @@ static NSArray *GLTFSkinsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
     return skins;
 }
 
-static NSArray *GLTFAnimationsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertAnimations
 {
     NSMutableArray *animations = [NSMutableArray array];
     for (int i = 0; i < gltf->animations_count; ++i) {
@@ -349,9 +450,9 @@ static NSArray *GLTFAnimationsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset
         for (int j = 0; j < a->samplers_count; ++j) {
             cgltf_animation_sampler *s = a->samplers + j;
             size_t inputIndex = s->input - gltf->accessors;
-            GLTFAccessor *input = asset.accessors[inputIndex];
+            GLTFAccessor *input = self.asset.accessors[inputIndex];
             size_t outputIndex = s->output - gltf->accessors;
-            GLTFAccessor *output = asset.accessors[outputIndex];
+            GLTFAccessor *output = self.asset.accessors[outputIndex];
             GLTFAnimationSampler *sampler = [[GLTFAnimationSampler alloc] initWithInput:input output:output];
             sampler.interpolationMode = GLTFInterpolationModeForType(s->interpolation);
             [samplers addObject:sampler];
@@ -363,7 +464,7 @@ static NSArray *GLTFAnimationsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset
             GLTFAnimationTarget *target = [[GLTFAnimationTarget alloc] initWithPath:targetPath];
             if (c->target_node) {
                 size_t targetIndex = c->target_node - gltf->nodes;
-                GLTFNode *targetNode = asset.nodes[targetIndex];
+                GLTFNode *targetNode = self.asset.nodes[targetIndex];
                 target.node = targetNode;
             }
             size_t samplerIndex = c->sampler - a->samplers;
@@ -377,7 +478,7 @@ static NSArray *GLTFAnimationsFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset
     return animations;
 }
 
-static NSArray *GLTFScenesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
+- (NSArray *)convertScenes
 {
     NSMutableArray *scenes = [NSMutableArray array];
     for (int i = 0; i < gltf->scenes_count; ++i) {
@@ -386,7 +487,7 @@ static NSArray *GLTFScenesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
         NSMutableArray *rootNodes = [NSMutableArray arrayWithCapacity:s->nodes_count];
         for (int j = 0; j < s->nodes_count; ++j) {
             size_t nodeIndex = s->nodes[j] - gltf->nodes;
-            GLTFNode *node = asset.nodes[nodeIndex];
+            GLTFNode *node = self.asset.nodes[nodeIndex];
             [rootNodes addObject:node];
         }
         scene.nodes = rootNodes;
@@ -395,113 +496,48 @@ static NSArray *GLTFScenesFromCGLTF(cgltf_data *const gltf, GLTFAsset *asset)
     return scenes;
 }
 
-static GLTFAsset *GLTFAssetFromCGLTF(cgltf_data *const gltf, NSURL *assetURL) {
-    GLTFAsset *asset = [GLTFAsset new];
-    asset.url = assetURL;
+- (void)convertAsset {
+    self.asset = [GLTFAsset new];
+    self.asset.url = self.assetURL;
     cgltf_asset *meta = &gltf->asset;
     if (meta->copyright) {
-        asset.copyright = [NSString stringWithUTF8String:meta->copyright];
+        self.asset.copyright = [NSString stringWithUTF8String:meta->copyright];
     }
     if (meta->generator) {
-        asset.generator = [NSString stringWithUTF8String:meta->generator];
+        self.asset.generator = [NSString stringWithUTF8String:meta->generator];
     }
     if (meta->min_version) {
-        asset.minVersion = [NSString stringWithUTF8String:meta->min_version];
+        self.asset.minVersion = [NSString stringWithUTF8String:meta->min_version];
     }
     if (meta->version) {
-        asset.version = [NSString stringWithUTF8String:meta->version];
+        self.asset.version = [NSString stringWithUTF8String:meta->version];
     }
     // TODO: extensions meta
     // TODO: extensions/extras
-    asset.buffers = GLTFBuffersFromCGLTF(gltf);
-    asset.bufferViews = GLTFBufferViewsFromCGLTF(gltf, asset);
-    asset.accessors = GLTFAccessorsFromCGLTF(gltf, asset);
-    asset.samplers = GLTFTextureSamplersFromCGLTF(gltf);
-    asset.images = GLTFImagesFromCGLTF(gltf, asset);
-    asset.textures = GLTFTexturesFromCGLTF(gltf, asset);
-    asset.materials = GLTFMaterialsFromCGLTF(gltf, asset);
-    asset.meshes = GLTFMeshesFromCGLTF(gltf, asset);
-    asset.cameras = GLTFCamerasFromCGLTF(gltf);
+    self.asset.buffers = [self convertBuffers];
+    self.asset.bufferViews = [self convertBufferViews];
+    self.asset.accessors = [self convertAccessors];
+    self.asset.samplers = [self convertTextureSamplers];
+    self.asset.images = [self convertImages];
+    self.asset.textures = [self convertTextures];
+    self.asset.materials = [self convertMaterials];
+    self.asset.meshes = [self convertMeshes];
+    self.asset.cameras = [self convertCameras];
     //asset.lights = GLTFLightsFromCGLTF(gltf);
-    asset.nodes = GLTFNodesFromCGLTF(gltf, asset);
-    asset.skins = GLTFSkinsFromCGLTF(gltf, asset);
+    self.asset.nodes = [self convertNodes];
+    self.asset.skins = [self convertSkins];
     // TODO: resolve node->skeleton relationships
-    asset.animations = GLTFAnimationsFromCGLTF(gltf, asset);
-    asset.scenes = GLTFScenesFromCGLTF(gltf, asset);
+    self.asset.animations = [self convertAnimations];
+    self.asset.scenes = [self convertScenes];
     if (gltf->scene) {
         size_t sceneIndex = gltf->scene - gltf->scenes;
-        GLTFScene *scene = asset.scenes[sceneIndex];
-        asset.defaultScene = scene;
+        GLTFScene *scene = self.asset.scenes[sceneIndex];
+        self.asset.defaultScene = scene;
     } else {
-        if (asset.scenes.count > 0) {
-            asset.defaultScene = asset.scenes.firstObject;
+        if (self.asset.scenes.count > 0) {
+            self.asset.defaultScene = self.asset.scenes.firstObject;
         }
     }
-    return asset;
-}
-
-@interface GLTFAssetReader ()
-@property (class, nonatomic, readonly) dispatch_queue_t loaderQueue;
-@end
-
-static dispatch_queue_t _loaderQueue;
-
-@implementation GLTFAssetReader
-
-+ (dispatch_queue_t)loaderQueue {
-    if (_loaderQueue == nil) {
-        _loaderQueue = dispatch_queue_create("com.metalbyexample.gltfkit2.asset-loader", DISPATCH_QUEUE_CONCURRENT);
-    }
-    return _loaderQueue;
-}
-
-+ (void)loadAssetWithURL:(NSURL *)url
-                 options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
-                 handler:(nullable GLTFAssetLoadingHandler)handler
-{
-    dispatch_async(self.loaderQueue, ^{
-        [self _syncLoadAssetWithURL:url data:nil options:options handler:handler];
-    });
-}
-
-+ (void)loadAssetWithData:(NSData *)data
-                  options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
-                  handler:(nullable GLTFAssetLoadingHandler)handler
-{
-    dispatch_async(self.loaderQueue, ^{
-        [self _syncLoadAssetWithURL:nil data:data options:options handler:handler];
-    });
-}
-
-+ (void)_syncLoadAssetWithURL:(NSURL * _Nullable)assetURL
-                         data:(NSData * _Nullable)data
-                      options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
-                      handler:(nullable GLTFAssetLoadingHandler)handler
-{
-    BOOL stop = NO;
-    NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
-    if (internalData == nil) {
-        handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
-        return;
-    }
-    
-    cgltf_options parseOptions = {0};
-    cgltf_data *gltf = NULL;
-    cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
-    
-    if (result != cgltf_result_success) {
-        handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
-    } else {        
-        result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
-        if (result != cgltf_result_success) {
-            handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
-        } else {
-            GLTFAsset *asset = GLTFAssetFromCGLTF(gltf, assetURL);
-            handler(1.0, GLTFAssetStatusComplete, asset, nil, &stop);
-        }
-    }
-    
-    cgltf_free(gltf);
 }
 
 @end

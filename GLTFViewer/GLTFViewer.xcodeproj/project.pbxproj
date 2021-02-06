@@ -7,22 +7,24 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		83C1BC8425C3C316003A485D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C1BC8325C3C316003A485D /* AppDelegate.swift */; };
-		83C1BC8625C3C316003A485D /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C1BC8525C3C316003A485D /* ViewController.swift */; };
-		83C1BC8825C3C318003A485D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 83C1BC8725C3C318003A485D /* Assets.xcassets */; };
-		83C1BC8B25C3C318003A485D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83C1BC8925C3C318003A485D /* Main.storyboard */; };
-		83C1BC9725C3C3B3003A485D /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83C1BC9625C3C3B3003A485D /* GLTFKit2.framework */; };
-		83C1BC9825C3C3B3003A485D /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 83C1BC9625C3C3B3003A485D /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		8365142425C6919A009B5814 /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8365142325C6919A009B5814 /* shaders.metal */; };
+		83869A5525C671B4006CAFF1 /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; };
+		83869A5625C671B4006CAFF1 /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950425C6573C00B5B234 /* AppDelegate.swift */; };
+		83D9950725C6573C00B5B234 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950625C6573C00B5B234 /* ViewController.swift */; };
+		83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950825C6573C00B5B234 /* GLTFDocument.swift */; };
+		83D9950B25C6573E00B5B234 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 83D9950A25C6573E00B5B234 /* Assets.xcassets */; };
+		83D9950E25C6573E00B5B234 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83D9950C25C6573E00B5B234 /* Main.storyboard */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		83C1BC9925C3C3B3003A485D /* Embed Frameworks */ = {
+		83869A5725C671B4006CAFF1 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				83C1BC9825C3C3B3003A485D /* GLTFKit2.framework in Embed Frameworks */,
+				83869A5625C671B4006CAFF1 /* GLTFKit2.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -30,77 +32,81 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		83C1BC8025C3C316003A485D /* GLTFViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GLTFViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		83C1BC8325C3C316003A485D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		83C1BC8525C3C316003A485D /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
-		83C1BC8725C3C318003A485D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		83C1BC8A25C3C318003A485D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
-		83C1BC8C25C3C318003A485D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		83C1BC8D25C3C318003A485D /* GLTFViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GLTFViewer.entitlements; sourceTree = "<group>"; };
-		83C1BC9625C3C3B3003A485D /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		8365142325C6919A009B5814 /* shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
+		83869A5425C671B4006CAFF1 /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		83D9950125C6573C00B5B234 /* GLTFViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GLTFViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		83D9950425C6573C00B5B234 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		83D9950625C6573C00B5B234 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		83D9950825C6573C00B5B234 /* GLTFDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GLTFDocument.swift; sourceTree = "<group>"; };
+		83D9950A25C6573E00B5B234 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		83D9950D25C6573E00B5B234 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		83D9950F25C6573E00B5B234 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		83D9951025C6573E00B5B234 /* GLTFViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GLTFViewer.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		83C1BC7D25C3C316003A485D /* Frameworks */ = {
+		83D994FE25C6573C00B5B234 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				83C1BC9725C3C3B3003A485D /* GLTFKit2.framework in Frameworks */,
+				83869A5525C671B4006CAFF1 /* GLTFKit2.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		83C1BC7725C3C316003A485D = {
+		83869A5325C671B4006CAFF1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				83C1BC8225C3C316003A485D /* GLTFViewer */,
-				83C1BC8125C3C316003A485D /* Products */,
-				83C1BC9525C3C3B3003A485D /* Frameworks */,
+				83869A5425C671B4006CAFF1 /* GLTFKit2.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		83D994F825C6573C00B5B234 = {
+			isa = PBXGroup;
+			children = (
+				83D9950325C6573C00B5B234 /* GLTFViewer */,
+				83D9950225C6573C00B5B234 /* Products */,
+				83869A5325C671B4006CAFF1 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
-		83C1BC8125C3C316003A485D /* Products */ = {
+		83D9950225C6573C00B5B234 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				83C1BC8025C3C316003A485D /* GLTFViewer.app */,
+				83D9950125C6573C00B5B234 /* GLTFViewer.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		83C1BC8225C3C316003A485D /* GLTFViewer */ = {
+		83D9950325C6573C00B5B234 /* GLTFViewer */ = {
 			isa = PBXGroup;
 			children = (
-				83C1BC8325C3C316003A485D /* AppDelegate.swift */,
-				83C1BC8525C3C316003A485D /* ViewController.swift */,
-				83C1BC8725C3C318003A485D /* Assets.xcassets */,
-				83C1BC8925C3C318003A485D /* Main.storyboard */,
-				83C1BC8C25C3C318003A485D /* Info.plist */,
-				83C1BC8D25C3C318003A485D /* GLTFViewer.entitlements */,
+				83D9950425C6573C00B5B234 /* AppDelegate.swift */,
+				83D9950625C6573C00B5B234 /* ViewController.swift */,
+				83D9950825C6573C00B5B234 /* GLTFDocument.swift */,
+				8365142325C6919A009B5814 /* shaders.metal */,
+				83D9950A25C6573E00B5B234 /* Assets.xcassets */,
+				83D9950C25C6573E00B5B234 /* Main.storyboard */,
+				83D9950F25C6573E00B5B234 /* Info.plist */,
+				83D9951025C6573E00B5B234 /* GLTFViewer.entitlements */,
 			);
 			path = GLTFViewer;
-			sourceTree = "<group>";
-		};
-		83C1BC9525C3C3B3003A485D /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				83C1BC9625C3C3B3003A485D /* GLTFKit2.framework */,
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		83C1BC7F25C3C316003A485D /* GLTFViewer */ = {
+		83D9950025C6573C00B5B234 /* GLTFViewer */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 83C1BC9025C3C318003A485D /* Build configuration list for PBXNativeTarget "GLTFViewer" */;
+			buildConfigurationList = 83D9951325C6573E00B5B234 /* Build configuration list for PBXNativeTarget "GLTFViewer" */;
 			buildPhases = (
-				83C1BC7C25C3C316003A485D /* Sources */,
-				83C1BC7D25C3C316003A485D /* Frameworks */,
-				83C1BC7E25C3C316003A485D /* Resources */,
-				83C1BC9925C3C3B3003A485D /* Embed Frameworks */,
+				83D994FD25C6573C00B5B234 /* Sources */,
+				83D994FE25C6573C00B5B234 /* Frameworks */,
+				83D994FF25C6573C00B5B234 /* Resources */,
+				83869A5725C671B4006CAFF1 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -108,24 +114,24 @@
 			);
 			name = GLTFViewer;
 			productName = GLTFViewer;
-			productReference = 83C1BC8025C3C316003A485D /* GLTFViewer.app */;
+			productReference = 83D9950125C6573C00B5B234 /* GLTFViewer.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		83C1BC7825C3C316003A485D /* Project object */ = {
+		83D994F925C6573C00B5B234 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1240;
 				LastUpgradeCheck = 1240;
 				TargetAttributes = {
-					83C1BC7F25C3C316003A485D = {
+					83D9950025C6573C00B5B234 = {
 						CreatedOnToolsVersion = 12.4;
 					};
 				};
 			};
-			buildConfigurationList = 83C1BC7B25C3C316003A485D /* Build configuration list for PBXProject "GLTFViewer" */;
+			buildConfigurationList = 83D994FC25C6573C00B5B234 /* Build configuration list for PBXProject "GLTFViewer" */;
 			compatibilityVersion = "Xcode 9.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -133,45 +139,47 @@
 				en,
 				Base,
 			);
-			mainGroup = 83C1BC7725C3C316003A485D;
-			productRefGroup = 83C1BC8125C3C316003A485D /* Products */;
+			mainGroup = 83D994F825C6573C00B5B234;
+			productRefGroup = 83D9950225C6573C00B5B234 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				83C1BC7F25C3C316003A485D /* GLTFViewer */,
+				83D9950025C6573C00B5B234 /* GLTFViewer */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		83C1BC7E25C3C316003A485D /* Resources */ = {
+		83D994FF25C6573C00B5B234 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				83C1BC8825C3C318003A485D /* Assets.xcassets in Resources */,
-				83C1BC8B25C3C318003A485D /* Main.storyboard in Resources */,
+				83D9950B25C6573E00B5B234 /* Assets.xcassets in Resources */,
+				83D9950E25C6573E00B5B234 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		83C1BC7C25C3C316003A485D /* Sources */ = {
+		83D994FD25C6573C00B5B234 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				83C1BC8625C3C316003A485D /* ViewController.swift in Sources */,
-				83C1BC8425C3C316003A485D /* AppDelegate.swift in Sources */,
+				8365142425C6919A009B5814 /* shaders.metal in Sources */,
+				83D9950725C6573C00B5B234 /* ViewController.swift in Sources */,
+				83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */,
+				83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
-		83C1BC8925C3C318003A485D /* Main.storyboard */ = {
+		83D9950C25C6573E00B5B234 /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
-				83C1BC8A25C3C318003A485D /* Base */,
+				83D9950D25C6573E00B5B234 /* Base */,
 			);
 			name = Main.storyboard;
 			sourceTree = "<group>";
@@ -179,7 +187,7 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		83C1BC8E25C3C318003A485D /* Debug */ = {
+		83D9951125C6573E00B5B234 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -230,7 +238,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.1;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -240,7 +248,7 @@
 			};
 			name = Debug;
 		};
-		83C1BC8F25C3C318003A485D /* Release */ = {
+		83D9951225C6573E00B5B234 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -285,7 +293,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.1;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -294,7 +302,7 @@
 			};
 			name = Release;
 		};
-		83C1BC9125C3C318003A485D /* Debug */ = {
+		83D9951425C6573E00B5B234 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -315,7 +323,7 @@
 			};
 			name = Debug;
 		};
-		83C1BC9225C3C318003A485D /* Release */ = {
+		83D9951525C6573E00B5B234 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -339,25 +347,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		83C1BC7B25C3C316003A485D /* Build configuration list for PBXProject "GLTFViewer" */ = {
+		83D994FC25C6573C00B5B234 /* Build configuration list for PBXProject "GLTFViewer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				83C1BC8E25C3C318003A485D /* Debug */,
-				83C1BC8F25C3C318003A485D /* Release */,
+				83D9951125C6573E00B5B234 /* Debug */,
+				83D9951225C6573E00B5B234 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		83C1BC9025C3C318003A485D /* Build configuration list for PBXNativeTarget "GLTFViewer" */ = {
+		83D9951325C6573E00B5B234 /* Build configuration list for PBXNativeTarget "GLTFViewer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				83C1BC9125C3C318003A485D /* Debug */,
-				83C1BC9225C3C318003A485D /* Release */,
+				83D9951425C6573E00B5B234 /* Debug */,
+				83D9951525C6573E00B5B234 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 83C1BC7825C3C316003A485D /* Project object */;
+	rootObject = 83D994F925C6573C00B5B234 /* Project object */;
 }

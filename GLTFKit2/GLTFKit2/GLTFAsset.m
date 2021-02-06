@@ -7,6 +7,7 @@
 - (instancetype)init {
     if (self = [super init]) {
         _name = @"";
+        _identifier = [NSUUID UUID];
         _extensions = @{};
     }
     return self;
@@ -265,6 +266,10 @@
 
 @end
 
+@interface GLTFImage ()
+@property (nonatomic) CGImageRef cachedCGImage;
+@end
+
 @implementation GLTFImage
 
 - (instancetype)initWithURI:(NSURL *)uri {
@@ -280,6 +285,25 @@
         _mimeType = mimeType;
     }
     return self;
+}
+
+- (CGImageRef)cgImage {
+    if (_cachedCGImage) {
+        return _cachedCGImage;
+    }    
+    CGImageSourceRef imageSource = NULL;
+    if (self.bufferView) {
+        NSData *imageData = self.bufferView.buffer.data;
+        const UInt8 *imageBytes = imageData.bytes + self.bufferView.offset;
+        CFDataRef sourceData = CFDataCreateWithBytesNoCopy(NULL, imageBytes, self.bufferView.length, NULL);
+        imageSource = CGImageSourceCreateWithData(sourceData, NULL);
+    } else if (self.uri) {
+        imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)_uri, NULL);
+    }
+    if (imageSource) {
+        _cachedCGImage = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+    }
+    return _cachedCGImage;
 }
 
 @end

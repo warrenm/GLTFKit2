@@ -5,22 +5,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 #define GLTFKIT2_EXPORT __attribute__((visibility("default"))) FOUNDATION_EXTERN
 
-@class GLTFAccessor;
-@class GLTFAnimation, GLTFAnimationChannel, GLTFAnimationSampler;
-@class GLTFAsset;
-@class GLTFBuffer, GLTFBufferView;
-@class GLTFCamera;
-@class GLTFImage;
-@class GLTFMaterial;
-@class GLTFMesh;
-@class GLTFObject;
-@class GLTFPrimitive;
-@class GLTFNode;
-@class GLTFScene;
-@class GLTFSkin;
-@class GLTFSparseStorage;
-@class GLTFTexture, GLTFTextureSampler, GLTFTextureParams;
-
 typedef NS_ENUM(NSInteger, GLTFComponentType) {
     GLTFComponentTypeInvalid,
     GLTFComponentTypeByte          = 0x1400,
@@ -88,10 +72,13 @@ GLTFKIT2_EXPORT
 @interface GLTFObject : NSObject
 
 @property (nonatomic, nullable, copy) NSString *name;
+@property (nonatomic, readonly) NSUUID *identifier; // Globally unique; not persisted between runs
 @property (nonatomic, copy) NSDictionary<NSString *, id> *extensions;
 @property (nonatomic, nullable, copy) id extras;
 
 @end
+
+@class GLTFAsset;
 
 typedef NSString * GLTFAssetLoadingOption NS_STRING_ENUM;
 GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetCreateNormalsIfAbsentKey;
@@ -114,6 +101,9 @@ typedef void (^GLTFAssetLoadingHandler)(float progress, GLTFAssetStatus status, 
                                         NSError * _Nullable error, BOOL *stop);
 
 typedef BOOL (^GLTFFilterPredicate)(GLTFObject *entry, NSString *identifier, BOOL *stop);
+
+@class GLTFAccessor, GLTFAnimation, GLTFBuffer, GLTFBufferView, GLTFCamera, GLTFImage, GLTFMaterial, GLTFMesh;
+@class GLTFNode, GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
 
 GLTFKIT2_EXPORT
 @interface GLTFAsset : GLTFObject
@@ -159,8 +149,7 @@ GLTFKIT2_EXPORT
 
 @end
 
-/* NOTE: Lengths, offsets, and strides are *always* denominated in bytes,
-         so the word "byte" is often omitted from property names. */
+@class GLTFSparseStorage;
 
 GLTFKIT2_EXPORT
 @interface GLTFAccessor : GLTFObject
@@ -185,6 +174,9 @@ GLTFKIT2_EXPORT
 - (instancetype)init NS_UNAVAILABLE;
 
 @end
+
+@class GLTFAnimationChannel;
+@class GLTFAnimationSampler;
 
 GLTFKIT2_EXPORT
 @interface GLTFAnimation : GLTFObject
@@ -306,11 +298,15 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFBufferView *bufferView;
 @property (nonatomic, nullable) NSString *mimeType;
 
+@property (nonatomic, readonly, nullable) CGImageRef cgImage;
+
 - (instancetype)initWithURI:(NSURL *)uri NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithBufferView:(GLTFBufferView *)bufferView mimeType:(NSString *)mimeType NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
 @end
+
+@class GLTFTextureParams;
 
 GLTFKIT2_EXPORT
 @interface GLTFPBRMetallicRoughnessParams : GLTFObject
@@ -336,6 +332,8 @@ GLTFKIT2_EXPORT
 @property (nonatomic, assign, getter=isDoubleSided) BOOL doubleSided;
 
 @end
+
+@class GLTFPrimitive;
 
 GLTFKIT2_EXPORT
 @interface GLTFMesh : GLTFObject
