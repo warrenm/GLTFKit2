@@ -33,10 +33,6 @@
 
 @end
 
-static NSDictionary *GLTFExtensionsFromCGLTF(cgltf_extension *extensions, size_t extensionCount) {
-    return @{}; // TODO: Recursively convert to extension object
-}
-
 static GLTFComponentType GLTFComponentTypeForType(cgltf_component_type type) {
     return (GLTFComponentType)type;
 }
@@ -59,10 +55,10 @@ static GLTFInterpolationMode GLTFInterpolationModeForType(cgltf_interpolation_ty
 
 static NSString *GLTFTargetPathForPath(cgltf_animation_path_type path) {
     switch (path) {
-        case cgltf_animation_path_type_rotation: return @"rotation";
-        case cgltf_animation_path_type_scale: return @"scale";
-        case cgltf_animation_path_type_translation: return @"translation";
-        case cgltf_animation_path_type_weights: return @"weights";
+        case cgltf_animation_path_type_rotation: return GLTFAnimationPathRotation;
+        case cgltf_animation_path_type_scale: return GLTFAnimationPathScale;
+        case cgltf_animation_path_type_translation: return GLTFAnimationPathTranslation;
+        case cgltf_animation_path_type_weights: return GLTFAnimationPathWeights;
         default: return @"";
     }
 }
@@ -73,6 +69,7 @@ static NSString *GLTFTargetPathForPath(cgltf_animation_path_type path) {
 @property (class, nonatomic, readonly) dispatch_queue_t loaderQueue;
 @property (nonatomic, nullable, strong) NSURL *assetURL;
 @property (nonatomic, strong) GLTFAsset *asset;
+@property (nonatomic, strong) GLTFUniqueNameGenerator *nameGenerator;
 @end
 
 static dispatch_queue_t _loaderQueue;
@@ -106,6 +103,13 @@ static dispatch_queue_t _loaderQueue;
     });
 }
 
+- (instancetype)init {
+    if (self = [super init]) {
+        _nameGenerator = [GLTFUniqueNameGenerator new];
+    }
+    return self;
+}
+
 - (void)syncLoadAssetWithURL:(NSURL * _Nullable)assetURL
                         data:(NSData * _Nullable)data
                      options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
@@ -121,7 +125,6 @@ static dispatch_queue_t _loaderQueue;
     }
     
     cgltf_options parseOptions = {0};
-    //cgltf_data *gltf = NULL;
     cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
     
     if (result != cgltf_result_success) {
@@ -149,6 +152,8 @@ static dispatch_queue_t _loaderQueue;
         } else {
             buffer = [[GLTFBuffer alloc] initWithLength:b->size];
         }
+        // TODO: buffers can have user-defined names, but cgltf doesn't currently support this (v1.9)
+        buffer.name = [self.nameGenerator nextUniqueNameWithPrefix:@"Buffer"];
         [buffers addObject:buffer];
     }
     return buffers;
@@ -163,6 +168,8 @@ static dispatch_queue_t _loaderQueue;
                                                                      length:bv->size
                                                                      offset:bv->offset
                                                                      stride:bv->stride];
+        // TODO: buffer views can have user-defined names, but cgltf doesn't currently support this (v1.9)
+        bufferView.name = [self.nameGenerator nextUniqueNameWithPrefix:@"BufferView"];
         [bufferViews addObject:bufferView];
     }
     return bufferViews;
@@ -186,6 +193,8 @@ static dispatch_queue_t _loaderQueue;
                                                                normalized:a->normalized];
         // TODO: Convert min/max values
         // TODO: Sparse
+        accessor.name = a->name ? [NSString stringWithUTF8String:a->name]
+                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Accessor"];
         [accessors addObject:accessor];
     }
     return accessors;
@@ -201,6 +210,8 @@ static dispatch_queue_t _loaderQueue;
         sampler.minMipFilter = s->min_filter;
         sampler.wrapS = s->wrap_s;
         sampler.wrapT = s->wrap_t;
+        // TODO: samplers can have user-defined names, but this isn't currently supported by cgltf (v1.9)
+        sampler.name = [self.nameGenerator nextUniqueNameWithPrefix:@"Sampler"];
         [textureSamplers addObject:sampler];
     }
     return textureSamplers;
@@ -223,6 +234,8 @@ static dispatch_queue_t _loaderQueue;
             NSURL *imageURI = [baseURI URLByAppendingPathComponent:[NSString stringWithUTF8String:img->uri]];
             image = [[GLTFImage alloc] initWithURI:imageURI];
         }
+        image.name = img->name ? [NSString stringWithUTF8String:img->name]
+                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Image"];
         [images addObject:image];
     }
     return images;
@@ -245,6 +258,8 @@ static dispatch_queue_t _loaderQueue;
         }
         GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image];
         texture.sampler = sampler;
+        texture.name = t->name ? [NSString stringWithUTF8String:t->name]
+                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Texture"];
         [textures addObject:texture];
     }
     return textures;
@@ -280,10 +295,26 @@ static dispatch_queue_t _loaderQueue;
         material.alphaMode = GLTFAlphaModeFromMode(m->alpha_mode);
         material.alphaCutoff = m->alpha_cutoff;
         material.doubleSided = (BOOL)m->double_sided;
+        if (m->has_pbr_metallic_roughness) {
+            GLTFPBRMetallicRoughnessParams *pbr = [GLTFPBRMetallicRoughnessParams new];
+            float *baseColor = m->pbr_metallic_roughness.base_color_factor;
+            pbr.baseColorFactor = (simd_float4){ baseColor[0], baseColor[1], baseColor[2], baseColor[3] };
+            if (m->pbr_metallic_roughness.base_color_texture.texture) {
+                pbr.baseColorTexture = [self textureParamsFromTextureView:&m->pbr_metallic_roughness.base_color_texture];
+            }
+            pbr.metallicFactor = m->pbr_metallic_roughness.metallic_factor;
+            pbr.roughnessFactor = m->pbr_metallic_roughness.roughness_factor;
+            if (m->pbr_metallic_roughness.metallic_roughness_texture.texture) {
+                pbr.metallicRoughnessTexture = [self textureParamsFromTextureView:&m->pbr_metallic_roughness.metallic_roughness_texture];
+            }
+            material.metallicRoughness = pbr;
+        }
         // TODO: unlit
-        // TODO: PBR
+        // TODO: PBR specular-glossiness?
         // TODO: sheen
         // TODO: clearcoat
+        material.name = m->name ? [NSString stringWithUTF8String:m->name]
+                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Material"];
         [materials addObject:material];
     }
     return materials;
@@ -323,6 +354,8 @@ static dispatch_queue_t _loaderQueue;
         }
         mesh.primitives = primitives;
         // TODO: morph targets
+        mesh.name = m->name ? [NSString stringWithUTF8String:m->name]
+                            : [self.nameGenerator nextUniqueNameWithPrefix:@"Mesh"];
         [meshes addObject:mesh];
     }
     return meshes;
@@ -351,6 +384,8 @@ static dispatch_queue_t _loaderQueue;
         } else {
             camera = [[GLTFCamera alloc] init]; // Got an invalid camera, so just make a dummy to occupy the slot
         }
+        camera.name = c->name ? [NSString stringWithUTF8String:c->name]
+                              : [self.nameGenerator nextUniqueNameWithPrefix:@"Camera"];
         [cameras addObject:camera];
     }
     return cameras;
@@ -396,6 +431,8 @@ static dispatch_queue_t _loaderQueue;
             node.matrix = transform;
         }
         // TODO: morph target weights
+        node.name = n->name ? [NSString stringWithUTF8String:n->name]
+                            : [self.nameGenerator nextUniqueNameWithPrefix:@"Node"];
         [nodes addObject:node];
     }
     for (int i = 0; i < gltf->nodes_count; ++i) {
@@ -436,6 +473,8 @@ static dispatch_queue_t _loaderQueue;
             GLTFNode *skeletonRoot = self.asset.nodes[skeletonIndex];
             skin.skeleton = skeletonRoot;
         }
+        skin.name = s->name ? [NSString stringWithUTF8String:s->name]
+                            : [self.nameGenerator nextUniqueNameWithPrefix:@"Skin"];
         [skins addObject:skin];
     }
     return skins;
@@ -473,6 +512,8 @@ static dispatch_queue_t _loaderQueue;
             [channels addObject:channel];
         }
         GLTFAnimation *animation = [[GLTFAnimation alloc] initWithChannels:channels samplers:samplers];
+        animation.name = a->name ? [NSString stringWithUTF8String:a->name]
+                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Animation"];
         [animations addObject:animation];
     }
     return animations;
@@ -491,6 +532,8 @@ static dispatch_queue_t _loaderQueue;
             [rootNodes addObject:node];
         }
         scene.nodes = rootNodes;
+        scene.name = s->name ? [NSString stringWithUTF8String:s->name]
+                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Scene"];
         [scenes addObject:scene];
     }
     return scenes;

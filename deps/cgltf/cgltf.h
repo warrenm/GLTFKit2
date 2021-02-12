@@ -315,6 +315,7 @@ typedef struct cgltf_accessor_sparse
 
 typedef struct cgltf_accessor
 {
+    char* name;
 	cgltf_component_type component_type;
 	cgltf_bool normalized;
 	cgltf_type type;
@@ -1661,6 +1662,7 @@ void cgltf_free(cgltf_data* data)
 
 	for (cgltf_size i = 0; i < data->accessors_count; ++i)
 	{
+        data->memory.free(data->memory.user_data, data->accessors[i].name);
 		if(data->accessors[i].is_sparse)
 		{
 			cgltf_free_extensions(data, data->accessors[i].sparse.extensions, data->accessors[i].sparse.extensions_count);
@@ -3005,7 +3007,10 @@ static int cgltf_parse_json_accessor(cgltf_options* options, jsmntok_t const* to
 	{
 		CGLTF_CHECK_KEY(tokens[i]);
 
-		if (cgltf_json_strcmp(tokens+i, json_chunk, "bufferView") == 0)
+        if (cgltf_json_strcmp(tokens+1, json_chunk, "name") == 0) {
+            i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_accessor->name);
+        }
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "bufferView") == 0)
 		{
 			++i;
 			out_accessor->buffer_view = CGLTF_PTRINDEX(cgltf_buffer_view, cgltf_json_to_int(tokens + i, json_chunk));

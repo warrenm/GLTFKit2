@@ -2,15 +2,20 @@
 import Cocoa
 import Metal
 import MetalKit
+import ModelIO
 import GLTFKit2
+//import GLTFKit2.ModelIO
 
 class ViewController: NSViewController, MTKViewDelegate {
     
     let device = MTLCreateSystemDefaultDevice()!
     var commandQueue: MTLCommandQueue!
     
+    var mdlAsset: MDLAsset?
+    
     var asset: GLTFAsset! {
         didSet {
+            mdlAsset = MDLAsset(gltfAsset: asset)
             scene = asset.defaultScene
             prepareToRender()
         }
@@ -61,26 +66,6 @@ class ViewController: NSViewController, MTKViewDelegate {
             renderNodeQueue.append(contentsOf: node.childNodes)
         }
         
-        textures = []
-        for image in asset.images {
-            if let cgImage = image.cgImage, let dataProvider = cgImage.dataProvider, let rgbaBytes = dataProvider.data {
-                let width = cgImage.width
-                let height = cgImage.height
-                let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
-                                                                          width: width,
-                                                                          height: height,
-                                                                          mipmapped: false)
-                descriptor.storageMode = .managed
-                descriptor.usage = [.shaderRead]
-                let texture = device.makeTexture(descriptor: descriptor)!
-                texture.replace(region: MTLRegionMake2D(0, 0, width, height),
-                                mipmapLevel: 0,
-                                withBytes: CFDataGetBytePtr(rgbaBytes),
-                                bytesPerRow: 4 * width)
-                textures.append(texture)
-            }
-        }
-        
         for renderNode in renderNodes {
             guard let mesh = renderNode.mesh else { continue }
             for primitive in mesh.primitives {
@@ -105,8 +90,9 @@ class ViewController: NSViewController, MTKViewDelegate {
         for renderNode in renderNodes {
             guard let mesh = renderNode.mesh else { continue }
             
-            for primitive in mesh.primitives {
-            }
+            //for primitive in mesh.primitives {
+            //    renderCommandEncoder.setVertexBuffer(buffers, offset: <#T##Int#>, index: <#T##Int#>)]
+            //}
         }
 
         renderCommandEncoder.endEncoding()

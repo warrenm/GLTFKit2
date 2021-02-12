@@ -14,6 +14,8 @@
 		834FF1DA25C3BE51001887C2 /* GLTFAssetReader.m in Sources */ = {isa = PBXBuildFile; fileRef = 834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */; };
 		834FF1E525C3BE64001887C2 /* cgltf_write.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1E025C3BE64001887C2 /* cgltf_write.h */; };
 		834FF1E625C3BE64001887C2 /* cgltf.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1E125C3BE64001887C2 /* cgltf.h */; };
+		83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */ = {isa = PBXBuildFile; fileRef = 83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		83BEF9D825CF3240005DFE80 /* GLTFModelIO.m in Sources */ = {isa = PBXBuildFile; fileRef = 83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +28,8 @@
 		834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFAssetReader.m; sourceTree = "<group>"; };
 		834FF1E025C3BE64001887C2 /* cgltf_write.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cgltf_write.h; sourceTree = "<group>"; };
 		834FF1E125C3BE64001887C2 /* cgltf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cgltf.h; sourceTree = "<group>"; };
+		83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFModelIO.h; sourceTree = "<group>"; };
+		83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFModelIO.m; sourceTree = "<group>"; };
 		83C1BC9C25C3EABF003A485D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -65,6 +69,8 @@
 				834FF1C725C27938001887C2 /* GLTFKit2.h */,
 				834FF1D025C27A02001887C2 /* GLTFAsset.h */,
 				834FF1D125C27A02001887C2 /* GLTFAsset.m */,
+				83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */,
+				83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */,
 				834FF1C825C27938001887C2 /* Info.plist */,
 			);
 			path = GLTFKit2;
@@ -106,6 +112,7 @@
 			files = (
 				834FF1D225C27A02001887C2 /* GLTFAsset.h in Headers */,
 				834FF1E525C3BE64001887C2 /* cgltf_write.h in Headers */,
+				83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */,
 				834FF1C925C27938001887C2 /* GLTFKit2.h in Headers */,
 				834FF1E625C3BE64001887C2 /* cgltf.h in Headers */,
 				834FF1D925C3BE51001887C2 /* GLTFAssetReader.h in Headers */,
@@ -180,6 +187,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				834FF1DA25C3BE51001887C2 /* GLTFAssetReader.m in Sources */,
+				83BEF9D825CF3240005DFE80 /* GLTFModelIO.m in Sources */,
 				834FF1D325C27A02001887C2 /* GLTFAsset.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

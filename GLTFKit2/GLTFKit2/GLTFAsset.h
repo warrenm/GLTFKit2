@@ -68,6 +68,30 @@ typedef NS_ENUM(NSInteger, GLTFInterpolationMode) {
     GLTFInterpolationModeCubic
 };
 
+typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
+extern GLTFAttributeSemantic GLTFAttributeSemanticPosition;
+extern GLTFAttributeSemantic GLTFAttributeSemanticNormal;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTangent;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord0;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord1;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord2;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord3;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord4;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord5;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord6;
+extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord7;
+extern GLTFAttributeSemantic GLTFAttributeSemanticColor0;
+extern GLTFAttributeSemantic GLTFAttributeSemanticJoints0;
+extern GLTFAttributeSemantic GLTFAttributeSemanticJoints1;
+extern GLTFAttributeSemantic GLTFAttributeSemanticWeights0;
+extern GLTFAttributeSemantic GLTFAttributeSemanticWeights1;
+
+typedef NSString *const GLTFAnimationPath NS_TYPED_EXTENSIBLE_ENUM;
+extern GLTFAnimationPath GLTFAnimationPathTranslation;
+extern GLTFAnimationPath GLTFAnimationPathRotation;
+extern GLTFAnimationPath GLTFAnimationPathScale;
+extern GLTFAnimationPath GLTFAnimationPathWeights;
+
 GLTFKIT2_EXPORT
 @interface GLTFObject : NSObject
 
@@ -298,11 +322,11 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFBufferView *bufferView;
 @property (nonatomic, nullable) NSString *mimeType;
 
-@property (nonatomic, readonly, nullable) CGImageRef cgImage;
-
 - (instancetype)initWithURI:(NSURL *)uri NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithBufferView:(GLTFBufferView *)bufferView mimeType:(NSString *)mimeType NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
+
+- (CGImageRef _Nullable)createCGImage;
 
 @end
 
@@ -435,7 +459,7 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
-@interface GLTFTextureParams : GLTFObject
+@interface GLTFTextureParams : NSObject // GLTFObject
 
 @property (nonatomic, strong) GLTFTexture *texture;
 @property (nonatomic, assign) NSInteger texCoord;

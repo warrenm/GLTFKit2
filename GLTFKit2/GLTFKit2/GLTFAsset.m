@@ -2,6 +2,28 @@
 #import "GLTFAsset.h"
 #import "GLTFAssetReader.h"
 
+GLTFAttributeSemantic GLTFAttributeSemanticPosition = @"POSITION";
+GLTFAttributeSemantic GLTFAttributeSemanticNormal = @"NORMAL";
+GLTFAttributeSemantic GLTFAttributeSemanticTangent = @"TANGENT";
+GLTFAttributeSemantic GLTFAttributeSemanticTexcoord0 = @"TEXCOORD_0";
+GLTFAttributeSemantic GLTFAttributeSemanticTexcoord1 = @"TEXCOORD_1";
+GLTFAttributeSemantic GLTFAttributeSemanticTexcoord2 = @"TEXCOORD_2";
+GLTFAttributeSemantic GLTFAttributeSemanticTexcoord3 = @"TEXCOORD_3";
+GLTFAttributeSemantic GLTFAttributeSemanticTexcoord4 = @"TEXCOORD_4";
+GLTFAttributeSemantic GLTFAttributeSemanticTexcoord5 = @"TEXCOORD_5";
+GLTFAttributeSemantic GLTFAttributeSemanticTexcoord6 = @"TEXCOORD_6";
+GLTFAttributeSemantic GLTFAttributeSemanticTexcoord7 = @"TEXCOORD_7";
+GLTFAttributeSemantic GLTFAttributeSemanticColor0 = @"COLOR_0";
+GLTFAttributeSemantic GLTFAttributeSemanticJoints0 = @"JOINTS_0";
+GLTFAttributeSemantic GLTFAttributeSemanticJoints1 = @"JOINTS_1";
+GLTFAttributeSemantic GLTFAttributeSemanticWeights0 = @"WEIGHTS_0";
+GLTFAttributeSemantic GLTFAttributeSemanticWeights1 = @"WEIGHTS_1";
+
+GLTFAnimationPath GLTFAnimationPathTranslation = @"translation";
+GLTFAnimationPath GLTFAnimationPathRotation = @"rotation";
+GLTFAnimationPath GLTFAnimationPathScale = @"scale";
+GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
+
 @implementation GLTFObject
 
 - (instancetype)init {
@@ -266,10 +288,6 @@
 
 @end
 
-@interface GLTFImage ()
-@property (nonatomic) CGImageRef cachedCGImage;
-@end
-
 @implementation GLTFImage
 
 - (instancetype)initWithURI:(NSURL *)uri {
@@ -287,10 +305,7 @@
     return self;
 }
 
-- (CGImageRef)cgImage {
-    if (_cachedCGImage) {
-        return _cachedCGImage;
-    }    
+- (CGImageRef)createCGImage {
     CGImageSourceRef imageSource = NULL;
     if (self.bufferView) {
         NSData *imageData = self.bufferView.buffer.data;
@@ -301,9 +316,9 @@
         imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)_uri, NULL);
     }
     if (imageSource) {
-        _cachedCGImage = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+        return CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
     }
-    return _cachedCGImage;
+    return NULL;
 }
 
 @end
