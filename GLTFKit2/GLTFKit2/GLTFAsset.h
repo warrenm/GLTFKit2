@@ -1,72 +1,9 @@
 #import <Foundation/Foundation.h>
 #import <simd/simd.h>
 
+#import <GLTFKit2/GLTFTypes.h>
+
 NS_ASSUME_NONNULL_BEGIN
-
-#define GLTFKIT2_EXPORT __attribute__((visibility("default"))) FOUNDATION_EXTERN
-
-typedef NS_ENUM(NSInteger, GLTFComponentType) {
-    GLTFComponentTypeInvalid,
-    GLTFComponentTypeByte          = 0x1400,
-    GLTFComponentTypeUnsignedByte  = 0x1401,
-    GLTFComponentTypeShort         = 0x1402,
-    GLTFComponentTypeUnsignedShort = 0x1403,
-    GLTFComponentTypeUnsignedInt   = 0x1405,
-    GLTFComponentTypeFloat         = 0x1406
-};
-
-typedef NS_ENUM(NSInteger, GLTFValueDimension) {
-    GLTFValueDimensionInvalid,
-    GLTFValueDimensionScalar,
-    GLTFValueDimensionVector2,
-    GLTFValueDimensionVector3,
-    GLTFValueDimensionVector4,
-    GLTFValueDimensionMatrix2,
-    GLTFValueDimensionMatrix3,
-    GLTFValueDimensionMatrix4
-};
-
-typedef NS_ENUM(NSInteger, GLTFPrimitiveType) {
-    GLTFPrimitiveTypePoints,
-    GLTFPrimitiveTypeLines,
-    GLTFPrimitiveTypeLineLoop,
-    GLTFPrimitiveTypeLineStrip,
-    GLTFPrimitiveTypeTriangles,
-    GLTFPrimitiveTypeTriangleStrip,
-    GLTFPrimitiveTypeTriangleFan
-};
-
-typedef NS_ENUM(NSInteger, GLTFMagFilter) {
-    GLTFMagFilterNearest = 0x2600,
-    GLTFMagFilterLinear  = 0x2601
-};
-
-typedef NS_ENUM(NSInteger, GLTFMinMipFilter) {
-    GLTFMinMipFilterNearest        = 0x2600,
-    GLTFMinMipFilterLinear         = 0x2601,
-    GLTFMinMipFilterNearestNearest = 0x2700,
-    GLTFMinMipFilterLinearNearest  = 0x2701,
-    GLTFMinMipFilterNearestLinear  = 0x2702,
-    GLTFMinMipFilterLinearLinear   = 0x2703
-};
-
-typedef NS_ENUM(NSInteger, GLTFAddressMode) {
-    GLTFAddressModeClampToEdge    = 0x812F,
-    GLTFAddressModeMirroredRepeat = 0x8370,
-    GLTFAddressModeRepeat         = 0x2901
-};
-
-typedef NS_ENUM(NSInteger, GLTFAlphaMode) {
-    GLTFAlphaModeOpaque,
-    GLTFAlphaModeMask,
-    GLTFAlphaModeBlend
-};
-
-typedef NS_ENUM(NSInteger, GLTFInterpolationMode) {
-    GLTFInterpolationModeLinear,
-    GLTFInterpolationModeStep,
-    GLTFInterpolationModeCubic
-};
 
 typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
 extern GLTFAttributeSemantic GLTFAttributeSemanticPosition;
@@ -459,7 +396,7 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
-@interface GLTFTextureParams : NSObject // GLTFObject
+@interface GLTFTextureParams : NSObject
 
 @property (nonatomic, strong) GLTFTexture *texture;
 @property (nonatomic, assign) NSInteger texCoord;

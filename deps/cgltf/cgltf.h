@@ -852,6 +852,7 @@ static const uint32_t GlbMagicBinChunk = 0x004E4942;
 static void* cgltf_default_alloc(void* user, cgltf_size size)
 {
 	(void)user;
+    printf("Alloc size = %d\n", (int)size);
 	return CGLTF_MALLOC(size);
 }
 

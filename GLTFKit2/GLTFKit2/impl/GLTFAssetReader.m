@@ -226,7 +226,7 @@ static dispatch_queue_t _loaderQueue;
         if (img->buffer_view) {
             size_t bufferViewIndex = img->buffer_view - gltf->buffer_views;
             GLTFBufferView *bufferView = self.asset.bufferViews[bufferViewIndex];
-            NSString *mime = [NSString stringWithUTF8String:img->mime_type ? img->mime_type : "image/jpeg"];
+            NSString *mime = [NSString stringWithUTF8String:img->mime_type ? img->mime_type : "image/image"];
             image = [[GLTFImage alloc] initWithBufferView:bufferView mimeType:mime];
         } else {
             assert(img->uri);

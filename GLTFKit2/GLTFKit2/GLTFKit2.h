@@ -23,3 +23,4 @@ FOUNDATION_EXPORT const unsigned char GLTFKit2VersionString[];
 
 #import <GLTFKit2/GLTFAsset.h>
 #import <GLTFKit2/GLTFModelIO.h>
+#import <GLTFKit2/GLTFSceneKit.h>

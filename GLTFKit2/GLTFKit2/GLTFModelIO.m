@@ -74,6 +74,166 @@ static MDLMaterialTextureWrapMode GLTFMDLTextureWrapModeForMode(GLTFAddressMode 
     }
 }
 
+static MDLIndexBitDepth GLTFMDLIndexBitDepthForComponentType(GLTFComponentType type) {
+    switch (type) {
+        case GLTFComponentTypeUnsignedByte:
+            return MDLIndexBitDepthUInt8;
+        case GLTFComponentTypeUnsignedShort:
+            return MDLIndexBitDepthUInt16;
+        case GLTFComponentTypeUnsignedInt:
+            return MDLIndexBitDepthUInt32;
+        default:
+            return MDLIndexBitDepthInvalid;
+    }
+}
+
+static NSInteger GLTFMDLGeometryTypeForPrimitiveType(GLTFPrimitiveType type) {
+    switch (type) {
+        case GLTFPrimitiveTypePoints:
+            return MDLGeometryTypePoints;
+        case GLTFPrimitiveTypeLines:
+            return MDLGeometryTypeLines;
+        case GLTFPrimitiveTypeTriangles:
+            return MDLGeometryTypeTriangles;
+        case GLTFPrimitiveTypeTriangleStrip:
+            return MDLGeometryTypeTriangleStrips;
+        default:
+            // No support for line loops, line strips, or triangle fans.
+            // These should be retopologized before creating an MDLMesh/Submesh.
+            return -1;
+    }
+}
+
+static MDLVertexFormat GLTFMDLVertexFormatForAccessor(GLTFAccessor *accessor) {
+    switch (accessor.componentType) {
+        case GLTFComponentTypeByte:
+            switch (accessor.dimension) {
+                case GLTFValueDimensionScalar:
+                    return accessor.isNormalized ? MDLVertexFormatCharNormalized : MDLVertexFormatChar;
+                case GLTFValueDimensionVector2:
+                    return accessor.isNormalized ? MDLVertexFormatChar2Normalized : MDLVertexFormatChar2;
+                case GLTFValueDimensionVector3:
+                    return accessor.isNormalized ? MDLVertexFormatChar3Normalized : MDLVertexFormatChar3;
+                case GLTFValueDimensionVector4:
+                    return accessor.isNormalized ? MDLVertexFormatChar4Normalized : MDLVertexFormatChar4;
+                default: break;
+            }
+            break;
+        case GLTFComponentTypeUnsignedByte:
+            switch (accessor.dimension) {
+                case GLTFValueDimensionScalar:
+                    return accessor.isNormalized ? MDLVertexFormatUCharNormalized : MDLVertexFormatUChar;
+                case GLTFValueDimensionVector2:
+                    return accessor.isNormalized ? MDLVertexFormatUChar2Normalized : MDLVertexFormatUChar2;
+                case GLTFValueDimensionVector3:
+                    return accessor.isNormalized ? MDLVertexFormatUChar3Normalized : MDLVertexFormatUChar3;
+                case GLTFValueDimensionVector4:
+                    return accessor.isNormalized ? MDLVertexFormatUChar4Normalized : MDLVertexFormatUChar4;
+                default: break;
+            }
+            break;
+        case GLTFComponentTypeShort:
+            switch (accessor.dimension) {
+                case GLTFValueDimensionScalar:
+                    return accessor.isNormalized ? MDLVertexFormatShortNormalized : MDLVertexFormatShort;
+                case GLTFValueDimensionVector2:
+                    return accessor.isNormalized ? MDLVertexFormatShort2Normalized : MDLVertexFormatShort2;
+                case GLTFValueDimensionVector3:
+                    return accessor.isNormalized ? MDLVertexFormatShort3Normalized : MDLVertexFormatShort3;
+                case GLTFValueDimensionVector4:
+                    return accessor.isNormalized ? MDLVertexFormatShort4Normalized : MDLVertexFormatShort4;
+                default: break;
+            }
+            break;
+        case GLTFComponentTypeUnsignedShort:
+            switch (accessor.dimension) {
+                case GLTFValueDimensionScalar:
+                    return accessor.isNormalized ? MDLVertexFormatUShortNormalized : MDLVertexFormatUShort;
+                case GLTFValueDimensionVector2:
+                    return accessor.isNormalized ? MDLVertexFormatUShort2Normalized : MDLVertexFormatUShort2;
+                case GLTFValueDimensionVector3:
+                    return accessor.isNormalized ? MDLVertexFormatUShort3Normalized : MDLVertexFormatUShort3;
+                case GLTFValueDimensionVector4:
+                    return accessor.isNormalized ? MDLVertexFormatUShort4Normalized : MDLVertexFormatUShort4;
+                default: break;
+            }
+            break;
+        case GLTFComponentTypeUnsignedInt:
+            switch (accessor.dimension) {
+                case GLTFValueDimensionScalar:
+                    return MDLVertexFormatUInt;
+                case GLTFValueDimensionVector2:
+                    return MDLVertexFormatUInt2;
+                case GLTFValueDimensionVector3:
+                    return MDLVertexFormatUInt3;
+                case GLTFValueDimensionVector4:
+                    return MDLVertexFormatUInt4;
+                default: break;
+            }
+            break;
+        case GLTFComponentTypeFloat:
+            switch (accessor.dimension) {
+                case GLTFValueDimensionScalar:
+                    return MDLVertexFormatFloat;
+                case GLTFValueDimensionVector2:
+                    return MDLVertexFormatFloat2;
+                case GLTFValueDimensionVector3:
+                    return MDLVertexFormatFloat3;
+                case GLTFValueDimensionVector4:
+                    return MDLVertexFormatFloat4;
+                default: break;
+            }
+            break;
+        default:
+            break;
+    }
+    return MDLVertexFormatInvalid;
+}
+
+size_t GLTFMDLSizeForVertexFormat(MDLVertexFormat format) {
+    static int ComponentCountMask = 0x1f;
+    if (((format & MDLVertexFormatCharBits) == MDLVertexFormatCharBits) ||
+        ((format & MDLVertexFormatUCharBits) == MDLVertexFormatUCharBits) ||
+        ((format & MDLVertexFormatCharNormalizedBits) == MDLVertexFormatCharNormalizedBits) ||
+        ((format & MDLVertexFormatUCharNormalizedBits) == MDLVertexFormatUCharNormalizedBits))
+    {
+        return sizeof(UInt8) * (format & ComponentCountMask);
+    } else if (((format & MDLVertexFormatShortBits) == MDLVertexFormatShortBits) ||
+               ((format & MDLVertexFormatUShortBits) == MDLVertexFormatUShortBits) ||
+               ((format & MDLVertexFormatShortNormalizedBits) == MDLVertexFormatShortNormalizedBits) ||
+               ((format & MDLVertexFormatUShortNormalizedBits) == MDLVertexFormatUShortNormalizedBits) ||
+               ((format & MDLVertexFormatHalfBits) == MDLVertexFormatHalfBits))
+    {
+        return sizeof(UInt16) * (format & ComponentCountMask);
+    } else if (((format & MDLVertexFormatIntBits) == MDLVertexFormatIntBits) ||
+               ((format & MDLVertexFormatUIntBits) == MDLVertexFormatUIntBits) ||
+               ((format & MDLVertexFormatFloatBits) == MDLVertexFormatFloatBits))
+    {
+        return sizeof(UInt32) * (format & ComponentCountMask);
+    }
+    assert(false);
+    return 0;
+}
+
+static NSString *GLTFMDLVertexAttributeNameForSemantic(NSString *name) {
+    if ([name isEqualToString:GLTFAttributeSemanticPosition]) {
+        return MDLVertexAttributePosition;
+    } else if ([name isEqualToString:GLTFAttributeSemanticNormal]) {
+        return MDLVertexAttributeNormal;
+    } else if ([name isEqualToString:GLTFAttributeSemanticTangent]) {
+        return MDLVertexAttributeTangent;
+    } else if ([name hasPrefix:@"TEXCOORD_"]) {
+        return MDLVertexAttributeTextureCoordinate;
+    } else if ([name hasPrefix:@"COLOR_"]) {
+        return MDLVertexAttributeColor;
+    } else if ([name hasPrefix:@"JOINTS_"]) {
+        return MDLVertexAttributeJointIndices;
+    } else if ([name hasPrefix:@"WEIGHTS_"]) {
+        return MDLVertexAttributeJointWeights;
+    }
+    return name;
+}
+
 @implementation MDLAsset (GLTFKit2)
 
 + (instancetype)assetWithGLTFAsset:(GLTFAsset *)asset {
@@ -86,7 +246,18 @@ static MDLMaterialTextureWrapMode GLTFMDLTextureWrapModeForMode(GLTFAddressMode 
         bufferAllocator = [MDLMeshBufferDataAllocator new];
     }
     
-    NSMutableDictionary <NSUUID *, MDLTexture *> *texturesForImageIdenfiers = [NSMutableDictionary dictionary];
+    //NSMutableDictionary<NSUUID *, id<MDLMeshBuffer>> *buffersForIdentifiers = [NSMutableDictionary dictionary];
+    //for (GLTFBuffer *buffer in asset.buffers) {
+    //    if (buffer.data) {
+    //        id<MDLMeshBuffer> mdlBuffer = [bufferAllocator newBufferWithData:buffer.data type:MDLMeshBufferTypeVertex];
+    //        buffersForIdentifiers[buffer.identifier] = mdlBuffer;
+    //    } else {
+    //        id<MDLMeshBuffer> mdlBuffer = [bufferAllocator newBuffer:buffer.length type:MDLMeshBufferTypeVertex];
+    //        buffersForIdentifiers[buffer.identifier] = mdlBuffer;
+    //    }
+    //}
+    
+    NSMutableDictionary<NSUUID *, MDLTexture *> *texturesForImageIdenfiers = [NSMutableDictionary dictionary];
     for (GLTFImage *image in asset.images) {
         MDLTexture *mdlTexture = nil;
         if (image.uri) {
@@ -176,12 +347,78 @@ static MDLMaterialTextureWrapMode GLTFMDLTextureWrapModeForMode(GLTFAddressMode 
         mdlMaterial.materialFace = material.isDoubleSided ? MDLMaterialFaceDoubleSided : MDLMaterialFaceFront;
         materialsForIdentifiers[material.identifier] = mdlMaterial;
     }
+
+    NSMutableDictionary <NSUUID *, NSArray<MDLMesh *> *> *meshArraysForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFMesh *mesh in asset.meshes) {
+        NSMutableArray<MDLMesh *> *mdlMeshes = [NSMutableArray array];
+        for (GLTFPrimitive *primitive in mesh.primitives) {
+            GLTFAccessor *indexAccessor = primitive.indices;
+            GLTFBufferView *indexBufferView = indexAccessor.bufferView;
+            GLTFBuffer *indexBuffer = indexBufferView.buffer;
+            
+            assert(primitive.indices.componentType == GLTFComponentTypeUnsignedShort ||
+                   primitive.indices.componentType == GLTFComponentTypeUnsignedInt);
+            size_t indexSize = primitive.indices.componentType == GLTFComponentTypeUnsignedShort ? sizeof(UInt16) : sizeof(UInt32);
+            assert(indexBufferView.stride == 0 || indexBufferView.stride == indexSize);
+            NSData *indexData = [NSData dataWithBytesNoCopy:(void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset
+                                                     length:primitive.indices.count * indexSize
+                                               freeWhenDone:NO];
+            id<MDLMeshBuffer> mdlIndexBuffer = [bufferAllocator newBufferWithData:indexData type:MDLMeshBufferTypeIndex];
+            MDLMaterial *material = materialsForIdentifiers[primitive.material.identifier];
+            MDLSubmesh *submesh = [[MDLSubmesh alloc] initWithName:primitive.name
+                                                       indexBuffer:mdlIndexBuffer
+                                                        indexCount:primitive.indices.count
+                                                         indexType:GLTFMDLIndexBitDepthForComponentType(primitive.indices.componentType)
+                                                      geometryType:GLTFMDLGeometryTypeForPrimitiveType(primitive.primitiveType)
+                                                          material:material];
+            
+            MDLVertexDescriptor *vertexDescriptor = [MDLVertexDescriptor new];
+            int attrIndex = 0;
+            int vertexCount = 0;
+            NSMutableArray *vertexBuffers = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
+            for (NSString *key in primitive.attributes.allKeys) {
+                GLTFAccessor *attrAccessor = primitive.attributes[key];
+                GLTFBufferView *attrBufferView = attrAccessor.bufferView;
+                GLTFBuffer *attrBuffer = attrBufferView.buffer;
+                MDLVertexFormat mdlFormat = GLTFMDLVertexFormatForAccessor(attrAccessor);
+                size_t formatSize = GLTFMDLSizeForVertexFormat(mdlFormat);
+                NSData *attrData = [NSData dataWithBytesNoCopy:(void *)attrBuffer.data.bytes + attrBufferView.offset + attrAccessor.offset
+                                                         length:attrAccessor.count * formatSize
+                                                   freeWhenDone:NO];
+                id<MDLMeshBuffer> vertexBuffer = [bufferAllocator newBufferWithData:attrData type:MDLMeshBufferTypeVertex];
+                [vertexBuffers addObject:vertexBuffer];
+                vertexCount = (int)attrAccessor.count;
+                vertexDescriptor.attributes[attrIndex].bufferIndex = attrIndex;
+                vertexDescriptor.attributes[attrIndex].format = mdlFormat;
+                vertexDescriptor.attributes[attrIndex].name = GLTFMDLVertexAttributeNameForSemantic(key);
+                vertexDescriptor.attributes[attrIndex].offset = 0;
+                vertexDescriptor.layouts[attrIndex].stride = attrBufferView.stride ? attrBufferView.stride : formatSize;
+                ++attrIndex;
+            }
+
+            MDLMesh *mdlMesh = [[MDLMesh alloc] initWithVertexBuffers:vertexBuffers
+                                                          vertexCount:vertexCount
+                                                           descriptor:vertexDescriptor
+                                                            submeshes:@[submesh]];
+            [mdlMeshes addObject:mdlMesh];
+        }
+        meshArraysForIdentifiers[mesh.identifier] = mdlMeshes;
+    }
+    
+    // Camera -> MDLCamera
+    
+    // Light -> MDLLight
     
     // Node -> MDLNode
-    // Mesh -> MDLMesh / Primitive -> MDLSubmesh
-    // Camera -> MDLCamera
-    // Light -> MDLLight
+    NSMutableDictionary<NSUUID *, MDLObject *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFNode *node in asset.nodes) {
+        MDLObject *mdlNode = [MDLObject new];
+        if (node.mesh) {
+        }
+    }
+    
     // Scene -> MDLAsset
+    
     // Animation, Skin ??
 
     MDLAsset *mdlAsset = [[MDLAsset alloc] initWithBufferAllocator:bufferAllocator];
