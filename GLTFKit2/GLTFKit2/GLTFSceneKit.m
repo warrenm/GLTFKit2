@@ -80,6 +80,23 @@ static SCNGeometryPrimitiveType GLTFSCNPrimitiveTypeForPrimitiveType(GLTFPrimiti
     }
 }
 
+static int GLTFSCNPrimitiveCountForVertexCount(GLTFPrimitiveType type, int vertexCount) {
+    switch (type) {
+        case GLTFPrimitiveTypePoints:
+            return vertexCount;
+        case GLTFPrimitiveTypeLines:
+            return vertexCount / 2;
+        case GLTFPrimitiveTypeTriangles:
+            return vertexCount / 3;
+        case GLTFPrimitiveTypeTriangleStrip:
+            return vertexCount - 2; // TODO: Handle primitive restart?
+        default:
+            // No support for line loops, line strips, or triangle fans.
+            // These should be retopologized before creating a geometry.
+            return -1;
+    }
+}
+
 static int GLTFSCNBytesPerComponentForAccessor(GLTFAccessor *accessor) {
     switch (accessor.componentType) {
         case GLTFComponentTypeByte:
@@ -166,15 +183,32 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
         imagesForIdentfiers[image.identifier] = uiImage;
     }
     
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    
+    SCNMaterial *defaultMaterial = [SCNMaterial material];
+    defaultMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
+    defaultMaterial.locksAmbientWithDiffuse = YES;
+    CGFloat defaultBaseColorFactor[] = { 1.0, 1.0, 1.0, 1.0 };
+    defaultMaterial.diffuse.contents = (__bridge id)CGColorCreate(colorSpace, &defaultBaseColorFactor[0]);
+    defaultMaterial.metalness.contents = @(1.0);
+    defaultMaterial.roughness.contents = @(1.0);
+
     NSMutableDictionary <NSUUID *, SCNMaterial *> *materialsForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFMaterial *material in asset.materials) {
         SCNMaterial *scnMaterial = [SCNMaterial new];
         scnMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
+        scnMaterial.locksAmbientWithDiffuse = YES;
+        //TODO: How to represent base color/emissive factor, etc., when textures are present?
         if (material.metallicRoughness.baseColorTexture) {
             GLTFTextureParams *baseColorTexture = material.metallicRoughness.baseColorTexture;
             SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
             baseColorProperty.contents = imagesForIdentfiers[baseColorTexture.texture.source.identifier];
             GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
+        } else {
+            SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
+            simd_float4 rgba = material.metallicRoughness.baseColorFactor;
+            CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+            baseColorProperty.contents = (__bridge id)CGColorCreate(colorSpace, &rgbad[0]);
         }
         if (material.metallicRoughness.metallicRoughnessTexture) {
             GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
@@ -189,6 +223,11 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
             roughnessProperty.contents = metallicRoughnessImage;
             GLTFConfigureSCNMaterialProperty(roughnessProperty, metallicRoughnessTexture);
             roughnessProperty.textureComponents = SCNColorMaskGreen;
+        } else {
+            SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
+            metallicProperty.contents = @(material.metallicRoughness.metallicFactor);
+            SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
+            roughnessProperty.contents = @(material.metallicRoughness.roughnessFactor);
         }
         if (material.normalTexture) {
             GLTFTextureParams *normalTexture = material.normalTexture;
@@ -201,8 +240,12 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
             emissiveProperty.contents = imagesForIdentfiers[emissiveTexture.texture.source.identifier];
             GLTFConfigureSCNMaterialProperty(emissiveProperty, emissiveTexture);
+        } else {
+            SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
+            simd_float3 rgb = material.emissiveFactor;
+            CGFloat rgbad[] = { rgb[0], rgb[1], rgb[2], 1.0 };
+            emissiveProperty.contents = (__bridge id)CGColorCreate(colorSpace, &rgbad[0]);
         }
-        //TODO: How to represent base color/emissive factor, etc.?
         
         scnMaterial.doubleSided = material.isDoubleSided;
         scnMaterial.transparencyMode = SCNTransparencyModeDefault;
@@ -213,32 +256,41 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
     for (GLTFMesh *mesh in asset.meshes) {
         NSMutableArray<SCNGeometry *> *geometries = [NSMutableArray array];
         for (GLTFPrimitive *primitive in mesh.primitives) {
-            GLTFAccessor *indexAccessor = primitive.indices;
-            GLTFBufferView *indexBufferView = indexAccessor.bufferView;
-            GLTFBuffer *indexBuffer = indexBufferView.buffer;
-            
-            assert(primitive.indices.componentType == GLTFComponentTypeUnsignedShort ||
-                   primitive.indices.componentType == GLTFComponentTypeUnsignedInt);
-            size_t indexSize = primitive.indices.componentType == GLTFComponentTypeUnsignedShort ? sizeof(UInt16) : sizeof(UInt32);
-            assert(indexBufferView.stride == 0 || indexBufferView.stride == indexSize);
-            size_t indexCount = primitive.indices.count;
-            NSData *indexData = [NSData dataWithBytesNoCopy:(void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset
-                                                     length:indexCount * indexSize
-                                               freeWhenDone:NO];
+            int vertexCount = 0;
+            GLTFAccessor *positionAccessor = primitive.attributes[GLTFAttributeSemanticPosition];
+            if (positionAccessor != nil) {
+                vertexCount = (int)positionAccessor.count;
+            }
             SCNMaterial *material = materialsForIdentifiers[primitive.material.identifier];
+            NSData *indexData = nil;
+            int indexSize = 1;
+            int indexCount = vertexCount; // If we're not indexed (determined below), our "index" count is our vertex count
+            if (primitive.indices) {
+                GLTFAccessor *indexAccessor = primitive.indices;
+                GLTFBufferView *indexBufferView = indexAccessor.bufferView;
+                GLTFBuffer *indexBuffer = indexBufferView.buffer;
+                
+                assert(primitive.indices.componentType == GLTFComponentTypeUnsignedShort ||
+                       primitive.indices.componentType == GLTFComponentTypeUnsignedInt);
+                indexSize = primitive.indices.componentType == GLTFComponentTypeUnsignedShort ? sizeof(UInt16) : sizeof(UInt32);
+                assert(indexBufferView.stride == 0 || indexBufferView.stride == indexSize);
+                indexCount = (int)primitive.indices.count;
+                indexData = [NSData dataWithBytesNoCopy:(void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset
+                                                         length:indexCount * indexSize
+                                                   freeWhenDone:NO];
+            }
             SCNGeometryElement *element = [SCNGeometryElement geometryElementWithData:indexData
                                                                         primitiveType:GLTFSCNPrimitiveTypeForPrimitiveType(primitive.primitiveType)
-                                                                       primitiveCount:indexCount / 3 // no
+                                                                       primitiveCount:GLTFSCNPrimitiveCountForVertexCount(primitive.primitiveType, indexCount)
                                                                         bytesPerIndex:indexSize];
             
-            int attrIndex = 0;
-            int vertexCount = 0;
+            //int attrIndex = 0;
             NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
             for (NSString *key in primitive.attributes.allKeys) {
                 GLTFAccessor *attrAccessor = primitive.attributes[key];
                 GLTFBufferView *attrBufferView = attrAccessor.bufferView;
                 GLTFBuffer *attrBuffer = attrBufferView.buffer;
-                vertexCount = (int)attrAccessor.count;
+                //vertexCount = (int)attrAccessor.count;
                 size_t bytesPerComponent = GLTFSCNBytesPerComponentForAccessor(attrAccessor);
                 size_t componentCount = GLTFSCNComponentCountForAccessor(attrAccessor);
                 size_t formatSize = bytesPerComponent * componentCount;
@@ -254,11 +306,11 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
                                                                            dataOffset:0
                                                                            dataStride:formatSize];
                 [geometrySources addObject:source];
-                ++attrIndex;
+                //++attrIndex;
             }
             
             SCNGeometry *geometry = [SCNGeometry geometryWithSources:geometrySources elements:@[element]];
-            geometry.firstMaterial = material;
+            geometry.firstMaterial = material ?: defaultMaterial;
             [geometries addObject:geometry];
         }
         geometryArraysForIdentifiers[mesh.identifier] = geometries;
