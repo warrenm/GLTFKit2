@@ -329,8 +329,9 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
                 size_t bytesPerComponent = GLTFSCNBytesPerComponentForAccessor(attrAccessor);
                 size_t componentCount = GLTFSCNComponentCountForAccessor(attrAccessor);
                 size_t formatSize = bytesPerComponent * componentCount;
+                // FIXME: This is very wasteful when we have interleaved attributes; we duplicate all data for every attribute.
                 NSData *attrData = [NSData dataWithBytesNoCopy:(void *)attrBuffer.data.bytes + attrBufferView.offset + attrAccessor.offset
-                                                        length:attrAccessor.count * formatSize
+                                                        length:attrAccessor.count * MAX(formatSize, attrBufferView.stride)
                                                   freeWhenDone:NO];
                 SCNGeometrySource *source = [SCNGeometrySource geometrySourceWithData:attrData
                                                                              semantic:GLTFSCNGeometrySourceSemanticForSemantic(key)
@@ -339,7 +340,7 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
                                                                   componentsPerVector:componentCount
                                                                     bytesPerComponent:bytesPerComponent
                                                                            dataOffset:0
-                                                                           dataStride:formatSize];
+                                                                           dataStride:MAX(formatSize, attrBufferView.stride)];
                 [geometrySources addObject:source];
             }
             

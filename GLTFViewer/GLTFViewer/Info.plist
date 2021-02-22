@@ -10,6 +10,7 @@
 			<key>CFBundleTypeExtensions</key>
 			<array>
 				<string>gltf</string>
+				<string>glb</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
 			<string></string>
