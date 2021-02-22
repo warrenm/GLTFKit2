@@ -155,16 +155,27 @@ static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
 }
 
 static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTFTextureParams *textureParams) {
+    GLTFTextureSampler *sampler = textureParams.texture.sampler;
     property.intensity = textureParams.scale;
-    property.magnificationFilter = GLTFSCNFilterModeForMagFilter(textureParams.texture.sampler.magFilter);
+    property.magnificationFilter = GLTFSCNFilterModeForMagFilter(sampler.magFilter);
     SCNFilterMode minFilter, mipFilter;
-    GLTFSCNGetFilterModeForMinMipFilter(textureParams.texture.sampler.minMipFilter, &minFilter, &mipFilter);
+    GLTFSCNGetFilterModeForMinMipFilter(sampler.minMipFilter, &minFilter, &mipFilter);
     property.minificationFilter = minFilter;
     property.mipFilter = mipFilter;
     //property.contentsTransform = SCNMatrix4();
-    property.wrapS = GLTFSCNWrapModeForMode(textureParams.texture.sampler.wrapS);
-    property.wrapT = GLTFSCNWrapModeForMode(textureParams.texture.sampler.wrapT);
+    property.wrapS = GLTFSCNWrapModeForMode(sampler.wrapS);
+    property.wrapT = GLTFSCNWrapModeForMode(sampler.wrapT);
     property.mappingChannel = textureParams.texCoord;
+}
+
+static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
+    size_t bufferSize = sizeof(UInt16) * count;
+    UInt16 *shorts = malloc(bufferSize);
+    // This is begging to be parallelized. Can this be done with Accelerate?
+    for (int i = 0; i < count; ++i) {
+        shorts[i] = (UInt16)bytes[i];
+    }
+    return [NSData dataWithBytesNoCopy:shorts length:bufferSize freeWhenDone:YES];
 }
 
 @implementation SCNScene (GLTFSceneKit)
@@ -268,29 +279,35 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
             if (primitive.indices) {
                 GLTFAccessor *indexAccessor = primitive.indices;
                 GLTFBufferView *indexBufferView = indexAccessor.bufferView;
-                GLTFBuffer *indexBuffer = indexBufferView.buffer;
-                
-                assert(primitive.indices.componentType == GLTFComponentTypeUnsignedShort ||
-                       primitive.indices.componentType == GLTFComponentTypeUnsignedInt);
-                indexSize = primitive.indices.componentType == GLTFComponentTypeUnsignedShort ? sizeof(UInt16) : sizeof(UInt32);
                 assert(indexBufferView.stride == 0 || indexBufferView.stride == indexSize);
+                GLTFBuffer *indexBuffer = indexBufferView.buffer;
                 indexCount = (int)primitive.indices.count;
-                indexData = [NSData dataWithBytesNoCopy:(void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset
-                                                         length:indexCount * indexSize
-                                                   freeWhenDone:NO];
+                if((indexAccessor.componentType == GLTFComponentTypeUnsignedShort) ||
+                   (indexAccessor.componentType == GLTFComponentTypeUnsignedInt))
+                {
+                    // We directly support this kind of index, so we can memcpy it over
+                    indexSize = indexAccessor.componentType == GLTFComponentTypeUnsignedInt ? sizeof(UInt32) : sizeof(UInt16);
+                    indexData = [NSData dataWithBytesNoCopy:(void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset
+                                                             length:indexCount * indexSize
+                                                       freeWhenDone:NO];
+                }
+                else
+                {
+                    // We don't directly support 8-bit indices, but converting them is simple enough
+                    indexSize = sizeof(UInt16);
+                    indexData = GLTFPackedUInt16DataFromPackedUInt8((void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset, indexCount);
+                }
             }
             SCNGeometryElement *element = [SCNGeometryElement geometryElementWithData:indexData
                                                                         primitiveType:GLTFSCNPrimitiveTypeForPrimitiveType(primitive.primitiveType)
                                                                        primitiveCount:GLTFSCNPrimitiveCountForVertexCount(primitive.primitiveType, indexCount)
                                                                         bytesPerIndex:indexSize];
             
-            //int attrIndex = 0;
             NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
             for (NSString *key in primitive.attributes.allKeys) {
                 GLTFAccessor *attrAccessor = primitive.attributes[key];
                 GLTFBufferView *attrBufferView = attrAccessor.bufferView;
                 GLTFBuffer *attrBuffer = attrBufferView.buffer;
-                //vertexCount = (int)attrAccessor.count;
                 size_t bytesPerComponent = GLTFSCNBytesPerComponentForAccessor(attrAccessor);
                 size_t componentCount = GLTFSCNComponentCountForAccessor(attrAccessor);
                 size_t formatSize = bytesPerComponent * componentCount;
@@ -306,7 +323,6 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
                                                                            dataOffset:0
                                                                            dataStride:formatSize];
                 [geometrySources addObject:source];
-                //++attrIndex;
             }
             
             SCNGeometry *geometry = [SCNGeometry geometryWithSources:geometrySources elements:@[element]];
