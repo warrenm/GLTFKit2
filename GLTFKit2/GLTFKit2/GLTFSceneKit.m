@@ -155,7 +155,15 @@ static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
 }
 
 static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTFTextureParams *textureParams) {
-    GLTFTextureSampler *sampler = textureParams.texture.sampler;
+    static GLTFTextureSampler *defaultSampler = nil;
+    if (defaultSampler == nil) {
+        defaultSampler = [[GLTFTextureSampler alloc] init];
+        defaultSampler.magFilter = GLTFMagFilterLinear;
+        defaultSampler.minMipFilter = GLTFMinMipFilterLinearNearest; // Change this to prefer linear mipmapping by default
+        defaultSampler.wrapS = GLTFAddressModeRepeat;
+        defaultSampler.wrapT = GLTFAddressModeRepeat;
+    }
+    GLTFTextureSampler *sampler = textureParams.texture.sampler ?: defaultSampler;
     property.intensity = textureParams.scale;
     property.magnificationFilter = GLTFSCNFilterModeForMagFilter(sampler.magFilter);
     SCNFilterMode minFilter, mipFilter;
@@ -215,6 +223,11 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
             SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
             baseColorProperty.contents = imagesForIdentfiers[baseColorTexture.texture.source.identifier];
             GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
+            // This is pretty awful, but we have no other straightforward way of supporting
+            // base color textures and factors simultaneously
+            simd_float4 rgba = material.metallicRoughness.baseColorFactor;
+            CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+            scnMaterial.multiply.contents = (__bridge id)CGColorCreate(colorSpace, &rgbad[0]);
         } else {
             SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
             simd_float4 rgba = material.metallicRoughness.baseColorFactor;
@@ -293,6 +306,7 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
                 }
                 else
                 {
+                    assert(indexAccessor.componentType == GLTFComponentTypeUnsignedByte);
                     // We don't directly support 8-bit indices, but converting them is simple enough
                     indexSize = sizeof(UInt16);
                     indexData = GLTFPackedUInt16DataFromPackedUInt8((void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset, indexCount);

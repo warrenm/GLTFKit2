@@ -371,14 +371,14 @@ static dispatch_queue_t _loaderQueue;
             GLTFOrthographicProjectionParams *params = [[GLTFOrthographicProjectionParams alloc] init];
             params.xMag = c->data.orthographic.xmag;
             params.yMag = c->data.orthographic.ymag;
-            GLTFCamera *camera = [[GLTFCamera alloc] initWithOrthographicProjection:params];
+            camera = [[GLTFCamera alloc] initWithOrthographicProjection:params];
             camera.zNear = c->data.orthographic.znear;
             camera.zFar = c->data.orthographic.zfar;
         } else if (c->type == cgltf_camera_type_perspective) {
             GLTFPerspectiveProjectionParams *params = [[GLTFPerspectiveProjectionParams alloc] init];
             params.yFOV = c->data.perspective.yfov;
             params.aspectRatio = c->data.perspective.aspect_ratio;
-            GLTFCamera *camera = [[GLTFCamera alloc] initWithPerspectiveProjection:params];
+            camera = [[GLTFCamera alloc] initWithPerspectiveProjection:params];
             camera.zNear = c->data.perspective.znear;
             camera.zFar = c->data.perspective.zfar;
         } else {
