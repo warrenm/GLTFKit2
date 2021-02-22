@@ -32,6 +32,7 @@ static void GLTFSCNGetFilterModeForMinMipFilter(GLTFMinMipFilter filter,
             case GLTFMinMipFilterLinear:
             case GLTFMinMipFilterLinearNearest:
             case GLTFMinMipFilterLinearLinear:
+            default:
                 *outMinFilter = SCNFilterModeLinear;
                 break;
         }
@@ -46,6 +47,7 @@ static void GLTFSCNGetFilterModeForMinMipFilter(GLTFMinMipFilter filter,
                 break;
             case GLTFMinMipFilterNearestLinear:
             case GLTFMinMipFilterLinearLinear:
+            default:
                 *outMipFilter = SCNFilterModeLinear;
                 break;
         }
@@ -159,7 +161,7 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
     if (defaultSampler == nil) {
         defaultSampler = [[GLTFTextureSampler alloc] init];
         defaultSampler.magFilter = GLTFMagFilterLinear;
-        defaultSampler.minMipFilter = GLTFMinMipFilterLinearNearest; // Change this to prefer linear mipmapping by default
+        defaultSampler.minMipFilter = GLTFMinMipFilterLinearLinear;
         defaultSampler.wrapS = GLTFAddressModeRepeat;
         defaultSampler.wrapT = GLTFAddressModeRepeat;
     }
@@ -272,7 +274,9 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
         }
         
         scnMaterial.doubleSided = material.isDoubleSided;
+        scnMaterial.blendMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNBlendModeAlpha : SCNBlendModeReplace;
         scnMaterial.transparencyMode = SCNTransparencyModeDefault;
+        // TODO: Use shader modifiers to implement more precise alpha test cutoff?
         materialsForIdentifiers[material.identifier] = scnMaterial;
     }
     
@@ -350,7 +354,15 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = [SCNNode node];
         if (node.mesh) {
-            scnNode.geometry = geometryArraysForIdentifiers[node.mesh.identifier].firstObject;
+            NSArray *geometries = geometryArraysForIdentifiers[node.mesh.identifier];
+            if (geometries.count == 1) {
+                scnNode.geometry = geometryArraysForIdentifiers[node.mesh.identifier].firstObject;
+            } else if (geometries.count > 1) {
+                for (SCNGeometry *geometry in geometries) {
+                    SCNNode *geometryHolder = [SCNNode nodeWithGeometry:geometry];
+                    [scnNode addChildNode:geometryHolder];
+                }
+            }
         }
         scnNode.simdTransform = node.matrix;
         nodesForIdentifiers[node.identifier] = scnNode;

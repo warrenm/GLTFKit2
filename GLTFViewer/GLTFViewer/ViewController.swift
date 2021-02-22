@@ -9,9 +9,11 @@ class ViewController: NSViewController {
         return self.view as! SCNView
     }
 
-    var asset: GLTFAsset! {
+    var asset: GLTFAsset? {
         didSet {
-            scnView.scene = SCNScene(gltfAsset:asset)
+            if let asset = asset {
+                scnView.scene = SCNScene(gltfAsset:asset)
+            }
         }
     }
 
