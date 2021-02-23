@@ -323,6 +323,27 @@ GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
 
 @end
 
+@implementation GLTFLight
+
+- (instancetype)init {
+    return [self initWithType:GLTFLightTypeDirectional];
+}
+
+- (instancetype)initWithType:(GLTFLightType)type {
+    if (self = [super init]) {
+        _type = type;
+        _color = (simd_float3){ 1.0f, 1.0f, 1.0f };
+        _intensity = 1.0f;
+        _range = -1.0f;
+        _innerConeAngle = 0.0f;
+        _outerConeAngle = M_PI_4;
+    }
+    return self;
+}
+
+@end
+
+
 @implementation GLTFPBRMetallicRoughnessParams
 
 - (instancetype)init {
@@ -334,6 +355,9 @@ GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
     return self;
 }
 
+@end
+
+@implementation GLTFClearcoatParams
 @end
 
 @implementation GLTFMaterial

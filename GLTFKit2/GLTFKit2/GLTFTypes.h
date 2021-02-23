@@ -65,3 +65,9 @@ typedef NS_ENUM(NSInteger, GLTFInterpolationMode) {
     GLTFInterpolationModeStep,
     GLTFInterpolationModeCubic
 };
+
+typedef NS_ENUM(NSInteger, GLTFLightType) {
+    GLTFLightTypeDirectional = 1,
+    GLTFLightTypePoint,
+    GLTFLightTypeSpot
+};

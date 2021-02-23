@@ -9,6 +9,10 @@ typedef NSImage NSUIImage;
 #error "Unsupported operating system. Cannot determine suitable image class"
 #endif
 
+static float GLTFDegFromRad(float rad) {
+    return rad * (180.0 / M_PI);
+}
+
 static SCNFilterMode GLTFSCNFilterModeForMagFilter(GLTFMagFilter filter) {
     switch (filter) {
         case GLTFMagFilterNearest:
@@ -65,7 +69,7 @@ static SCNWrapMode GLTFSCNWrapModeForMode(GLTFAddressMode mode) {
     }
 }
 
-static SCNGeometryPrimitiveType GLTFSCNPrimitiveTypeForPrimitiveType(GLTFPrimitiveType type) {
+static int GLTFSCNPrimitiveTypeForPrimitiveType(GLTFPrimitiveType type) {
     switch (type) {
         case GLTFPrimitiveTypePoints:
             return SCNGeometryPrimitiveTypePoint;
@@ -204,13 +208,14 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
         imagesForIdentfiers[image.identifier] = uiImage;
     }
     
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    //CGColorSpaceRef colorSpaceSRGB = CGColorSpaceCreateWithName(kCGColorSpaceSRGB); //
+    CGColorSpaceRef colorSpaceLinearSRGB = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
     
     SCNMaterial *defaultMaterial = [SCNMaterial material];
     defaultMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
     defaultMaterial.locksAmbientWithDiffuse = YES;
     CGFloat defaultBaseColorFactor[] = { 1.0, 1.0, 1.0, 1.0 };
-    defaultMaterial.diffuse.contents = (__bridge id)CGColorCreate(colorSpace, &defaultBaseColorFactor[0]);
+    defaultMaterial.diffuse.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, &defaultBaseColorFactor[0]);
     defaultMaterial.metalness.contents = @(1.0);
     defaultMaterial.roughness.contents = @(1.0);
 
@@ -229,12 +234,12 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
             // base color textures and factors simultaneously
             simd_float4 rgba = material.metallicRoughness.baseColorFactor;
             CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-            scnMaterial.multiply.contents = (__bridge id)CGColorCreate(colorSpace, &rgbad[0]);
+            scnMaterial.multiply.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
         } else {
             SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
             simd_float4 rgba = material.metallicRoughness.baseColorFactor;
             CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-            baseColorProperty.contents = (__bridge id)CGColorCreate(colorSpace, &rgbad[0]);
+            baseColorProperty.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
         }
         if (material.metallicRoughness.metallicRoughnessTexture) {
             GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
@@ -270,9 +275,40 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
             simd_float3 rgb = material.emissiveFactor;
             CGFloat rgbad[] = { rgb[0], rgb[1], rgb[2], 1.0 };
-            emissiveProperty.contents = (__bridge id)CGColorCreate(colorSpace, &rgbad[0]);
+            emissiveProperty.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
         }
-        
+        if (material.occlusionTexture) {
+            GLTFTextureParams *occlusionTexture = material.occlusionTexture;
+            SCNMaterialProperty *occlusionProperty = scnMaterial.ambientOcclusion;
+            occlusionProperty.contents = imagesForIdentfiers[occlusionTexture.texture.source.identifier];
+            GLTFConfigureSCNMaterialProperty(occlusionProperty, occlusionTexture);
+        }
+        if (material.clearcoat) {
+            if (@available(macOS 10.15, *)) {
+                if (material.clearcoat.clearcoatTexture) {
+                    GLTFTextureParams *clearcoatTexture = material.clearcoat.clearcoatTexture;
+                    SCNMaterialProperty *clearcoatProperty = scnMaterial.clearCoat;
+                    clearcoatProperty.contents = imagesForIdentfiers[clearcoatTexture.texture.source.identifier];
+                    GLTFConfigureSCNMaterialProperty(clearcoatProperty, material.clearcoat.clearcoatTexture);
+                } else {
+                    scnMaterial.clearCoat.contents = @(material.clearcoat.clearcoatFactor);
+                }
+                if (material.clearcoat.clearcoatRoughnessTexture) {
+                    GLTFTextureParams *clearcoatRoughnessTexture = material.clearcoat.clearcoatRoughnessTexture;
+                    SCNMaterialProperty *clearcoatRoughnessProperty = scnMaterial.clearCoatRoughness;
+                    clearcoatRoughnessProperty.contents = imagesForIdentfiers[clearcoatRoughnessTexture.texture.source.identifier];
+                    GLTFConfigureSCNMaterialProperty(clearcoatRoughnessProperty, material.clearcoat.clearcoatRoughnessTexture);
+                } else {
+                    scnMaterial.clearCoatRoughness.contents = @(material.clearcoat.clearcoatRoughnessFactor);
+                }
+                if (material.clearcoat.clearcoatNormalTexture) {
+                    GLTFTextureParams *clearcoatNormalTexture = material.clearcoat.clearcoatNormalTexture;
+                    SCNMaterialProperty *clearcoatNormalProperty = scnMaterial.clearCoatNormal;
+                    clearcoatNormalProperty.contents = imagesForIdentfiers[clearcoatNormalTexture.texture.source.identifier];
+                    GLTFConfigureSCNMaterialProperty(clearcoatNormalProperty, material.clearcoat.clearcoatNormalTexture);
+                }
+            }
+        }
         scnMaterial.doubleSided = material.isDoubleSided;
         scnMaterial.blendMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNBlendModeAlpha : SCNBlendModeReplace;
         scnMaterial.transparencyMode = SCNTransparencyModeDefault;
@@ -351,9 +387,50 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
         geometryArraysForIdentifiers[mesh.identifier] = geometries;
     }
     
+    NSMutableDictionary<NSUUID *, SCNCamera *> *camerasForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFCamera *camera in asset.cameras) {
+        SCNCamera *scnCamera = [SCNCamera camera];
+        scnCamera.name = camera.name;
+        if (camera.orthographic) {
+            scnCamera.usesOrthographicProjection = YES;
+            // This is a lossy transformation.
+            scnCamera.orthographicScale = MAX(camera.orthographic.xMag, camera.orthographic.yMag);
+        } else {
+            scnCamera.usesOrthographicProjection = NO;
+            scnCamera.fieldOfView = GLTFDegFromRad(camera.perspective.yFOV);
+            scnCamera.projectionDirection = SCNCameraProjectionDirectionVertical;
+            // No property for aspect ratio, so we drop it here.
+        }
+        scnCamera.zNear = camera.zNear;
+        scnCamera.zFar = camera.zFar;
+        camerasForIdentifiers[camera.identifier] = scnCamera;
+    }
+    
+    NSMutableDictionary<NSUUID *, SCNLight *> *lightsForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFLight *light in asset.lights) {
+        SCNLight *scnLight = [SCNLight light];
+        scnLight.name = light.name;
+        CGFloat rgbad[] = { light.color[0], light.color[1], light.color[2], 1.0 };
+        scnLight.color = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+        // TODO: SCN intensity is always lumens. Need to convert from candela (point and spot lights) and lux (directional) here.
+        scnLight.intensity = light.intensity;
+        switch (light.type) {
+            case GLTFLightTypeDirectional:
+                break;
+            case GLTFLightTypePoint:
+                break;
+            case GLTFLightTypeSpot:
+                scnLight.spotInnerAngle = GLTFDegFromRad(light.innerConeAngle);
+                scnLight.spotOuterAngle = GLTFDegFromRad(light.outerConeAngle);
+                break;
+        }
+        lightsForIdentifiers[light.identifier] = scnLight;
+    }
+
     NSMutableDictionary<NSUUID *, SCNNode *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = [SCNNode node];
+        scnNode.name = node.name;
         if (node.mesh) {
             NSArray *geometries = geometryArraysForIdentifiers[node.mesh.identifier];
             if (geometries.count == 1) {
@@ -365,10 +442,16 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
                 }
             }
         }
+        if (node.camera) {
+            scnNode.camera = camerasForIdentifiers[node.camera.identifier];
+        }
+        if (node.light) {
+            scnNode.light = lightsForIdentifiers[node.light.identifier];
+        }
         scnNode.simdTransform = node.matrix;
         nodesForIdentifiers[node.identifier] = scnNode;
     }
-    
+
     NSMutableArray *rootNodes = [NSMutableArray array];
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];

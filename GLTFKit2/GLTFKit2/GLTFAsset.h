@@ -63,8 +63,8 @@ typedef void (^GLTFAssetLoadingHandler)(float progress, GLTFAssetStatus status, 
 
 typedef BOOL (^GLTFFilterPredicate)(GLTFObject *entry, NSString *identifier, BOOL *stop);
 
-@class GLTFAccessor, GLTFAnimation, GLTFBuffer, GLTFBufferView, GLTFCamera, GLTFImage, GLTFMaterial, GLTFMesh;
-@class GLTFNode, GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
+@class GLTFAccessor, GLTFAnimation, GLTFBuffer, GLTFBufferView, GLTFCamera, GLTFImage, GLTFLight;
+@class GLTFMaterial, GLTFMesh, GLTFNode, GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
 
 GLTFKIT2_EXPORT
 @interface GLTFAsset : GLTFObject
@@ -98,6 +98,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, copy) NSArray<GLTFBuffer *> *buffers;
 @property (nonatomic, copy) NSArray<GLTFBufferView *> *bufferViews;
 @property (nonatomic, copy) NSArray<GLTFCamera *> *cameras;
+@property (nonatomic, copy) NSArray<GLTFLight *> *lights;
 @property (nonatomic, copy) NSArray<GLTFImage *> *images;
 @property (nonatomic, copy) NSArray<GLTFMaterial *> *materials;
 @property (nonatomic, copy) NSArray<GLTFMesh *> *meshes;
@@ -267,6 +268,22 @@ GLTFKIT2_EXPORT
 
 @end
 
+GLTFKIT2_EXPORT
+@interface GLTFLight : GLTFObject
+
+@property (nonatomic, assign) GLTFLightType type;
+@property (nonatomic, assign) simd_float3 color;
+@property (nonatomic, assign) float intensity;
+// Point and spot light range hint
+@property (nonatomic, assign) float range;
+// Spot properties
+@property (nonatomic, assign) float innerConeAngle;
+@property (nonatomic, assign) float outerConeAngle;
+
+- (instancetype)initWithType:(GLTFLightType)type;
+
+@end
+
 @class GLTFTextureParams;
 
 GLTFKIT2_EXPORT
@@ -281,9 +298,21 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFClearcoatParams : GLTFObject
+
+@property (nonatomic, nullable) GLTFTextureParams *clearcoatTexture;
+@property (nonatomic, nullable) GLTFTextureParams *clearcoatRoughnessTexture;
+@property (nonatomic, nullable) GLTFTextureParams *clearcoatNormalTexture;
+@property (nonatomic, assign) float clearcoatFactor;
+@property (nonatomic, assign) float clearcoatRoughnessFactor;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFMaterial : GLTFObject
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
+@property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
 @property (nonatomic, nullable) GLTFTextureParams *occlusionTexture;
 @property (nonatomic, nullable) GLTFTextureParams *emissiveTexture;
@@ -333,6 +362,7 @@ GLTFKIT2_EXPORT
 @interface GLTFNode : GLTFObject
 
 @property (nonatomic, nullable, strong) GLTFCamera *camera;
+@property (nonatomic, nullable, strong) GLTFLight *light;
 @property (nonatomic, copy) NSArray<GLTFNode *> *childNodes;
 @property (nonatomic, weak) GLTFNode *parentNode;
 @property (nonatomic, nullable, strong) GLTFSkin *skin;

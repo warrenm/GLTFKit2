@@ -63,6 +63,10 @@ static NSString *GLTFTargetPathForPath(cgltf_animation_path_type path) {
     }
 }
 
+static GLTFLightType GLTFLightTypeForType(cgltf_light_type type) {
+    return (GLTFLightType)type;
+}
+
 @interface GLTFAssetReader () {
     cgltf_data *gltf;
 }
@@ -309,10 +313,24 @@ static dispatch_queue_t _loaderQueue;
             }
             material.metallicRoughness = pbr;
         }
+        if (m->has_clearcoat) {
+            GLTFClearcoatParams *clearcoat = [GLTFClearcoatParams new];
+            clearcoat.clearcoatFactor = m->clearcoat.clearcoat_factor;
+            if (m->clearcoat.clearcoat_texture.texture) {
+                clearcoat.clearcoatTexture = [self textureParamsFromTextureView:&m->clearcoat.clearcoat_texture];
+            }
+            clearcoat.clearcoatRoughnessFactor = m->clearcoat.clearcoat_roughness_factor;
+            if (m->clearcoat.clearcoat_roughness_texture.texture) {
+                clearcoat.clearcoatRoughnessTexture = [self textureParamsFromTextureView:&m->clearcoat.clearcoat_roughness_texture];
+            }
+            if (m->clearcoat.clearcoat_normal_texture.texture) {
+                clearcoat.clearcoatNormalTexture = [self textureParamsFromTextureView:&m->clearcoat.clearcoat_normal_texture];
+            }
+            material.clearcoat = clearcoat;
+        }
         // TODO: unlit
         // TODO: PBR specular-glossiness?
         // TODO: sheen
-        // TODO: clearcoat
         material.name = m->name ? [NSString stringWithUTF8String:m->name]
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Material"];
         [materials addObject:material];
@@ -389,6 +407,24 @@ static dispatch_queue_t _loaderQueue;
         [cameras addObject:camera];
     }
     return cameras;
+}
+
+- (NSArray *)convertLights
+{
+    NSMutableArray *lights = [NSMutableArray array];
+    for (int i = 0; i < gltf->lights_count; ++i) {
+        cgltf_light *l = gltf->lights + i;
+        GLTFLight *light = [[GLTFLight alloc] initWithType:GLTFLightTypeForType(l->type)];
+        light.color = (simd_float3){ l->color[0], l->color[1], l->color[2] };
+        light.intensity = l->intensity;
+        light.range = l->range;
+        if (l->type == cgltf_light_type_spot) {
+            light.innerConeAngle = l->spot_inner_cone_angle;
+            light.outerConeAngle = l->spot_outer_cone_angle;
+        }
+        [lights addObject:light];
+    }
+    return lights;
 }
 
 - (NSArray *)convertNodes
@@ -566,7 +602,7 @@ static dispatch_queue_t _loaderQueue;
     self.asset.materials = [self convertMaterials];
     self.asset.meshes = [self convertMeshes];
     self.asset.cameras = [self convertCameras];
-    //asset.lights = GLTFLightsFromCGLTF(gltf);
+    self.asset.lights = [self convertLights];
     self.asset.nodes = [self convertNodes];
     self.asset.skins = [self convertSkins];
     // TODO: resolve node->skeleton relationships
