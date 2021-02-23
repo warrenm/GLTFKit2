@@ -211,7 +211,6 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
         imagesForIdentfiers[image.identifier] = uiImage;
     }
     
-    //CGColorSpaceRef colorSpaceSRGB = CGColorSpaceCreateWithName(kCGColorSpaceSRGB); //
     CGColorSpaceRef colorSpaceLinearSRGB = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
     
     SCNMaterial *defaultMaterial = [SCNMaterial material];
@@ -237,12 +236,12 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
             // base color textures and factors simultaneously
             simd_float4 rgba = material.metallicRoughness.baseColorFactor;
             CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-            scnMaterial.multiply.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
+            scnMaterial.multiply.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
         } else {
             SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
             simd_float4 rgba = material.metallicRoughness.baseColorFactor;
             CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-            baseColorProperty.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
+            baseColorProperty.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
         }
         if (material.metallicRoughness.metallicRoughnessTexture) {
             GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
@@ -341,7 +340,6 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
                 if((indexAccessor.componentType == GLTFComponentTypeUnsignedShort) ||
                    (indexAccessor.componentType == GLTFComponentTypeUnsignedInt))
                 {
-                    // We directly support this kind of index, so we can memcpy it over
                     indexSize = indexAccessor.componentType == GLTFComponentTypeUnsignedInt ? sizeof(UInt32) : sizeof(UInt16);
                     indexData = [NSData dataWithBytesNoCopy:(void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset
                                                              length:indexCount * indexSize
@@ -413,16 +411,17 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
     for (GLTFLight *light in asset.lights) {
         SCNLight *scnLight = [SCNLight light];
         scnLight.name = light.name;
-        CGFloat rgbad[] = { light.color[0], light.color[1], light.color[2], 1.0 };
-        scnLight.color = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
-        // TODO: SCN intensity is always lumens. Need to convert from candela (point and spot lights) and lux (directional) here.
-        scnLight.intensity = light.intensity;
+        CGFloat rgba[] = { light.color[0], light.color[1], light.color[2], 1.0 };
+        scnLight.color = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgba);
         switch (light.type) {
             case GLTFLightTypeDirectional:
+                scnLight.intensity = light.intensity; // TODO: Convert from lux to lumens? How?
                 break;
             case GLTFLightTypePoint:
+                scnLight.intensity = light.intensity / 12.57;
                 break;
             case GLTFLightTypeSpot:
+                scnLight.intensity = light.intensity / 12.57;
                 scnLight.spotInnerAngle = GLTFDegFromRad(light.innerConeAngle);
                 scnLight.spotOuterAngle = GLTFDegFromRad(light.outerConeAngle);
                 break;
@@ -455,26 +454,32 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
         nodesForIdentifiers[node.identifier] = scnNode;
     }
 
-    NSMutableArray *rootNodes = [NSMutableArray array];
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
-        if (node.parentNode == nil) {
-            [rootNodes addObject:node];
-        }
         for (GLTFNode *childNode in node.childNodes) {
             SCNNode *scnChildNode = nodesForIdentifiers[childNode.identifier];
             [scnNode addChildNode:scnChildNode];
         }
     }
-    
-    // TODO: Actually map GLTF scene(s)
-    
-    SCNScene *scene = [SCNScene scene];
-    for (GLTFNode *rootNode in rootNodes) {
-        SCNNode *scnChildNode = nodesForIdentifiers[rootNode.identifier];
-        [scene.rootNode addChildNode:scnChildNode];
+
+    NSMutableDictionary *scenesForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFScene *scene in asset.scenes) {
+        SCNScene *scnScene = [SCNScene scene];
+        for (GLTFNode *rootNode in scene.nodes) {
+            SCNNode *scnChildNode = nodesForIdentifiers[rootNode.identifier];
+            [scnScene.rootNode addChildNode:scnChildNode];
+        }
+        scenesForIdentifiers[scene.identifier] = scnScene;
     }
-    return scene;
+    
+    if (asset.defaultScene) {
+        return scenesForIdentifiers[asset.defaultScene.identifier];
+    } else if (asset.scenes.count > 0) {
+        return scenesForIdentifiers[asset.scenes.firstObject];
+    } else {
+        // Last resort. The asset doesn't contain any scenes but we're contractually obligated to return something.
+        return [SCNScene scene];
+    }
 }
 
 @end

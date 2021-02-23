@@ -444,10 +444,10 @@ static dispatch_queue_t _loaderQueue;
             size_t cameraIndex = n->camera - gltf->cameras;
             node.camera = self.asset.cameras[cameraIndex];
         }
-        //if (n->light) {
-        //    size_t lightIndex = n->light = gltf->lights;
-        //    node.light = self.asset.lights[lightIndex];
-        //}
+        if (n->light) {
+            size_t lightIndex = n->light - gltf->lights;
+            node.light = self.asset.lights[lightIndex];
+        }
         if (n->mesh) {
             size_t meshIndex = n->mesh - gltf->meshes;
             node.mesh = self.asset.meshes[meshIndex];
@@ -620,9 +620,7 @@ static dispatch_queue_t _loaderQueue;
         GLTFScene *scene = self.asset.scenes[sceneIndex];
         self.asset.defaultScene = scene;
     } else {
-        if (self.asset.scenes.count > 0) {
-            self.asset.defaultScene = self.asset.scenes.firstObject;
-        }
+        self.asset.defaultScene = self.asset.scenes.firstObject;
     }
 }
 
