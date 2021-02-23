@@ -275,7 +275,14 @@ static dispatch_queue_t _loaderQueue;
     params.texture = self.asset.textures[textureIndex];
     params.scale = tv->scale;
     params.texCoord = tv->texcoord;
-    // TODO: transform
+    if (tv->has_transform) {
+        GLTFTextureTransform *transform = [GLTFTextureTransform new];
+        transform.offset = (simd_float2){ tv->transform.offset[0], tv->transform.offset[1] };
+        transform.rotation = tv->transform.rotation;
+        transform.scale = (simd_float2){ tv->transform.scale[0], tv->transform.scale[1] };
+        transform.texCoord = tv->transform.texcoord;
+        params.transform = transform;
+    }
     return params;
 }
 

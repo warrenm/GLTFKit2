@@ -426,11 +426,23 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFTextureTransform : NSObject
+
+@property (nonatomic, assign) simd_float2 offset;
+@property (nonatomic, assign) float rotation;
+@property (nonatomic, assign) simd_float2 scale;
+@property (nonatomic, assign) int texCoord;
+@property (nonatomic, readonly) simd_float4x4 matrix;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFTextureParams : NSObject
 
 @property (nonatomic, strong) GLTFTexture *texture;
 @property (nonatomic, assign) NSInteger texCoord;
 @property (nonatomic, assign) float scale; // occlusion map strength or normal map scale
+@property (nonatomic, nullable, strong) GLTFTextureTransform *transform;
 
 @end
 

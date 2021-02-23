@@ -481,6 +481,41 @@ GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
 
 @end
 
+@implementation GLTFTextureTransform
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _scale = (simd_float2){ 1.0f, 1.0f };
+    }
+    return self;
+}
+
+- (simd_float4x4)matrix {
+    float c = cosf(_rotation);
+    float s = sinf(_rotation);
+    simd_float4x4 S = {{
+        { _scale.x,     0.0f, 0.0f, 0.0f },
+        {     0.0f, _scale.y, 0.0f, 0.0f },
+        {     0.0f,     0.0f, 1.0f, 0.0f },
+        {     0.0f,     0.0f, 0.0f, 1.0f }
+    }};
+    simd_float4x4 T = {{
+        {      1.0f,      0.0f, 0.0f, 0.0f },
+        {      0.0f,      1.0f, 0.0f, 0.0f },
+        {      0.0f,      0.0f, 1.0f, 0.0f },
+        { _offset.x, _offset.y, 0.0f, 1.0f }
+    }};
+    simd_float4x4 R = {{
+        {    c,   -s, 0.0f, 0.0f },
+        {    s,    c, 0.0f, 0.0f },
+        { 0.0f, 0.0f, 1.0f, 0.0f },
+        { 0.0f, 0.0f, 0.0f, 1.0f }
+    }};
+    return simd_mul(T, simd_mul(R, S));
+}
+
+@end
+
 @implementation GLTFTextureParams
 
 - (instancetype)init {

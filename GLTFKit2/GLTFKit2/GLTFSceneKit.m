@@ -176,10 +176,13 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
     GLTFSCNGetFilterModeForMinMipFilter(sampler.minMipFilter, &minFilter, &mipFilter);
     property.minificationFilter = minFilter;
     property.mipFilter = mipFilter;
-    //property.contentsTransform = SCNMatrix4();
     property.wrapS = GLTFSCNWrapModeForMode(sampler.wrapS);
     property.wrapT = GLTFSCNWrapModeForMode(sampler.wrapT);
     property.mappingChannel = textureParams.texCoord;
+    if (textureParams.transform) {
+        property.contentsTransform = SCNMatrix4FromMat4(textureParams.transform.matrix);
+        property.mappingChannel = textureParams.transform.texCoord;
+    }
 }
 
 static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
