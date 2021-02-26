@@ -537,17 +537,17 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
         {     0.0f,     0.0f, 1.0f, 0.0f },
         {     0.0f,     0.0f, 0.0f, 1.0f }
     }};
-    simd_float4x4 T = {{
-        {      1.0f,      0.0f, 0.0f, 0.0f },
-        {      0.0f,      1.0f, 0.0f, 0.0f },
-        {      0.0f,      0.0f, 1.0f, 0.0f },
-        { _offset.x, _offset.y, 0.0f, 1.0f }
-    }};
     simd_float4x4 R = {{
         {    c,   -s, 0.0f, 0.0f },
         {    s,    c, 0.0f, 0.0f },
         { 0.0f, 0.0f, 1.0f, 0.0f },
         { 0.0f, 0.0f, 0.0f, 1.0f }
+    }};
+    simd_float4x4 T = {{
+        {      1.0f,      0.0f, 0.0f, 0.0f },
+        {      0.0f,      1.0f, 0.0f, 0.0f },
+        {      0.0f,      0.0f, 1.0f, 0.0f },
+        { _offset.x, _offset.y, 0.0f, 1.0f }
     }};
     return simd_mul(T, simd_mul(R, S));
 }

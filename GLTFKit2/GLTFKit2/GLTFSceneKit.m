@@ -9,6 +9,8 @@ typedef NSImage NSUIImage;
 #error "Unsupported operating system. Cannot determine suitable image class"
 #endif
 
+static const float LumensPerCandela = 1.0 / (4.0 * M_PI);
+
 static float GLTFDegFromRad(float rad) {
     return rad * (180.0 / M_PI);
 }
@@ -177,7 +179,7 @@ static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, 
     return values;
 }
 
-static NSArray<NSValue *> *GLTFFloat3ValueArrayForAccessor(GLTFAccessor *accessor) {
+static NSArray<NSValue *> *GLTFSCNVector3ArrayForAccessor(GLTFAccessor *accessor) {
     // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
     assert(accessor.componentType == GLTFComponentTypeFloat);
     assert(accessor.dimension == GLTFValueDimensionVector3);
@@ -192,7 +194,7 @@ static NSArray<NSValue *> *GLTFFloat3ValueArrayForAccessor(GLTFAccessor *accesso
     return values;
 }
 
-static NSArray<NSValue *> *GLTFFloat4ValueArrayForAccessor(GLTFAccessor *accessor) {
+static NSArray<NSValue *> *GLTFSCNVector4ArrayForAccessor(GLTFAccessor *accessor) {
     // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
     assert(accessor.componentType == GLTFComponentTypeFloat);
     assert(accessor.dimension == GLTFValueDimensionVector4);
@@ -207,7 +209,7 @@ static NSArray<NSValue *> *GLTFFloat4ValueArrayForAccessor(GLTFAccessor *accesso
     return values;
 }
 
-static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *accessor) {
+static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accessor) {
     assert(accessor.componentType == GLTFComponentTypeFloat);
     assert(accessor.dimension == GLTFValueDimensionMatrix4);
     NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
@@ -262,11 +264,12 @@ static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *access
     for (GLTFMaterial *material in asset.materials) {
         SCNMaterial *scnMaterial = [SCNMaterial new];
         scnMaterial.locksAmbientWithDiffuse = YES;
-        if (material.metallicRoughness) {
-            scnMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
-        }
         if (material.isUnlit) {
             scnMaterial.lightingModelName = SCNLightingModelConstant;
+        } else if (material.metallicRoughness) {
+            scnMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
+        } else {
+            scnMaterial.lightingModelName = SCNLightingModelBlinn;
         }
         //TODO: How to represent base color/emissive factor, etc., when textures are present?
         if (material.metallicRoughness.baseColorTexture) {
@@ -456,7 +459,6 @@ static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *access
         scnLight.name = light.name;
         CGFloat rgba[] = { light.color[0], light.color[1], light.color[2], 1.0 };
         scnLight.color = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgba);
-        const float LumensPerCandela = 1.0 / (4.0 * M_PI);
         switch (light.type) {
             case GLTFLightTypeDirectional:
                 scnLight.intensity = light.intensity; // TODO: Convert from lux to lumens? How?
@@ -524,7 +526,7 @@ static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *access
                 SCNNode *bone = nodesForIdentifiers[jointNode.identifier];
                 [bones addObject:bone];
             }
-            NSArray *ibmValues = GLTFMatrixValueArrayFromAccessor(node.skin.inverseBindMatrices);
+            NSArray *ibmValues = GLTFSCNMatrix4ArrayFromAccessor(node.skin.inverseBindMatrices);
             for (SCNNode *skinnedNode in skinTargets) {
                 SCNGeometrySource *weights = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
                 SCNGeometrySource *indices = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
@@ -557,13 +559,13 @@ static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *access
             CAKeyframeAnimation *caAnimation = nil;
             if ([channel.target.path isEqualToString:GLTFAnimationPathTranslation]) {
                 caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"position"];
-                caAnimation.values = GLTFFloat3ValueArrayForAccessor(channel.sampler.output);
+                caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
             } else if ([channel.target.path isEqualToString:GLTFAnimationPathRotation]) {
                 caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"orientation"];
-                caAnimation.values = GLTFFloat4ValueArrayForAccessor(channel.sampler.output);
+                caAnimation.values = GLTFSCNVector4ArrayForAccessor(channel.sampler.output);
             } else if ([channel.target.path isEqualToString:GLTFAnimationPathScale]) {
                 caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"scale"];
-                caAnimation.values = GLTFFloat3ValueArrayForAccessor(channel.sampler.output);
+                caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
             } else {
                 // TODO: This shouldn't be a hard failure, but not sure what to do here yet
                 assert(false);
@@ -592,7 +594,7 @@ static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *access
             clipChannel.animation = scnAnimation;
             [scnChannels addObject:clipChannel];
             
-            //[clipChannel.target addAnimation:scnAnimation forKey:channel.target.path]; // HACK for testing
+            [clipChannel.target addAnimation:scnAnimation forKey:channel.target.path]; // HACK for testing
         }
         GLTFSCNAnimation *animationClip = [GLTFSCNAnimation new];
         animationClip.name = animation.name;
