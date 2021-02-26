@@ -55,11 +55,16 @@ static GLTFInterpolationMode GLTFInterpolationModeForType(cgltf_interpolation_ty
 
 static NSString *GLTFTargetPathForPath(cgltf_animation_path_type path) {
     switch (path) {
-        case cgltf_animation_path_type_rotation: return GLTFAnimationPathRotation;
-        case cgltf_animation_path_type_scale: return GLTFAnimationPathScale;
-        case cgltf_animation_path_type_translation: return GLTFAnimationPathTranslation;
-        case cgltf_animation_path_type_weights: return GLTFAnimationPathWeights;
-        default: return @"";
+        case cgltf_animation_path_type_rotation:
+            return GLTFAnimationPathRotation;
+        case cgltf_animation_path_type_scale:
+            return GLTFAnimationPathScale;
+        case cgltf_animation_path_type_translation:
+            return GLTFAnimationPathTranslation;
+        case cgltf_animation_path_type_weights:
+            return GLTFAnimationPathWeights;
+        default:
+            return @"";
     }
 }
 
@@ -195,7 +200,22 @@ static dispatch_queue_t _loaderQueue;
                                                                 dimension:GLTFDimensionForAccessorType(a->type)
                                                                     count:a->count
                                                                normalized:a->normalized];
-        // TODO: Convert min/max values
+        
+        size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
+        if (a->has_min) {
+            NSMutableArray *minArray = [NSMutableArray array];
+            for (int i = 0; i < componentCount; ++i) {
+                [minArray addObject:@(a->min[i])];
+            }
+            accessor.minValues = minArray;
+        }
+        if (a->has_max) {
+            NSMutableArray *maxArray = [NSMutableArray array];
+            for (int i = 0; i < componentCount; ++i) {
+                [maxArray addObject:@(a->max[i])];
+            }
+            accessor.maxValues = maxArray;
+        }
         // TODO: Sparse
         accessor.name = a->name ? [NSString stringWithUTF8String:a->name]
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Accessor"];

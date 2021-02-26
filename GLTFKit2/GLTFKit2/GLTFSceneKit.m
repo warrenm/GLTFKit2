@@ -103,44 +103,6 @@ static int GLTFSCNPrimitiveCountForVertexCount(GLTFPrimitiveType type, int verte
     }
 }
 
-static int GLTFSCNBytesPerComponentForAccessor(GLTFAccessor *accessor) {
-    switch (accessor.componentType) {
-        case GLTFComponentTypeByte:
-        case GLTFComponentTypeUnsignedByte:
-            return sizeof(UInt8);
-        case GLTFComponentTypeShort:
-        case GLTFComponentTypeUnsignedShort:
-            return sizeof(UInt16);
-        case GLTFComponentTypeUnsignedInt:
-        case GLTFComponentTypeFloat:
-            return sizeof(UInt32);
-        default:
-            break;
-    }
-    return 0;
-}
-
-static int GLTFSCNComponentCountForAccessor(GLTFAccessor *accessor) {
-    switch (accessor.dimension) {
-        case GLTFValueDimensionScalar:
-            return 1;
-        case GLTFValueDimensionVector2:
-            return 2;
-        case GLTFValueDimensionVector3:
-            return 3;
-        case GLTFValueDimensionVector4:
-            return 4;
-        case GLTFValueDimensionMatrix2:
-            return 4;
-        case GLTFValueDimensionMatrix3:
-            return 9;
-        case GLTFValueDimensionMatrix4:
-            return 16;
-        default: break;
-    }
-    return 0;
-}
-
 static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
     if ([name isEqualToString:GLTFAttributeSemanticPosition]) {
         return SCNGeometrySourceSemanticVertex;
@@ -200,6 +162,57 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
     return [NSData dataWithBytesNoCopy:shorts length:bufferSize freeWhenDone:YES];
 }
 
+static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, NSTimeInterval maxKeyTime) {
+    // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
+    assert(accessor.componentType == GLTFComponentTypeFloat);
+    assert(accessor.dimension == GLTFValueDimensionScalar);
+    NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
+    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
+    float scale = (maxKeyTime > 0) ? (1.0f / maxKeyTime) : 1.0f;
+    for (int i = 0; i < accessor.count; ++i) {
+        const float *x = bufferViewBaseAddr + (i * (accessor.bufferView.stride ?: sizeof(float))) + accessor.offset;
+        NSNumber *value = @(x[0] * scale);
+        [values addObject:value];
+    }
+    return values;
+}
+
+static NSArray<NSValue *> *GLTFFloat3ValueArrayForAccessor(GLTFAccessor *accessor) {
+    // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
+    assert(accessor.componentType == GLTFComponentTypeFloat);
+    assert(accessor.dimension == GLTFValueDimensionVector3);
+    NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
+    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
+    const size_t elementSize = sizeof(float) * 3;
+    for (int i = 0; i < accessor.count; ++i) {
+        const float *xyz = bufferViewBaseAddr + (i * (accessor.bufferView.stride ?: elementSize)) + accessor.offset;
+        NSValue *value = [NSValue valueWithSCNVector3:SCNVector3Make(xyz[0], xyz[1], xyz[2])];
+        [values addObject:value];
+    }
+    return values;
+}
+
+static NSArray<NSValue *> *GLTFFloat4ValueArrayForAccessor(GLTFAccessor *accessor) {
+    // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
+    assert(accessor.componentType == GLTFComponentTypeFloat);
+    assert(accessor.dimension == GLTFValueDimensionVector4);
+    NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
+    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
+    const size_t elementSize = sizeof(float) * 4;
+    for (int i = 0; i < accessor.count; ++i) {
+        const float *xyzw = bufferViewBaseAddr + (i * (accessor.bufferView.stride ?: elementSize)) + accessor.offset;
+        NSValue *value = [NSValue valueWithSCNVector4:SCNVector4Make(xyzw[0], xyzw[1], xyzw[2], xyzw[3])];
+        [values addObject:value];
+    }
+    return values;
+}
+
+@implementation GLTFSCNAnimationChannel
+@end
+
+@implementation GLTFSCNAnimation
+@end
+
 @implementation SCNScene (GLTFSceneKit)
 
 + (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset
@@ -229,8 +242,10 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
     NSMutableDictionary <NSUUID *, SCNMaterial *> *materialsForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFMaterial *material in asset.materials) {
         SCNMaterial *scnMaterial = [SCNMaterial new];
-        scnMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
         scnMaterial.locksAmbientWithDiffuse = YES;
+        if (material.metallicRoughness) {
+            scnMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
+        }
         //TODO: How to represent base color/emissive factor, etc., when textures are present?
         if (material.metallicRoughness.baseColorTexture) {
             GLTFTextureParams *baseColorTexture = material.metallicRoughness.baseColorTexture;
@@ -355,7 +370,8 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
                     assert(indexAccessor.componentType == GLTFComponentTypeUnsignedByte);
                     // We don't directly support 8-bit indices, but converting them is simple enough
                     indexSize = sizeof(UInt16);
-                    indexData = GLTFPackedUInt16DataFromPackedUInt8((void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset, indexCount);
+                    void *bufferViewBaseAddr = (void *)indexBuffer.data.bytes + indexBufferView.offset;
+                    indexData = GLTFPackedUInt16DataFromPackedUInt8(bufferViewBaseAddr + indexAccessor.offset, indexCount);
                 }
             }
             SCNGeometryElement *element = [SCNGeometryElement geometryElementWithData:indexData
@@ -368,12 +384,12 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
                 GLTFAccessor *attrAccessor = primitive.attributes[key];
                 GLTFBufferView *attrBufferView = attrAccessor.bufferView;
                 GLTFBuffer *attrBuffer = attrBufferView.buffer;
-                size_t bytesPerComponent = GLTFSCNBytesPerComponentForAccessor(attrAccessor);
-                size_t componentCount = GLTFSCNComponentCountForAccessor(attrAccessor);
-                size_t formatSize = bytesPerComponent * componentCount;
-                // FIXME: This is very wasteful when we have interleaved attributes; we duplicate all data for every attribute.
+                size_t bytesPerComponent = GLTFBytesPerComponentForComponentType(attrAccessor.componentType);
+                size_t componentCount = GLTFComponentCountForDimension(attrAccessor.dimension);
+                size_t elementSize = bytesPerComponent * componentCount;
+                // TODO: This is very wasteful when we have interleaved attributes; we duplicate all data for every attribute.
                 NSData *attrData = [NSData dataWithBytesNoCopy:(void *)attrBuffer.data.bytes + attrBufferView.offset + attrAccessor.offset
-                                                        length:attrAccessor.count * MAX(formatSize, attrBufferView.stride)
+                                                        length:attrAccessor.count * MAX(attrBufferView.stride, elementSize)
                                                   freeWhenDone:NO];
                 SCNGeometrySource *source = [SCNGeometrySource geometrySourceWithData:attrData
                                                                              semantic:GLTFSCNGeometrySourceSemanticForSemantic(key)
@@ -382,7 +398,7 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
                                                                   componentsPerVector:componentCount
                                                                     bytesPerComponent:bytesPerComponent
                                                                            dataOffset:0
-                                                                           dataStride:MAX(formatSize, attrBufferView.stride)];
+                                                                           dataStride:MAX(attrBufferView.stride, elementSize)];
                 [geometrySources addObject:source];
             }
             
@@ -418,22 +434,24 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
         scnLight.name = light.name;
         CGFloat rgba[] = { light.color[0], light.color[1], light.color[2], 1.0 };
         scnLight.color = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgba);
+        const float LumensPerCandela = 1.0 / (4.0 * M_PI);
         switch (light.type) {
             case GLTFLightTypeDirectional:
                 scnLight.intensity = light.intensity; // TODO: Convert from lux to lumens? How?
                 break;
             case GLTFLightTypePoint:
-                scnLight.intensity = light.intensity / 12.57;
+                scnLight.intensity = light.intensity * LumensPerCandela;
                 break;
             case GLTFLightTypeSpot:
-                scnLight.intensity = light.intensity / 12.57;
+                scnLight.intensity = light.intensity * LumensPerCandela;
                 scnLight.spotInnerAngle = GLTFDegFromRad(light.innerConeAngle);
                 scnLight.spotOuterAngle = GLTFDegFromRad(light.outerConeAngle);
                 break;
         }
+        scnLight.castsShadow = YES;
         lightsForIdentifiers[light.identifier] = scnLight;
     }
-
+    
     NSMutableDictionary<NSUUID *, SCNNode *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = [SCNNode node];
@@ -465,6 +483,65 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
             SCNNode *scnChildNode = nodesForIdentifiers[childNode.identifier];
             [scnNode addChildNode:scnChildNode];
         }
+    }
+
+    NSMutableDictionary<NSUUID *, GLTFSCNAnimation *> *animationsForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFAnimation *animation in asset.animations) {
+        NSMutableArray *scnChannels = [NSMutableArray array];
+        NSTimeInterval maxChannelKeyTime = 0.0;
+        for (GLTFAnimationChannel *channel in animation.channels) {
+            if (channel.sampler.input.maxValues.count > 0) {
+                NSTimeInterval channelMaxTime = channel.sampler.input.maxValues.firstObject.doubleValue;
+                if (channelMaxTime > maxChannelKeyTime) {
+                    maxChannelKeyTime = channelMaxTime;
+                }
+            }
+        }
+        for (GLTFAnimationChannel *channel in animation.channels) {
+            CAKeyframeAnimation *caAnimation = nil;
+            if ([channel.target.path isEqualToString:GLTFAnimationPathTranslation]) {
+                caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"position"];
+                caAnimation.values = GLTFFloat3ValueArrayForAccessor(channel.sampler.output);
+            } else if ([channel.target.path isEqualToString:GLTFAnimationPathRotation]) {
+                caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"orientation"];
+                caAnimation.values = GLTFFloat4ValueArrayForAccessor(channel.sampler.output);
+            } else if ([channel.target.path isEqualToString:GLTFAnimationPathScale]) {
+                caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"scale"];
+                caAnimation.values = GLTFFloat3ValueArrayForAccessor(channel.sampler.output);
+            } else {
+                // TODO: This shouldn't be a hard failure, but not sure what to do here yet
+                assert(false);
+            }
+            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, maxChannelKeyTime);
+            caAnimation.keyTimes = baseKeyTimes;
+            switch (channel.sampler.interpolationMode) {
+                case GLTFInterpolationModeLinear:
+                    caAnimation.calculationMode = kCAAnimationLinear;
+                    break;
+                case GLTFInterpolationModeStep:
+                    caAnimation.calculationMode = kCAAnimationDiscrete;
+                    caAnimation.keyTimes = [@[@(0.0)] arrayByAddingObjectsFromArray:caAnimation.keyTimes];
+                    break;
+                case GLTFInterpolationModeCubic:
+                    caAnimation.calculationMode = kCAAnimationCubic;
+                    break;
+            }
+            // TODO: Animated weights
+            caAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
+            caAnimation.duration = maxChannelKeyTime;
+            caAnimation.repeatDuration = FLT_MAX;
+            GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
+            clipChannel.target = nodesForIdentifiers[channel.target.node.identifier];
+            SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
+            clipChannel.animation = scnAnimation;
+            [scnChannels addObject:clipChannel];
+            
+            //[clipChannel.target addAnimation:scnAnimation forKey:channel.target.path]; // HACK for testing
+        }
+        GLTFSCNAnimation *animationClip = [GLTFSCNAnimation new];
+        animationClip.name = animation.name;
+        animationClip.channels = scnChannels;
+        animationsForIdentifiers[animation.identifier] = animationClip;
     }
 
     NSMutableDictionary *scenesForIdentifiers = [NSMutableDictionary dictionary];

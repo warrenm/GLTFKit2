@@ -24,6 +24,44 @@ GLTFAnimationPath GLTFAnimationPathRotation = @"rotation";
 GLTFAnimationPath GLTFAnimationPathScale = @"scale";
 GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
 
+int GLTFBytesPerComponentForComponentType(GLTFComponentType type) {
+    switch (type) {
+        case GLTFComponentTypeByte:
+        case GLTFComponentTypeUnsignedByte:
+            return sizeof(UInt8);
+        case GLTFComponentTypeShort:
+        case GLTFComponentTypeUnsignedShort:
+            return sizeof(UInt16);
+        case GLTFComponentTypeUnsignedInt:
+        case GLTFComponentTypeFloat:
+            return sizeof(UInt32);
+        default:
+            break;
+    }
+    return 0;
+}
+
+int GLTFComponentCountForDimension(GLTFValueDimension dim) {
+    switch (dim) {
+        case GLTFValueDimensionScalar:
+            return 1;
+        case GLTFValueDimensionVector2:
+            return 2;
+        case GLTFValueDimensionVector3:
+            return 3;
+        case GLTFValueDimensionVector4:
+            return 4;
+        case GLTFValueDimensionMatrix2:
+            return 4;
+        case GLTFValueDimensionMatrix3:
+            return 9;
+        case GLTFValueDimensionMatrix4:
+            return 16;
+        default: break;
+    }
+    return 0;
+}
+
 @implementation GLTFObject
 
 - (instancetype)init {

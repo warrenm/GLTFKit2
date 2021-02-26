@@ -19,11 +19,9 @@
 			<key>CFBundleTypeName</key>
 			<string>glTF Model</string>
 			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
+			<string>Editor</string>
 			<key>LSHandlerRank</key>
 			<string>Default</string>
-			<key>LSItemContentTypes</key>
-			<array/>
 			<key>LSTypeIsPackage</key>
 			<integer>0</integer>
 			<key>NSDocumentClass</key>
@@ -56,7 +54,9 @@
 	<array>
 		<dict>
 			<key>UTTypeConformsTo</key>
-			<array/>
+			<array>
+				<string>public.data</string>
+			</array>
 			<key>UTTypeDescription</key>
 			<string>glTF</string>
 			<key>UTTypeIconFile</key>
@@ -75,6 +75,7 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>gltf</string>
+					<string>glb</string>
 				</array>
 				<key>public.mime-type</key>
 				<array>

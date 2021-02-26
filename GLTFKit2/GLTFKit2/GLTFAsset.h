@@ -29,6 +29,9 @@ extern GLTFAnimationPath GLTFAnimationPathRotation;
 extern GLTFAnimationPath GLTFAnimationPathScale;
 extern GLTFAnimationPath GLTFAnimationPathWeights;
 
+extern int GLTFBytesPerComponentForComponentType(GLTFComponentType type);
+extern int GLTFComponentCountForDimension(GLTFValueDimension dim);
+
 GLTFKIT2_EXPORT
 @interface GLTFObject : NSObject
 
