@@ -267,7 +267,7 @@ GLTFKIT2_EXPORT
 - (instancetype)initWithBufferView:(GLTFBufferView *)bufferView mimeType:(NSString *)mimeType NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
-- (CGImageRef _Nullable)createCGImage;
+- (CGImageRef _Nullable)newCGImage;
 
 @end
 

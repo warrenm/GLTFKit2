@@ -23,7 +23,7 @@
 
 - (NSString *)nextUniqueNameWithPrefix:(NSString *)prefix {
     NSNumber *existingCount = self.countsForPrefixes[prefix];
-    if (existingCount) {
+    if (existingCount != nil) {
         self.countsForPrefixes[prefix] = @(existingCount.integerValue + 1);
         return [NSString stringWithFormat:@"%@%@", prefix, existingCount];
     }

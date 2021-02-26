@@ -263,12 +263,12 @@ static NSString *GLTFMDLVertexAttributeNameForSemantic(NSString *name) {
         if (image.uri) {
             mdlTexture = [[MDLURLTexture alloc] initWithURL:image.uri name:image.name];
         } else {
-            CGImageRef cgImage = [image createCGImage];
+            CGImageRef cgImage = [image newCGImage];
             int width = (int)CGImageGetWidth(cgImage);
             int height = (int)CGImageGetHeight(cgImage);
             CGDataProviderRef dataProvider = CGImageGetDataProvider(cgImage);
             CFDataRef data = CGDataProviderCopyData(dataProvider); // hate
-            mdlTexture = [[MDLTexture alloc] initWithData:(__bridge NSData *)data
+            mdlTexture = [[MDLTexture alloc] initWithData:(__bridge_transfer NSData *)data
                                             topLeftOrigin:YES
                                                      name:image.name
                                                dimensions:(vector_int2){ width, height }

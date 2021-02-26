@@ -343,13 +343,14 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     return self;
 }
 
-- (CGImageRef)createCGImage {
+- (CGImageRef)newCGImage {
     CGImageSourceRef imageSource = NULL;
     if (self.bufferView) {
         NSData *imageData = self.bufferView.buffer.data;
         const UInt8 *imageBytes = imageData.bytes + self.bufferView.offset;
-        CFDataRef sourceData = CFDataCreateWithBytesNoCopy(NULL, imageBytes, self.bufferView.length, NULL);
+        CFDataRef sourceData = CFDataCreate(NULL, imageBytes, self.bufferView.length);
         imageSource = CGImageSourceCreateWithData(sourceData, NULL);
+        CFRelease(sourceData);
     } else if (self.uri) {
         imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)_uri, NULL);
     }

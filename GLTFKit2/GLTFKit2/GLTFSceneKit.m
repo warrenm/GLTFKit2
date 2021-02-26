@@ -244,7 +244,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         if (image.uri) {
             uiImage = [[NSUIImage alloc] initWithContentsOfURL:image.uri];
         } else {
-            CGImageRef cgImage = [image createCGImage];
+            CGImageRef cgImage = [image newCGImage];
             uiImage = [[NSUIImage alloc] initWithCGImage:cgImage size:NSZeroSize];
             CFRelease(cgImage);
         }
@@ -257,7 +257,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     defaultMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
     defaultMaterial.locksAmbientWithDiffuse = YES;
     CGFloat defaultBaseColorFactor[] = { 1.0, 1.0, 1.0, 1.0 };
-    defaultMaterial.diffuse.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, &defaultBaseColorFactor[0]);
+    defaultMaterial.diffuse.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, &defaultBaseColorFactor[0]);
     defaultMaterial.metalness.contents = @(1.0);
     defaultMaterial.roughness.contents = @(1.0);
 
@@ -282,12 +282,12 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             // base color textures and factors simultaneously
             simd_float4 rgba = material.metallicRoughness.baseColorFactor;
             CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-            scnMaterial.multiply.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+            scnMaterial.multiply.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
         } else {
             SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
             simd_float4 rgba = material.metallicRoughness.baseColorFactor;
             CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-            baseColorProperty.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+            baseColorProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
         }
         if (material.metallicRoughness.metallicRoughnessTexture) {
             GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
@@ -323,7 +323,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
             simd_float3 rgb = material.emissiveFactor;
             CGFloat rgbad[] = { rgb[0], rgb[1], rgb[2], 1.0 };
-            emissiveProperty.contents = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
+            emissiveProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
         }
         if (material.occlusionTexture) {
             GLTFTextureParams *occlusionTexture = material.occlusionTexture;
@@ -459,7 +459,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         SCNLight *scnLight = [SCNLight light];
         scnLight.name = light.name;
         CGFloat rgba[] = { light.color[0], light.color[1], light.color[2], 1.0 };
-        scnLight.color = (__bridge id)CGColorCreate(colorSpaceLinearSRGB, rgba);
+        scnLight.color = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgba);
         switch (light.type) {
             case GLTFLightTypeDirectional:
                 scnLight.intensity = light.intensity; // TODO: Convert from lux to lumens? How?
@@ -612,6 +612,8 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         }
         scenesForIdentifiers[scene.identifier] = scnScene;
     }
+    
+    CGColorSpaceRelease(colorSpaceLinearSRGB);
     
     if (asset.defaultScene) {
         return scenesForIdentifiers[asset.defaultScene.identifier];
