@@ -354,7 +354,9 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
         imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)_uri, NULL);
     }
     if (imageSource) {
-        return CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+        CGImageRef image = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+        CFRelease(imageSource);
+        return image;
     }
     return NULL;
 }
