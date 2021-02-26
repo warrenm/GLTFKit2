@@ -632,7 +632,16 @@ static dispatch_queue_t _loaderQueue;
     self.asset.lights = [self convertLights];
     self.asset.nodes = [self convertNodes];
     self.asset.skins = [self convertSkins];
-    // TODO: resolve node->skeleton relationships
+    
+    for (int i = 0; i < gltf->nodes_count; ++i) {
+        cgltf_node *n = gltf->nodes + i;
+        GLTFNode *node = self.asset.nodes[i];
+        if (n->skin) {
+            size_t skinIndex = n->skin - gltf->skins;
+            node.skin = self.asset.skins[skinIndex];
+        }
+    }
+    
     self.asset.animations = [self convertAnimations];
     self.asset.scenes = [self convertScenes];
     if (gltf->scene) {

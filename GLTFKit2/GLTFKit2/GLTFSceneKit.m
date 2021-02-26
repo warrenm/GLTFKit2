@@ -207,6 +207,25 @@ static NSArray<NSValue *> *GLTFFloat4ValueArrayForAccessor(GLTFAccessor *accesso
     return values;
 }
 
+static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *accessor) {
+    assert(accessor.componentType == GLTFComponentTypeFloat);
+    assert(accessor.dimension == GLTFValueDimensionMatrix4);
+    NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
+    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
+    const size_t elementSize = sizeof(float) * 16;
+    for (int i = 0; i < accessor.count; ++i) {
+        const float *M = bufferViewBaseAddr + (i * (accessor.bufferView.stride ?: elementSize)) + accessor.offset;
+        SCNMatrix4 m;
+        m.m11 = M[ 0]; m.m12 = M[ 1]; m.m13 = M[ 2]; m.m14 = M[ 3];
+        m.m21 = M[ 4]; m.m22 = M[ 5]; m.m23 = M[ 6]; m.m24 = M[ 7];
+        m.m31 = M[ 8]; m.m32 = M[ 9]; m.m33 = M[10]; m.m34 = M[11];
+        m.m41 = M[12]; m.m42 = M[13]; m.m43 = M[14]; m.m44 = M[15];
+        NSValue *value = [NSValue valueWithSCNMatrix4:m];
+        [values addObject:value];
+    }
+    return values;
+}
+
 @implementation GLTFSCNAnimationChannel
 @end
 
@@ -483,6 +502,33 @@ static NSArray<NSValue *> *GLTFFloat4ValueArrayForAccessor(GLTFAccessor *accesso
             SCNNode *scnChildNode = nodesForIdentifiers[childNode.identifier];
             [scnNode addChildNode:scnChildNode];
         }
+    }
+    
+    // SceneKit so inextricably connects skins to the node graphs they skin that it's pretty
+    // hopeless to create a mapping from GLTF skins to SCN skinners. So, we just brute-force
+    // iterate looking for skinned nodes and create a skinner per skinned node.
+    for (GLTFNode *node in asset.nodes) {
+        GLTFSkin *skin = node.skin;
+        if (skin == nil) { continue; }
+
+        NSMutableArray *bones = [NSMutableArray array];
+        for (GLTFNode *jointNode in skin.joints) {
+            SCNNode *bone = nodesForIdentifiers[jointNode.identifier];
+            [bones addObject:bone];
+        }
+        NSArray *ibmValues = GLTFMatrixValueArrayFromAccessor(skin.inverseBindMatrices);
+        SCNNode *scnNode = nodesForIdentifiers[node.identifier];
+        SCNGeometrySource *weights = [scnNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
+        SCNGeometrySource *indices = [scnNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
+        SCNSkinner *skinner = [SCNSkinner skinnerWithBaseGeometry:scnNode.geometry
+                                                            bones:bones
+                                        boneInverseBindTransforms:ibmValues
+                                                      boneWeights:weights
+                                                      boneIndices:indices];
+        if (skin.skeleton) {
+            skinner.skeleton = nodesForIdentifiers[skin.skeleton.identifier];
+        }
+        scnNode.skinner = skinner;
     }
 
     NSMutableDictionary<NSUUID *, GLTFSCNAnimation *> *animationsForIdentifiers = [NSMutableDictionary dictionary];
