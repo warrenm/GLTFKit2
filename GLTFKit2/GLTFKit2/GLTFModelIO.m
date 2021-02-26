@@ -276,6 +276,7 @@ static NSString *GLTFMDLVertexAttributeNameForSemantic(NSString *name) {
                                              channelCount:4
                                           channelEncoding:MDLTextureChannelEncodingUInt8
                                                    isCube:NO];
+            CFRelease(cgImage);
         }
         texturesForImageIdenfiers[image.identifier] = mdlTexture;
     }

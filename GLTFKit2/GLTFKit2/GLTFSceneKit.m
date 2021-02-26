@@ -246,6 +246,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         } else {
             CGImageRef cgImage = [image createCGImage];
             uiImage = [[NSUIImage alloc] initWithCGImage:cgImage size:NSZeroSize];
+            CFRelease(cgImage);
         }
         imagesForIdentfiers[image.identifier] = uiImage;
     }
