@@ -478,23 +478,6 @@ static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *access
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = [SCNNode node];
         scnNode.name = node.name;
-        if (node.mesh) {
-            NSArray *geometries = geometryArraysForIdentifiers[node.mesh.identifier];
-            if (geometries.count == 1) {
-                scnNode.geometry = geometryArraysForIdentifiers[node.mesh.identifier].firstObject;
-            } else if (geometries.count > 1) {
-                for (SCNGeometry *geometry in geometries) {
-                    SCNNode *geometryHolder = [SCNNode nodeWithGeometry:geometry];
-                    [scnNode addChildNode:geometryHolder];
-                }
-            }
-        }
-        if (node.camera) {
-            scnNode.camera = camerasForIdentifiers[node.camera.identifier];
-        }
-        if (node.light) {
-            scnNode.light = lightsForIdentifiers[node.light.identifier];
-        }
         scnNode.simdTransform = node.matrix;
         nodesForIdentifiers[node.identifier] = scnNode;
     }
@@ -507,31 +490,55 @@ static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *access
         }
     }
     
-    // SceneKit so inextricably connects skins to the node graphs they skin that it's pretty
-    // hopeless to create a mapping from GLTF skins to SCN skinners. So, we just brute-force
-    // iterate looking for skinned nodes and create a skinner per skinned node.
     for (GLTFNode *node in asset.nodes) {
-        GLTFSkin *skin = node.skin;
-        if (skin == nil) { continue; }
-
-        NSMutableArray *bones = [NSMutableArray array];
-        for (GLTFNode *jointNode in skin.joints) {
-            SCNNode *bone = nodesForIdentifiers[jointNode.identifier];
-            [bones addObject:bone];
-        }
-        NSArray *ibmValues = GLTFMatrixValueArrayFromAccessor(skin.inverseBindMatrices);
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
-        SCNGeometrySource *weights = [scnNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
-        SCNGeometrySource *indices = [scnNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
-        SCNSkinner *skinner = [SCNSkinner skinnerWithBaseGeometry:scnNode.geometry
-                                                            bones:bones
-                                        boneInverseBindTransforms:ibmValues
-                                                      boneWeights:weights
-                                                      boneIndices:indices];
-        if (skin.skeleton) {
-            skinner.skeleton = nodesForIdentifiers[skin.skeleton.identifier];
+        
+        if (node.camera) {
+            scnNode.camera = camerasForIdentifiers[node.camera.identifier];
         }
-        scnNode.skinner = skinner;
+        if (node.light) {
+            scnNode.light = lightsForIdentifiers[node.light.identifier];
+        }
+
+        // This collection holds the nodes to which any skin on this node should be applied,
+        // since we don't have a one-to-one mapping from nodes to meshes.
+        NSMutableArray *skinTargets = [NSMutableArray array];
+
+        if (node.mesh) {
+            NSArray *geometries = geometryArraysForIdentifiers[node.mesh.identifier];
+            if (geometries.count == 1) {
+                scnNode.geometry = geometryArraysForIdentifiers[node.mesh.identifier].firstObject;
+                [skinTargets addObject:scnNode];
+            } else if (geometries.count > 1) {
+                for (SCNGeometry *geometry in geometries) {
+                    SCNNode *geometryHolder = [SCNNode nodeWithGeometry:geometry];
+                    [scnNode addChildNode:geometryHolder];
+                    [skinTargets addObject:geometryHolder];
+                }
+            }
+        }
+
+        if (node.skin) {
+            NSMutableArray *bones = [NSMutableArray array];
+            for (GLTFNode *jointNode in node.skin.joints) {
+                SCNNode *bone = nodesForIdentifiers[jointNode.identifier];
+                [bones addObject:bone];
+            }
+            NSArray *ibmValues = GLTFMatrixValueArrayFromAccessor(node.skin.inverseBindMatrices);
+            for (SCNNode *skinnedNode in skinTargets) {
+                SCNGeometrySource *weights = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
+                SCNGeometrySource *indices = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
+                SCNSkinner *skinner = [SCNSkinner skinnerWithBaseGeometry:skinnedNode.geometry
+                                                                    bones:bones
+                                                boneInverseBindTransforms:ibmValues
+                                                              boneWeights:weights
+                                                              boneIndices:indices];
+                if (node.skin.skeleton) {
+                    skinner.skeleton = nodesForIdentifiers[node.skin.skeleton.identifier];
+                }
+                skinnedNode.skinner = skinner;
+            }
+        }
     }
 
     NSMutableDictionary<NSUUID *, GLTFSCNAnimation *> *animationsForIdentifiers = [NSMutableDictionary dictionary];
