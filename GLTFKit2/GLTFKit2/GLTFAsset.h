@@ -323,6 +323,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, assign) GLTFAlphaMode alphaMode;
 @property (nonatomic, assign) float alphaCutoff;
 @property (nonatomic, assign, getter=isDoubleSided) BOOL doubleSided;
+@property (nonatomic, assign, getter=isUnlit) BOOL unlit;
 
 @end
 

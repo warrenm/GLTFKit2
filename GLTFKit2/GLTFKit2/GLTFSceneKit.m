@@ -265,6 +265,9 @@ static NSArray<NSValue *> *GLTFMatrixValueArrayFromAccessor(GLTFAccessor *access
         if (material.metallicRoughness) {
             scnMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
         }
+        if (material.isUnlit) {
+            scnMaterial.lightingModelName = SCNLightingModelConstant;
+        }
         //TODO: How to represent base color/emissive factor, etc., when textures are present?
         if (material.metallicRoughness.baseColorTexture) {
             GLTFTextureParams *baseColorTexture = material.metallicRoughness.baseColorTexture;

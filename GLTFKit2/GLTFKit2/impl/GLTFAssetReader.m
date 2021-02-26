@@ -355,7 +355,9 @@ static dispatch_queue_t _loaderQueue;
             }
             material.clearcoat = clearcoat;
         }
-        // TODO: unlit
+        if (m->unlit) {
+            material.unlit = YES;
+        }
         // TODO: PBR specular-glossiness?
         // TODO: sheen
         material.name = m->name ? [NSString stringWithUTF8String:m->name]
