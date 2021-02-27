@@ -353,7 +353,7 @@ GLTFKIT2_EXPORT
 
 @end
 
-typedef NSDictionary GLTFMorphTarget;
+typedef NSDictionary<NSString *, GLTFAccessor *> GLTFMorphTarget;
 
 GLTFKIT2_EXPORT
 @interface GLTFPrimitive : GLTFObject
