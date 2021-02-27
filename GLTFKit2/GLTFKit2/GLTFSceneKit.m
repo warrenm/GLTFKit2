@@ -184,6 +184,33 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
             memcpy(dest, src, elementSize);
         }
     }
+    if (accessor.sparse) {
+        assert(accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedShort ||
+               accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedInt);
+        const void *baseSparseIndexBufferViewPtr = accessor.sparse.indices.buffer.data.bytes +
+                                                   accessor.sparse.indices.offset;
+        const void *baseSparseIndexAccessorPtr = baseSparseIndexBufferViewPtr + accessor.sparse.indexOffset;
+
+        const void *baseValueBufferViewPtr = accessor.sparse.values.buffer.data.bytes + accessor.sparse.values.offset;
+        const void *baseSrcPtr = baseValueBufferViewPtr + accessor.sparse.valueOffset;
+        const size_t srcValueStride = accessor.sparse.values.stride ?: elementSize;
+
+        void *baseDestPtr = bytes;
+
+        if (accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedShort) {
+            const UInt16 *sparseIndices = (UInt16 *)baseSparseIndexAccessorPtr;
+            for (int i = 0; i < accessor.sparse.count; ++i) {
+                UInt16 sparseIndex = sparseIndices[i];
+                memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+            }
+        } else if (accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedInt) {
+            const UInt32 *sparseIndices = (UInt32 *)baseSparseIndexAccessorPtr;
+            for (int i = 0; i < accessor.sparse.count; ++i) {
+                UInt32 sparseIndex = sparseIndices[i];
+                memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+            }
+        }
+    }
     return [NSData dataWithBytesNoCopy:bytes length:bufferLength freeWhenDone:YES];
 }
 

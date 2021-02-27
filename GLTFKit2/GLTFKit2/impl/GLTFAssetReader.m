@@ -216,7 +216,27 @@ static dispatch_queue_t _loaderQueue;
             }
             accessor.maxValues = maxArray;
         }
-        // TODO: Sparse
+        if (a->is_sparse) {
+            GLTFBufferView *valuesBufferView = nil;
+            if (a->sparse.values_buffer_view) {
+                size_t valuesBufferViewIndex = a->sparse.values_buffer_view - gltf->buffer_views;
+                valuesBufferView = self.asset.bufferViews[valuesBufferViewIndex];
+            }
+            GLTFBufferView *indicesBufferView = nil;
+            if (a->sparse.indices_buffer_view) {
+                size_t indicesBufferViewIndex = a->sparse.indices_buffer_view - gltf->buffer_views;
+                indicesBufferView = self.asset.bufferViews[indicesBufferViewIndex];
+            }
+
+            GLTFSparseStorage *sparse = [[GLTFSparseStorage alloc] initWithValues:valuesBufferView
+                                                                      valueOffset:a->sparse.values_byte_offset
+                                                                          indices:indicesBufferView
+                                                                      indexOffset:a->sparse.indices_byte_offset
+                                                               indexComponentType:GLTFComponentTypeForType(a->sparse.indices_component_type)
+                                                                            count:a->sparse.count];
+            accessor.sparse = sparse;
+        }
+        
         accessor.name = a->name ? [NSString stringWithUTF8String:a->name]
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Accessor"];
         [accessors addObject:accessor];

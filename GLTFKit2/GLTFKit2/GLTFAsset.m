@@ -384,7 +384,6 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @end
 
-
 @implementation GLTFPBRMetallicRoughnessParams
 
 - (instancetype)init {

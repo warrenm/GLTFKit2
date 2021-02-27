@@ -20,6 +20,13 @@ class ViewController: NSViewController {
         
         scnView.allowsCameraControl = true
         scnView.autoenablesDefaultLighting = true
+        
+        let pointOfView = SCNNode()
+        let camera = SCNCamera()
+        camera.zNear = 0.01
+        camera.zFar = 120.0
+        pointOfView.camera = camera
+        scnView.pointOfView = pointOfView
     }
 }
 
