@@ -398,6 +398,19 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @end
 
+@implementation GLTFPBRSpecularGlossinessParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _diffuseFactor = (simd_float4){ 1.0f, 1.0f, 1.0f, 1.0f };
+        _specularFactor = (simd_float3){ 1.0f, 1.0f, 1.0f };
+        _glossinessFactor = 1.0;
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFClearcoatParams
 @end
 

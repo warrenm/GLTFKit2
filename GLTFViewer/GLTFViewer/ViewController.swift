@@ -8,12 +8,10 @@ class ViewController: NSViewController {
     var scnView: SCNView {
         return self.view as! SCNView
     }
-
-    var asset: GLTFAsset? {
+    
+    var scene: SCNScene? {
         didSet {
-            if let asset = asset {
-                scnView.scene = SCNScene(gltfAsset:asset)
-            }
+            scnView.scene = scene
         }
     }
 

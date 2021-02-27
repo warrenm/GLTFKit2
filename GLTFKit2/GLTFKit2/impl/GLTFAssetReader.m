@@ -339,6 +339,20 @@ static dispatch_queue_t _loaderQueue;
                 pbr.metallicRoughnessTexture = [self textureParamsFromTextureView:&m->pbr_metallic_roughness.metallic_roughness_texture];
             }
             material.metallicRoughness = pbr;
+        } else if (m->has_pbr_specular_glossiness) {
+            GLTFPBRSpecularGlossinessParams *pbr = [GLTFPBRSpecularGlossinessParams new];
+            float *diffuseFactor = m->pbr_specular_glossiness.diffuse_factor;
+            pbr.diffuseFactor = (simd_float4){ diffuseFactor[0], diffuseFactor[1], diffuseFactor[2], diffuseFactor[3] };
+            if (m->pbr_specular_glossiness.diffuse_texture.texture) {
+                pbr.diffuseTexture = [self textureParamsFromTextureView:&m->pbr_specular_glossiness.diffuse_texture];
+            }
+            float *specularFactor = m->pbr_specular_glossiness.specular_factor;
+            pbr.specularFactor = (simd_float3){ specularFactor[0], specularFactor[1], specularFactor[2] };
+            pbr.glossinessFactor = m->pbr_specular_glossiness.glossiness_factor;
+            if (m->pbr_specular_glossiness.specular_glossiness_texture.texture) {
+                pbr.specularGlossinessTexture = [self textureParamsFromTextureView:&m->pbr_specular_glossiness.specular_glossiness_texture];
+            }
+            material.specularGlossiness = pbr;
         }
         if (m->has_clearcoat) {
             GLTFClearcoatParams *clearcoat = [GLTFClearcoatParams new];
@@ -358,7 +372,6 @@ static dispatch_queue_t _loaderQueue;
         if (m->unlit) {
             material.unlit = YES;
         }
-        // TODO: PBR specular-glossiness?
         // TODO: sheen
         material.name = m->name ? [NSString stringWithUTF8String:m->name]
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Material"];
@@ -542,6 +555,16 @@ static dispatch_queue_t _loaderQueue;
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Skin"];
         [skins addObject:skin];
     }
+    
+    for (int i = 0; i < gltf->nodes_count; ++i) {
+        cgltf_node *n = gltf->nodes + i;
+        GLTFNode *node = self.asset.nodes[i];
+        if (n->skin) {
+            size_t skinIndex = n->skin - gltf->skins;
+            node.skin = skins[skinIndex];
+        }
+    }
+
     return skins;
 }
 
@@ -634,16 +657,6 @@ static dispatch_queue_t _loaderQueue;
     self.asset.lights = [self convertLights];
     self.asset.nodes = [self convertNodes];
     self.asset.skins = [self convertSkins];
-    
-    for (int i = 0; i < gltf->nodes_count; ++i) {
-        cgltf_node *n = gltf->nodes + i;
-        GLTFNode *node = self.asset.nodes[i];
-        if (n->skin) {
-            size_t skinIndex = n->skin - gltf->skins;
-            node.skin = self.asset.skins[skinIndex];
-        }
-    }
-    
     self.asset.animations = [self convertAnimations];
     self.asset.scenes = [self convertScenes];
     if (gltf->scene) {

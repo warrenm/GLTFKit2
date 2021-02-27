@@ -164,6 +164,29 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
     return [NSData dataWithBytesNoCopy:shorts length:bufferSize freeWhenDone:YES];
 }
 
+static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
+    GLTFBufferView *bufferView = accessor.bufferView;
+    GLTFBuffer *buffer = bufferView.buffer;
+    size_t bytesPerComponent = GLTFBytesPerComponentForComponentType(accessor.componentType);
+    size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
+    size_t elementSize = bytesPerComponent * componentCount;
+    size_t bufferLength = elementSize * accessor.count;
+    void *bytes = malloc(elementSize * accessor.count);
+    void *bufferViewBaseAddr = (void *)buffer.data.bytes + bufferView.offset;
+    if (bufferView.stride == 0 || bufferView.stride == elementSize) {
+        // Fast path
+        memcpy(bytes, bufferViewBaseAddr + accessor.offset, accessor.count * elementSize);
+    } else {
+        // Slow path, element by element
+        for (int i = 0; i < accessor.count; ++i) {
+            void *src = bufferViewBaseAddr + (i * bufferView.stride ?: elementSize);
+            void *dest = bytes + (i * elementSize);
+            memcpy(dest, src, elementSize);
+        }
+    }
+    return [NSData dataWithBytesNoCopy:bytes length:bufferLength freeWhenDone:YES];
+}
+
 static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, NSTimeInterval maxKeyTime) {
     // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
     assert(accessor.componentType == GLTFComponentTypeFloat);
@@ -267,46 +290,66 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         scnMaterial.locksAmbientWithDiffuse = YES;
         if (material.isUnlit) {
             scnMaterial.lightingModelName = SCNLightingModelConstant;
-        } else if (material.metallicRoughness) {
+        } else if (material.metallicRoughness || material.specularGlossiness) {
             scnMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
         } else {
             scnMaterial.lightingModelName = SCNLightingModelBlinn;
         }
-        //TODO: How to represent base color/emissive factor, etc., when textures are present?
-        if (material.metallicRoughness.baseColorTexture) {
-            GLTFTextureParams *baseColorTexture = material.metallicRoughness.baseColorTexture;
-            SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
-            baseColorProperty.contents = imagesForIdentfiers[baseColorTexture.texture.source.identifier];
-            GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
-            // This is pretty awful, but we have no other straightforward way of supporting
-            // base color textures and factors simultaneously
-            simd_float4 rgba = material.metallicRoughness.baseColorFactor;
-            CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-            scnMaterial.multiply.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
-        } else {
-            SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
-            simd_float4 rgba = material.metallicRoughness.baseColorFactor;
-            CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-            baseColorProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
-        }
-        if (material.metallicRoughness.metallicRoughnessTexture) {
-            GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
-            id metallicRoughnessImage = imagesForIdentfiers[metallicRoughnessTexture.texture.source.identifier];
-            
-            SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
-            metallicProperty.contents = metallicRoughnessImage;
-            GLTFConfigureSCNMaterialProperty(metallicProperty, metallicRoughnessTexture);
-            metallicProperty.textureComponents = SCNColorMaskBlue;
-            
-            SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
-            roughnessProperty.contents = metallicRoughnessImage;
-            GLTFConfigureSCNMaterialProperty(roughnessProperty, metallicRoughnessTexture);
-            roughnessProperty.textureComponents = SCNColorMaskGreen;
-        } else {
-            SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
-            metallicProperty.contents = @(material.metallicRoughness.metallicFactor);
-            SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
-            roughnessProperty.contents = @(material.metallicRoughness.roughnessFactor);
+        if (material.metallicRoughness) {
+            //TODO: How to represent base color/emissive factor, etc., when textures are present?
+            if (material.metallicRoughness.baseColorTexture) {
+                GLTFTextureParams *baseColorTexture = material.metallicRoughness.baseColorTexture;
+                SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
+                baseColorProperty.contents = imagesForIdentfiers[baseColorTexture.texture.source.identifier];
+                GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
+                // This is pretty awful, but we have no other straightforward way of supporting
+                // base color textures and factors simultaneously
+                simd_float4 rgba = material.metallicRoughness.baseColorFactor;
+                CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+                scnMaterial.multiply.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+            } else {
+                SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
+                simd_float4 rgba = material.metallicRoughness.baseColorFactor;
+                CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+                baseColorProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+            }
+            if (material.metallicRoughness.metallicRoughnessTexture) {
+                GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
+                id metallicRoughnessImage = imagesForIdentfiers[metallicRoughnessTexture.texture.source.identifier];
+                
+                SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
+                metallicProperty.contents = metallicRoughnessImage;
+                GLTFConfigureSCNMaterialProperty(metallicProperty, metallicRoughnessTexture);
+                metallicProperty.textureComponents = SCNColorMaskBlue;
+                
+                SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
+                roughnessProperty.contents = metallicRoughnessImage;
+                GLTFConfigureSCNMaterialProperty(roughnessProperty, metallicRoughnessTexture);
+                roughnessProperty.textureComponents = SCNColorMaskGreen;
+            } else {
+                SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
+                metallicProperty.contents = @(material.metallicRoughness.metallicFactor);
+                SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
+                roughnessProperty.contents = @(material.metallicRoughness.roughnessFactor);
+            }
+        } else if (material.specularGlossiness) {
+            if (material.specularGlossiness.diffuseTexture) {
+                GLTFTextureParams *diffuseTexture = material.specularGlossiness.diffuseTexture;
+                SCNMaterialProperty *diffuseProperty = scnMaterial.diffuse;
+                diffuseProperty.contents = imagesForIdentfiers[diffuseTexture.texture.source.identifier];
+                GLTFConfigureSCNMaterialProperty(diffuseProperty, diffuseTexture);
+                // This is pretty awful, but we have no other straightforward way of supporting
+                // diffuse textures and factors simultaneously
+                simd_float4 rgba = material.specularGlossiness.diffuseFactor;
+                CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+                scnMaterial.multiply.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+            } else {
+                SCNMaterialProperty *diffuseProperty = scnMaterial.diffuse;
+                simd_float4 rgba = material.specularGlossiness.diffuseFactor;
+                CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+                diffuseProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+            }
+            // TODO: Remainder of specular-glossiness model
         }
         if (material.normalTexture) {
             GLTFTextureParams *normalTexture = material.normalTexture;
@@ -408,23 +451,18 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
             for (NSString *key in primitive.attributes.allKeys) {
                 GLTFAccessor *attrAccessor = primitive.attributes[key];
-                GLTFBufferView *attrBufferView = attrAccessor.bufferView;
-                GLTFBuffer *attrBuffer = attrBufferView.buffer;
                 size_t bytesPerComponent = GLTFBytesPerComponentForComponentType(attrAccessor.componentType);
                 size_t componentCount = GLTFComponentCountForDimension(attrAccessor.dimension);
                 size_t elementSize = bytesPerComponent * componentCount;
-                // TODO: This is very wasteful when we have interleaved attributes; we duplicate all data for every attribute.
-                NSData *attrData = [NSData dataWithBytesNoCopy:(void *)attrBuffer.data.bytes + attrBufferView.offset + attrAccessor.offset
-                                                        length:attrAccessor.count * MAX(attrBufferView.stride, elementSize)
-                                                  freeWhenDone:NO];
+                NSData *attrData = GLTFSCNPackedDataForAccessor(attrAccessor);
                 SCNGeometrySource *source = [SCNGeometrySource geometrySourceWithData:attrData
                                                                              semantic:GLTFSCNGeometrySourceSemanticForSemantic(key)
-                                                                          vectorCount:vertexCount
+                                                                          vectorCount:attrAccessor.count
                                                                       floatComponents:(attrAccessor.componentType == GLTFComponentTypeFloat)
                                                                   componentsPerVector:componentCount
                                                                     bytesPerComponent:bytesPerComponent
                                                                            dataOffset:0
-                                                                           dataStride:MAX(attrBufferView.stride, elementSize)];
+                                                                           dataStride:elementSize];
                 [geometrySources addObject:source];
             }
             
@@ -529,13 +567,19 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             }
             NSArray *ibmValues = GLTFSCNMatrix4ArrayFromAccessor(node.skin.inverseBindMatrices);
             for (SCNNode *skinnedNode in skinTargets) {
-                SCNGeometrySource *weights = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
-                SCNGeometrySource *indices = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
+                SCNGeometrySource *boneWeights = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
+                SCNGeometrySource *boneIndices = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
+                if ((boneIndices.vectorCount != boneWeights.vectorCount) ||
+                    ((boneIndices.data.length / boneIndices.vectorCount / boneIndices.bytesPerComponent) !=
+                     (boneWeights.data.length / boneWeights.vectorCount / boneWeights.bytesPerComponent))) {
+                    // If these conditions fail, we won't be able to create a skinner, so don't bother
+                    continue;
+                }
                 SCNSkinner *skinner = [SCNSkinner skinnerWithBaseGeometry:skinnedNode.geometry
                                                                     bones:bones
                                                 boneInverseBindTransforms:ibmValues
-                                                              boneWeights:weights
-                                                              boneIndices:indices];
+                                                              boneWeights:boneWeights
+                                                              boneIndices:boneIndices];
                 if (node.skin.skeleton) {
                     skinner.skeleton = nodesForIdentifiers[node.skin.skeleton.identifier];
                 }
@@ -595,7 +639,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             clipChannel.animation = scnAnimation;
             [scnChannels addObject:clipChannel];
             
-            [clipChannel.target addAnimation:scnAnimation forKey:channel.target.path]; // HACK for testing
+            //[clipChannel.target addAnimation:scnAnimation forKey:channel.target.path]; // HACK for testing
         }
         GLTFSCNAnimation *animationClip = [GLTFSCNAnimation new];
         animationClip.name = animation.name;

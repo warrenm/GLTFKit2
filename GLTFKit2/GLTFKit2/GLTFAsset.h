@@ -301,6 +301,18 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFPBRSpecularGlossinessParams : GLTFObject
+
+@property (nonatomic, assign) simd_float4 diffuseFactor;
+@property (nonatomic, nullable, strong) GLTFTextureParams *diffuseTexture;
+@property (nonatomic, assign) simd_float3 specularFactor;
+@property (nonatomic, assign) float glossinessFactor;
+@property (nonatomic, nullable, strong) GLTFTextureParams *specularGlossinessTexture;
+
+@end
+
+
+GLTFKIT2_EXPORT
 @interface GLTFClearcoatParams : GLTFObject
 
 @property (nonatomic, nullable) GLTFTextureParams *clearcoatTexture;
@@ -315,6 +327,7 @@ GLTFKIT2_EXPORT
 @interface GLTFMaterial : GLTFObject
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
+@property (nonatomic, nullable) GLTFPBRSpecularGlossinessParams *specularGlossiness;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
 @property (nonatomic, nullable) GLTFTextureParams *occlusionTexture;
