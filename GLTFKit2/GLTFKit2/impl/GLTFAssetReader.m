@@ -430,10 +430,29 @@ static dispatch_queue_t _loaderQueue;
                 size_t materialIndex = p->material - gltf->materials;
                 primitive.material = self.asset.materials[materialIndex];
             }
+            NSMutableArray *targets = [NSMutableArray array];
+            for (int k = 0; k < p->targets_count; ++k) {
+                NSMutableDictionary *target = [NSMutableDictionary dictionary];
+                cgltf_morph_target *mt = p->targets + k;
+                for (int l = 0; l < mt->attributes_count; ++l) {
+                    cgltf_attribute *a = mt->attributes + l;
+                    NSString *attrName = [NSString stringWithUTF8String:a->name];
+                    size_t attrIndex = a->data - gltf->accessors;
+                    GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
+                    target[attrName] = attrAccessor;
+                }
+                [targets addObject:target];
+            }
+            primitive.targets = targets;
             [primitives addObject:primitive];
         }
+        NSMutableArray *weights = [NSMutableArray array];
+        for (int j = 0; j < m->weights_count; ++j) {
+            cgltf_float *weight = m->weights + j;
+            [weights addObject:@(weight[0])];
+        }
         mesh.primitives = primitives;
-        // TODO: morph targets
+        mesh.weights = weights;
         mesh.name = m->name ? [NSString stringWithUTF8String:m->name]
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Mesh"];
         [meshes addObject:mesh];

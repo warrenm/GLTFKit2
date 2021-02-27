@@ -229,6 +229,21 @@ static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, 
     return values;
 }
 
+static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accessor, NSString *semanticName) {
+    size_t bytesPerComponent = GLTFBytesPerComponentForComponentType(accessor.componentType);
+    size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
+    size_t elementSize = bytesPerComponent * componentCount;
+    NSData *attrData = GLTFSCNPackedDataForAccessor(accessor);
+    return [SCNGeometrySource geometrySourceWithData:attrData
+                                            semantic:GLTFSCNGeometrySourceSemanticForSemantic(semanticName)
+                                         vectorCount:accessor.count
+                                     floatComponents:(accessor.componentType == GLTFComponentTypeFloat)
+                                 componentsPerVector:componentCount
+                                   bytesPerComponent:bytesPerComponent
+                                          dataOffset:0
+                                          dataStride:elementSize];
+}
+
 static NSArray<NSValue *> *GLTFSCNVector3ArrayForAccessor(GLTFAccessor *accessor) {
     // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
     assert(accessor.componentType == GLTFComponentTypeFloat);
@@ -434,9 +449,9 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         materialsForIdentifiers[material.identifier] = scnMaterial;
     }
     
-    NSMutableDictionary <NSUUID *, NSArray<SCNGeometry *> *> *geometryArraysForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableDictionary <NSUUID *, SCNGeometry *> *geometryForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableDictionary <NSUUID *, SCNGeometryElement *> *geometryElementForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFMesh *mesh in asset.meshes) {
-        NSMutableArray<SCNGeometry *> *geometries = [NSMutableArray array];
         for (GLTFPrimitive *primitive in mesh.primitives) {
             int vertexCount = 0;
             GLTFAccessor *positionAccessor = primitive.attributes[GLTFAttributeSemanticPosition];
@@ -474,30 +489,18 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                                                                         primitiveType:GLTFSCNPrimitiveTypeForPrimitiveType(primitive.primitiveType)
                                                                        primitiveCount:GLTFSCNPrimitiveCountForVertexCount(primitive.primitiveType, indexCount)
                                                                         bytesPerIndex:indexSize];
-            
+            geometryElementForIdentifiers[primitive.identifier] = element;
+
             NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
             for (NSString *key in primitive.attributes.allKeys) {
                 GLTFAccessor *attrAccessor = primitive.attributes[key];
-                size_t bytesPerComponent = GLTFBytesPerComponentForComponentType(attrAccessor.componentType);
-                size_t componentCount = GLTFComponentCountForDimension(attrAccessor.dimension);
-                size_t elementSize = bytesPerComponent * componentCount;
-                NSData *attrData = GLTFSCNPackedDataForAccessor(attrAccessor);
-                SCNGeometrySource *source = [SCNGeometrySource geometrySourceWithData:attrData
-                                                                             semantic:GLTFSCNGeometrySourceSemanticForSemantic(key)
-                                                                          vectorCount:attrAccessor.count
-                                                                      floatComponents:(attrAccessor.componentType == GLTFComponentTypeFloat)
-                                                                  componentsPerVector:componentCount
-                                                                    bytesPerComponent:bytesPerComponent
-                                                                           dataOffset:0
-                                                                           dataStride:elementSize];
-                [geometrySources addObject:source];
+                [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attrAccessor, key)];
             }
             
             SCNGeometry *geometry = [SCNGeometry geometryWithSources:geometrySources elements:@[element]];
             geometry.firstMaterial = material ?: defaultMaterial;
-            [geometries addObject:geometry];
+            geometryForIdentifiers[primitive.identifier] = geometry;
         }
-        geometryArraysForIdentifiers[mesh.identifier] = geometries;
     }
     
     NSMutableDictionary<NSUUID *, SCNCamera *> *camerasForIdentifiers = [NSMutableDictionary dictionary];
@@ -557,7 +560,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             [scnNode addChildNode:scnChildNode];
         }
     }
-    
+
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
         
@@ -569,19 +572,45 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         }
 
         // This collection holds the nodes to which any skin on this node should be applied,
-        // since we don't have a one-to-one mapping from nodes to meshes.
-        NSMutableArray *skinTargets = [NSMutableArray array];
+        // since we don't have a one-to-one mapping from nodes to meshes. It's also used to
+        // apply morph targets to the correct primitives.
+        NSMutableArray<SCNNode *> *geometryNodes = [NSMutableArray array];
 
         if (node.mesh) {
-            NSArray *geometries = geometryArraysForIdentifiers[node.mesh.identifier];
-            if (geometries.count == 1) {
-                scnNode.geometry = geometryArraysForIdentifiers[node.mesh.identifier].firstObject;
-                [skinTargets addObject:scnNode];
-            } else if (geometries.count > 1) {
-                for (SCNGeometry *geometry in geometries) {
-                    SCNNode *geometryHolder = [SCNNode nodeWithGeometry:geometry];
-                    [scnNode addChildNode:geometryHolder];
-                    [skinTargets addObject:geometryHolder];
+            NSArray<GLTFPrimitive *> *primitives = node.mesh.primitives;
+            if (primitives.count == 1) {
+                [geometryNodes addObject:scnNode];
+            } else {
+                for (int i = 0; i < primitives.count; ++i) {
+                    SCNNode *geometryNode = [SCNNode node];
+                    [scnNode addChildNode:geometryNode];
+                    [geometryNodes addObject:geometryNode];
+                }
+            }
+
+            for (int i = 0; i < primitives.count; ++i) {
+                GLTFPrimitive *primitive = primitives[i];
+                SCNNode *geometryNode = geometryNodes[i];
+                geometryNode.geometry = geometryForIdentifiers[primitive.identifier];
+
+                if (primitive.targets.count > 0) {
+                    SCNGeometryElement *element = geometryElementForIdentifiers[primitive.identifier];
+                    NSMutableArray<SCNGeometry *> *morphGeometries = [NSMutableArray array];
+                    for (GLTFMorphTarget *target in primitive.targets) {
+                        NSMutableArray<SCNGeometrySource *> *sources = [NSMutableArray array];
+                        for (NSString *key in target.allKeys) {
+                            GLTFAccessor *targetAccessor = target[key];
+                            [sources addObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
+                        }
+                        [morphGeometries addObject:[SCNGeometry geometryWithSources:sources
+                                                                           elements:@[element]]];
+                    }
+
+                    SCNMorpher *scnMorpher = [[SCNMorpher alloc] init];
+                    scnMorpher.calculationMode = SCNMorpherCalculationModeAdditive;
+                    scnMorpher.targets = morphGeometries;
+                    scnMorpher.weights = node.mesh.weights;
+                    geometryNode.morpher = scnMorpher;
                 }
             }
         }
@@ -593,7 +622,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                 [bones addObject:bone];
             }
             NSArray *ibmValues = GLTFSCNMatrix4ArrayFromAccessor(node.skin.inverseBindMatrices);
-            for (SCNNode *skinnedNode in skinTargets) {
+            for (SCNNode *skinnedNode in geometryNodes) {
                 SCNGeometrySource *boneWeights = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
                 SCNGeometrySource *boneIndices = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
                 if ((boneIndices.vectorCount != boneWeights.vectorCount) ||
@@ -638,6 +667,9 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             } else if ([channel.target.path isEqualToString:GLTFAnimationPathScale]) {
                 caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"scale"];
                 caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
+            } else if ([channel.target.path isEqualToString:GLTFAnimationPathWeights]) {
+                // TODO: Weight animations
+                continue;
             } else {
                 // TODO: This shouldn't be a hard failure, but not sure what to do here yet
                 assert(false);
@@ -656,7 +688,6 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                     caAnimation.calculationMode = kCAAnimationCubic;
                     break;
             }
-            // TODO: Animated weights
             caAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
             caAnimation.duration = maxChannelKeyTime;
             caAnimation.repeatDuration = FLT_MAX;
