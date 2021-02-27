@@ -530,7 +530,12 @@ static dispatch_queue_t _loaderQueue;
             simd_float4x4 transform;
             memcpy(&transform, n->matrix, sizeof(float) * 16);
             node.matrix = transform;
-            // TODO: decompose transform to T,R,S
+            float sx = simd_length(transform.columns[0].xyz);
+            float sy = simd_length(transform.columns[1].xyz);
+            float sz = simd_length(transform.columns[2].xyz);
+            node.scale = simd_make_float3(sx, sy, sz);
+            node.rotation = simd_quaternion(transform);
+            node.translation = transform.columns[3].xyz;
         } else {
             if (n->has_translation) {
                 node.translation = simd_make_float3(n->translation[0], n->translation[1], n->translation[2]);
