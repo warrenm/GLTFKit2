@@ -12,6 +12,16 @@
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSNumber *> *countsForPrefixes;
 @end
 
+@interface GLTFAssetReader () {
+    cgltf_data *gltf;
+}
+@property (class, nonatomic, readonly) dispatch_queue_t loaderQueue;
+@property (nonatomic, nullable, strong) NSURL *assetURL;
+@property (nonatomic, nullable, strong) NSString *lastAccessedPath;
+@property (nonatomic, strong) GLTFAsset *asset;
+@property (nonatomic, strong) GLTFUniqueNameGenerator *nameGenerator;
+@end
+
 @implementation GLTFUniqueNameGenerator
 
 - (instancetype)init {
@@ -72,14 +82,56 @@ static GLTFLightType GLTFLightTypeForType(cgltf_light_type type) {
     return (GLTFLightType)type;
 }
 
-@interface GLTFAssetReader () {
-    cgltf_data *gltf;
+static cgltf_result GLTFReadFile(const struct cgltf_memory_options *memory_options, const struct cgltf_file_options *file_options, const char *path, cgltf_size *size, void **data)
+{
+    GLTFAssetReader *reader = (__bridge GLTFAssetReader *)file_options->user_data;
+    reader.lastAccessedPath = [NSString stringWithUTF8String:path];
+    return cgltf_default_file_read(memory_options, file_options, path, size, data);
 }
-@property (class, nonatomic, readonly) dispatch_queue_t loaderQueue;
-@property (nonatomic, nullable, strong) NSURL *assetURL;
-@property (nonatomic, strong) GLTFAsset *asset;
-@property (nonatomic, strong) GLTFUniqueNameGenerator *nameGenerator;
-@end
+
+static NSError *GLTFErrorForCGLTFStatus(cgltf_result result, NSString *_Nullable failedFilePath) {
+    NSString *description = @"";
+    switch (result) {
+        case cgltf_result_success:
+            description = @"The operation succeeded.";
+            break;
+        case cgltf_result_data_too_short:
+            description = @"Data was too short.";
+            break;
+        case cgltf_result_unknown_format:
+            description = @"The asset is in an unknown format.";
+            break;
+        case cgltf_result_invalid_json:
+            description = @"The asset contains invalid JSON data.";
+            break;
+        case cgltf_result_invalid_gltf:
+            description = @"The asset is not a valid glTF asset.";
+            break;
+        case cgltf_result_invalid_options:
+            description = @"Invalid options were provided to the glTF parser.";
+            break;
+        case cgltf_result_file_not_found:
+            description = [NSString stringWithFormat:@"The file at %@ could not be found",
+                           failedFilePath ?: @"the provided path"];
+            break;
+        case cgltf_result_io_error:
+            description = @"An I/O error occurred.";
+            break;
+        case cgltf_result_out_of_memory:
+            description = @"The system is out of memory.";
+            break;
+        case cgltf_result_legacy_gltf:
+            description = @"The asset is in an unsupported (legacy) glTF format.";
+            break;
+        default:
+            description = @"An unknown error occurred.";
+            break;
+    }
+    
+    return [NSError errorWithDomain:@"com.metalbyexample.gltfkit2" code:(result + 1000) userInfo:@{
+        NSLocalizedDescriptionKey : description
+    }];
+}
 
 static dispatch_queue_t _loaderQueue;
 
@@ -125,6 +177,10 @@ static dispatch_queue_t _loaderQueue;
                      handler:(nullable GLTFAssetLoadingHandler)handler
 {
     self.assetURL = assetURL;
+    
+    if (assetURL) {
+        self.lastAccessedPath = assetURL.path;
+    }
 
     BOOL stop = NO;
     NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
@@ -134,6 +190,8 @@ static dispatch_queue_t _loaderQueue;
     }
     
     cgltf_options parseOptions = {0};
+    parseOptions.file.read = GLTFReadFile;
+    parseOptions.file.user_data = (__bridge void *)self;
     cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
     
     if (result != cgltf_result_success) {
@@ -141,7 +199,8 @@ static dispatch_queue_t _loaderQueue;
     } else {        
         result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
         if (result != cgltf_result_success) {
-            handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
+            NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
+            handler(1.0, GLTFAssetStatusError, nil, error, &stop);
         } else {
             [self convertAsset];
             handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);

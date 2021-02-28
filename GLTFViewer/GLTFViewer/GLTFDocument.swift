@@ -7,10 +7,8 @@ class GLTFDocument: NSDocument {
     var asset: GLTFAsset? {
         didSet {
             if let asset = asset {
-                DispatchQueue.main.async {
-                    if let contentViewController = self.windowControllers.first?.contentViewController as? ViewController {
-                        contentViewController.scene = SCNScene(gltfAsset: asset)
-                    }
+                if let contentViewController = self.windowControllers.first?.contentViewController as? ViewController {
+                    contentViewController.scene = SCNScene(gltfAsset: asset)
                 }
             }
         }
@@ -24,8 +22,12 @@ class GLTFDocument: NSDocument {
     
     override func read(from url: URL, ofType typeName: String) throws {
         GLTFAsset.load(with: url, options: [:]) { (progress, status, maybeAsset, maybeError, _) in
-            if status == .complete {
-                self.asset = maybeAsset
+            DispatchQueue.main.async {
+                if status == .complete {
+                    self.asset = maybeAsset
+                } else if let error = maybeError {
+                    NSAlert(error: error).runModal()
+                }
             }
         }
     }
