@@ -71,38 +71,142 @@ static SCNWrapMode GLTFSCNWrapModeForMode(GLTFAddressMode mode) {
     }
 }
 
-static int GLTFSCNPrimitiveTypeForPrimitiveType(GLTFPrimitiveType type) {
-    switch (type) {
-        case GLTFPrimitiveTypePoints:
-            return SCNGeometryPrimitiveTypePoint;
-        case GLTFPrimitiveTypeLines:
-            return SCNGeometryPrimitiveTypeLine;
-        case GLTFPrimitiveTypeTriangles:
-            return SCNGeometryPrimitiveTypeTriangles;
-        case GLTFPrimitiveTypeTriangleStrip:
-            return SCNGeometryPrimitiveTypeTriangleStrip;
-        default:
-            // No support for line loops, line strips, or triangle fans.
-            // These should be retopologized before creating a geometry.
-            return -1;
+static NSData *GLTFLineIndexDataForLineLoopIndexData(NSData *lineLoopIndexData,
+                                                     int lineLoopIndexCount,
+                                                     int bytesPerIndex) {
+    if (lineLoopIndexCount < 2) {
+        return nil;
     }
+
+    int lineIndexCount = 2 * lineLoopIndexCount;
+    size_t bufferSize = lineIndexCount * bytesPerIndex;
+    unsigned char *lineIndices = malloc(bufferSize);
+    unsigned char *lineIndicesCursor = lineIndices;
+    unsigned char *lineLoopIndices = (unsigned char *)lineLoopIndexData.bytes;
+
+    // Create a line from the last index element to the first index element.
+    int lastLineIndexOffset = (lineIndexCount - 1) * bytesPerIndex;
+    memcpy(lineIndicesCursor, lineLoopIndices, bytesPerIndex);
+    memcpy(lineIndicesCursor + lastLineIndexOffset, lineLoopIndices, bytesPerIndex);
+    lineIndicesCursor += bytesPerIndex;
+
+    // Duplicate indices in-between to fill in the loop.
+    for (int i = 1; i < lineLoopIndexCount; ++i) {
+        memcpy(lineIndicesCursor, lineLoopIndices + (i * bytesPerIndex), bytesPerIndex);
+        lineIndicesCursor += bytesPerIndex;
+        memcpy(lineIndicesCursor, lineLoopIndices + (i * bytesPerIndex), bytesPerIndex);
+        lineIndicesCursor += bytesPerIndex;
+    }
+
+    return [NSData dataWithBytesNoCopy:lineIndices
+                                length:bufferSize
+                          freeWhenDone:YES];
 }
 
-static int GLTFSCNPrimitiveCountForVertexCount(GLTFPrimitiveType type, int vertexCount) {
-    switch (type) {
-        case GLTFPrimitiveTypePoints:
-            return vertexCount;
-        case GLTFPrimitiveTypeLines:
-            return vertexCount / 2;
-        case GLTFPrimitiveTypeTriangles:
-            return vertexCount / 3;
-        case GLTFPrimitiveTypeTriangleStrip:
-            return vertexCount - 2; // TODO: Handle primitive restart?
-        default:
-            // No support for line loops, line strips, or triangle fans.
-            // These should be retopologized before creating a geometry.
-            return -1;
+static NSData *GLTFLineIndexDataForLineStripIndexData(NSData *lineStripIndexData,
+                                                      int lineStripIndexCount,
+                                                      int bytesPerIndex) {
+    if (lineStripIndexCount < 2) {
+        return nil;
     }
+
+    int lineIndexCount = 2 * (lineStripIndexCount - 1);
+    size_t bufferSize = lineIndexCount * bytesPerIndex;
+    unsigned char *lineIndices = malloc(bufferSize);
+    unsigned char *lineIndicesCursor = lineIndices;
+    unsigned char *lineStripIndices = (unsigned char *)lineStripIndexData.bytes;
+
+    // Place the first and last indices.
+    int lastLineIndexOffset = (lineIndexCount - 1) * bytesPerIndex;
+    int lastLineStripIndexOffset = (lineStripIndexCount - 1) * bytesPerIndex;
+    memcpy(lineIndicesCursor, lineStripIndices, bytesPerIndex);
+    memcpy(lineIndicesCursor + lastLineIndexOffset,
+           lineStripIndices + lastLineStripIndexOffset,
+           bytesPerIndex);
+    lineIndicesCursor += bytesPerIndex;
+
+    // Duplicate all indices in-between.
+    for (int i = 1; i < lineStripIndexCount; ++i) {
+        memcpy(lineIndicesCursor, lineStripIndices + (i * bytesPerIndex), bytesPerIndex);
+        lineIndicesCursor += bytesPerIndex;
+        memcpy(lineIndicesCursor, lineStripIndices + (i * bytesPerIndex), bytesPerIndex);
+        lineIndicesCursor += bytesPerIndex;
+    }
+
+    return [NSData dataWithBytesNoCopy:lineIndices
+                                length:bufferSize
+                          freeWhenDone:YES];
+}
+
+static NSData *GLTFTrianglesIndexDataForTriangleFanIndexData(NSData *triangleFanIndexData,
+                                                             int triangleFanIndexCount,
+                                                             int bytesPerIndex) {
+    if (triangleFanIndexCount < 3) {
+        return nil;
+    }
+
+    int trianglesIndexCount = 3 * (triangleFanIndexCount - 2);
+    size_t bufferSize = trianglesIndexCount * bytesPerIndex;
+    unsigned char *trianglesIndices = malloc(bufferSize);
+    unsigned char *trianglesIndicesCursor = trianglesIndices;
+    unsigned char *triangleFanIndices = (unsigned char *)triangleFanIndexData.bytes;
+
+    for (int i = 1; i < triangleFanIndexCount; ++i) {
+        memcpy(trianglesIndicesCursor, triangleFanIndices, bytesPerIndex);
+        trianglesIndicesCursor += bytesPerIndex;
+        memcpy(trianglesIndicesCursor, triangleFanIndices + (i * bytesPerIndex), 2 * bytesPerIndex);
+        trianglesIndicesCursor += 2 * bytesPerIndex;
+    }
+
+    return [NSData dataWithBytesNoCopy:trianglesIndices
+                                length:bufferSize
+                          freeWhenDone:YES];
+}
+
+static SCNGeometryElement *GlTFSCNGeometryElementForIndexData(NSData *indexData,
+                                                              int indexCount,
+                                                              int bytesPerIndex,
+                                                              GLTFPrimitive *primitive) {
+    SCNGeometryPrimitiveType primitiveType;
+    int primitiveCount;
+    switch (primitive.primitiveType) {
+        case GLTFPrimitiveTypePoints:
+            primitiveType = SCNGeometryPrimitiveTypePoint;
+            primitiveCount = indexCount;
+            break;
+        case GLTFPrimitiveTypeLines:
+            primitiveCount = indexCount / 2;
+            primitiveType = SCNGeometryPrimitiveTypeLine;
+            break;
+        case GLTFPrimitiveTypeLineLoop:
+            primitiveCount = indexCount;
+            primitiveType = SCNGeometryPrimitiveTypeLine;
+            indexData = GLTFLineIndexDataForLineLoopIndexData(indexData, indexCount, bytesPerIndex);
+            break;
+        case GLTFPrimitiveTypeLineStrip:
+            primitiveCount = indexCount - 1;
+            primitiveType = SCNGeometryPrimitiveTypeLine;
+            indexData = GLTFLineIndexDataForLineStripIndexData(indexData, indexCount, bytesPerIndex);
+            break;
+        case GLTFPrimitiveTypeTriangles:
+            primitiveCount = indexCount / 3;
+            primitiveType = SCNGeometryPrimitiveTypeTriangles;
+            break;
+        case GLTFPrimitiveTypeTriangleStrip:
+            primitiveCount = indexCount - 2; // TODO: Handle primitive restart?
+            primitiveType = SCNGeometryPrimitiveTypeTriangleStrip;
+            break;
+        case GLTFPrimitiveTypeTriangleFan:
+            primitiveCount = indexCount - 2;
+            primitiveType = SCNGeometryPrimitiveTypeTriangles;
+            indexData = GLTFTrianglesIndexDataForTriangleFanIndexData(indexData, indexCount, bytesPerIndex);
+            break;
+    }
+
+    return [SCNGeometryElement geometryElementWithData:indexData
+                                         primitiveType:primitiveType
+                                        primitiveCount:primitiveCount
+                                         bytesPerIndex:bytesPerIndex];
 }
 
 static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
@@ -485,15 +589,16 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                     indexData = GLTFPackedUInt16DataFromPackedUInt8(bufferViewBaseAddr + indexAccessor.offset, indexCount);
                 }
             }
-            SCNGeometryElement *element = [SCNGeometryElement geometryElementWithData:indexData
-                                                                        primitiveType:GLTFSCNPrimitiveTypeForPrimitiveType(primitive.primitiveType)
-                                                                       primitiveCount:GLTFSCNPrimitiveCountForVertexCount(primitive.primitiveType, indexCount)
-                                                                        bytesPerIndex:indexSize];
+            SCNGeometryElement *element = GlTFSCNGeometryElementForIndexData(indexData, indexCount, indexSize, primitive);
             geometryElementForIdentifiers[primitive.identifier] = element;
 
             NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
             for (NSString *key in primitive.attributes.allKeys) {
                 GLTFAccessor *attrAccessor = primitive.attributes[key];
+                // TODO: Retopologize geometry source if geometry element's data is `nil`.
+                // For primitive types not supported by SceneKit (line loops, line strips, triangle
+                // fans), we retopologize the primitive's indices. However, if they aren't present,
+                // we need to adjust the vertex data.
                 [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attrAccessor, key)];
             }
             
