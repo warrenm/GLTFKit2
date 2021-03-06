@@ -163,7 +163,7 @@ static NSData *GLTFTrianglesIndexDataForTriangleFanIndexData(NSData *triangleFan
                           freeWhenDone:YES];
 }
 
-static SCNGeometryElement *GlTFSCNGeometryElementForIndexData(NSData *indexData,
+static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
                                                               int indexCount,
                                                               int bytesPerIndex,
                                                               GLTFPrimitive *primitive) {
@@ -589,7 +589,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                     indexData = GLTFPackedUInt16DataFromPackedUInt8(bufferViewBaseAddr + indexAccessor.offset, indexCount);
                 }
             }
-            SCNGeometryElement *element = GlTFSCNGeometryElementForIndexData(indexData, indexCount, indexSize, primitive);
+            SCNGeometryElement *element = GLTFSCNGeometryElementForIndexData(indexData, indexCount, indexSize, primitive);
             geometryElementForIdentifiers[primitive.identifier] = element;
 
             NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
