@@ -1,7 +1,7 @@
 # :diamond_shape_with_a_dot_inside: cgltf
 **Single-file/stb-style C glTF loader and writer**
 
-[![Build Status](https://travis-ci.org/jkuhlmann/cgltf.svg?branch=master)](https://travis-ci.org/jkuhlmann/cgltf)
+[![Build Status](https://github.com/jkuhlmann/cgltf/workflows/build/badge.svg)](https://github.com/jkuhlmann/cgltf/actions)
 
 Used in: [bgfx](https://github.com/bkaradzic/bgfx), [Filament](https://github.com/google/filament), [gltfpack](https://github.com/zeux/meshoptimizer/tree/master/gltf), [raylib](https://github.com/raysan5/raylib), and more!
 
@@ -40,7 +40,7 @@ if (result == cgltf_result_success)
 ```
 
 Note that cgltf does not load the contents of extra files such as buffers or images into memory by default. You'll need to read these files yourself using URIs from `data.buffers[]` or `data.images[]` respectively.
-For buffer data, you can alternatively call `cgltf_load_buffers`, which will use `FILE*` APIs to open and read buffer files.
+For buffer data, you can alternatively call `cgltf_load_buffers`, which will use `FILE*` APIs to open and read buffer files. This automatically decodes base64 data URIs in buffers. For data URIs in images, you will need to use `cgltf_load_buffer_base64`.
 
 **For more in-depth documentation and a description of the public interface refer to the top of the `cgltf.h` file.**
 
@@ -83,8 +83,6 @@ if (written != size)
 
 Note that cgltf does not write the contents of extra files such as buffers or images. You'll need to write this data yourself.
 
-Writing does not yet support "extras" data.
-
 **For more in-depth documentation and a description of the public interface refer to the top of the `cgltf_write.h` file.**
 
 
@@ -111,6 +109,8 @@ cgltf also supports some glTF extensions:
 - KHR_materials_specular
 - KHR_materials_transmission
 - KHR_materials_unlit
+- KHR_materials_variants
+- KHR_materials_volume
 - KHR_texture_transform
 
 cgltf does **not** yet support unlisted extensions. However, unlisted extensions can be accessed via "extensions" member on objects.
