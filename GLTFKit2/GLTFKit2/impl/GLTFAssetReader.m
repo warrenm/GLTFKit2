@@ -220,8 +220,8 @@ static dispatch_queue_t _loaderQueue;
         } else {
             buffer = [[GLTFBuffer alloc] initWithLength:b->size];
         }
-        // TODO: buffers can have user-defined names, but cgltf doesn't currently support this (v1.9)
-        buffer.name = [self.nameGenerator nextUniqueNameWithPrefix:@"Buffer"];
+        buffer.name = b->name ? [NSString stringWithUTF8String:b->name]
+                              : [self.nameGenerator nextUniqueNameWithPrefix:@"Buffer"];
         [buffers addObject:buffer];
     }
     return buffers;
@@ -236,8 +236,8 @@ static dispatch_queue_t _loaderQueue;
                                                                      length:bv->size
                                                                      offset:bv->offset
                                                                      stride:bv->stride];
-        // TODO: buffer views can have user-defined names, but cgltf doesn't currently support this (v1.9)
-        bufferView.name = [self.nameGenerator nextUniqueNameWithPrefix:@"BufferView"];
+        bufferView.name = bv->name ? [NSString stringWithUTF8String:bv->name]
+                                   : [self.nameGenerator nextUniqueNameWithPrefix:@"BufferView"];
         [bufferViews addObject:bufferView];
     }
     return bufferViews;
@@ -313,8 +313,8 @@ static dispatch_queue_t _loaderQueue;
         sampler.minMipFilter = s->min_filter;
         sampler.wrapS = s->wrap_s;
         sampler.wrapT = s->wrap_t;
-        // TODO: samplers can have user-defined names, but this isn't currently supported by cgltf (v1.9)
-        sampler.name = [self.nameGenerator nextUniqueNameWithPrefix:@"Sampler"];
+        sampler.name = s->name ? [NSString stringWithUTF8String:s->name]
+                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Sampler"];
         [textureSamplers addObject:sampler];
     }
     return textureSamplers;
