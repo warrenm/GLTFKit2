@@ -646,6 +646,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                 scnLight.spotOuterAngle = GLTFDegFromRad(light.outerConeAngle);
                 break;
         }
+        // TODO: Range and attenuation.
         scnLight.castsShadow = YES;
         lightsForIdentifiers[light.identifier] = scnLight;
     }

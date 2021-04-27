@@ -1,6 +1,12 @@
 
 #import "GLTFModelIO.h"
 
+static const float LumensPerCandela = 1.0 / (4.0 * M_PI);
+
+static float GLTFDegFromRad(float rad) {
+    return rad * (180.0 / M_PI);
+}
+
 typedef NS_OPTIONS(long long, GLTFMDLColorMask) {
     GLTFMDLColorMaskNone   = 0,
     GLTFMDLColorMaskRed    = 1 << 3,
@@ -234,6 +240,17 @@ static NSString *GLTFMDLVertexAttributeNameForSemantic(NSString *name) {
     return name;
 }
 
+static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
+    switch (lightType) {
+        case GLTFLightTypeDirectional:
+            return MDLLightTypeDirectional;
+        case GLTFLightTypePoint:
+            return MDLLightTypePoint;
+        case GLTFLightTypeSpot:
+            return MDLLightTypeSpot;
+    }
+}
+
 @implementation MDLAsset (GLTFKit2)
 
 + (instancetype)assetWithGLTFAsset:(GLTFAsset *)asset {
@@ -406,9 +423,51 @@ static NSString *GLTFMDLVertexAttributeNameForSemantic(NSString *name) {
         meshArraysForIdentifiers[mesh.identifier] = mdlMeshes;
     }
     
-    // Camera -> MDLCamera
+    NSMutableDictionary<NSUUID *, MDLCamera *> *camerasForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFCamera *camera in asset.cameras) {
+        MDLCamera *mdlCamera = [MDLCamera new];
+        mdlCamera.name = camera.name;
+        // TODO: Handle optional zfar and aspect ratio for perspective cameras.
+        // Waiting on cgltf pull request #141.
+        mdlCamera.nearVisibilityDistance = camera.zNear;
+        mdlCamera.farVisibilityDistance = camera.zFar;
+        if (camera.orthographic) {
+            mdlCamera.projection = MDLCameraProjectionOrthographic;
+            mdlCamera.sensorEnlargement = simd_make_float2(camera.orthographic.xMag, camera.orthographic.yMag);
+        } else if (camera.perspective) {
+            mdlCamera.projection = MDLCameraProjectionPerspective;
+            mdlCamera.sensorAspect = camera.perspective.aspectRatio;
+            mdlCamera.fieldOfView = camera.perspective.yFOV;
+        }
+        camerasForIdentifiers[camera.identifier] = mdlCamera;
+    }
     
     // Light -> MDLLight
+    CGColorSpaceRef colorSpaceLinearSRGB = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
+
+    NSMutableDictionary<NSUUID *, MDLPhysicallyPlausibleLight *> *lightsForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFLight *light in asset.lights) {
+        MDLPhysicallyPlausibleLight *mdlLight = [MDLPhysicallyPlausibleLight new];
+        mdlLight.name = light.name;
+        mdlLight.lightType = GLTFMDLLightTypeForLightType(light.type);
+        CGFloat rgba[] = { light.color[0], light.color[1], light.color[2], 1.0 };
+        mdlLight.color = CGColorCreate(colorSpaceLinearSRGB, rgba);
+        switch (light.type) {
+            case GLTFLightTypeDirectional:
+                mdlLight.lumens = light.intensity; // TODO: Convert from lux to lumens? How?
+                break;
+            case GLTFLightTypePoint:
+                mdlLight.lumens = light.intensity * LumensPerCandela;
+                break;
+            case GLTFLightTypeSpot:
+                mdlLight.lumens = light.intensity * LumensPerCandela;
+                mdlLight.innerConeAngle = GLTFDegFromRad(light.innerConeAngle);
+                mdlLight.outerConeAngle = GLTFDegFromRad(light.outerConeAngle);
+                break;
+        }
+        // TODO: Range and attenuation.
+        lightsForIdentifiers[light.identifier] = mdlLight;
+    }
     
     // Node -> MDLNode
     NSMutableDictionary<NSUUID *, MDLObject *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
@@ -421,6 +480,8 @@ static NSString *GLTFMDLVertexAttributeNameForSemantic(NSString *name) {
     // Scene -> MDLAsset
     
     // Animation, Skin ??
+
+    CFRelease(colorSpaceLinearSRGB);
 
     MDLAsset *mdlAsset = [[MDLAsset alloc] initWithBufferAllocator:bufferAllocator];
     return mdlAsset;
