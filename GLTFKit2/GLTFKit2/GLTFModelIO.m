@@ -1,12 +1,6 @@
 
 #import "GLTFModelIO.h"
 
-static const float LumensPerCandela = 1.0 / (4.0 * M_PI);
-
-static float GLTFDegFromRad(float rad) {
-    return rad * (180.0 / M_PI);
-}
-
 typedef NS_OPTIONS(long long, GLTFMDLColorMask) {
     GLTFMDLColorMaskNone   = 0,
     GLTFMDLColorMaskRed    = 1 << 3,

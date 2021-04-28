@@ -2,6 +2,8 @@
 #import "GLTFAsset.h"
 #import "GLTFAssetReader.h"
 
+const float LumensPerCandela = 1.0 / (4.0 * M_PI);
+
 GLTFAttributeSemantic GLTFAttributeSemanticPosition = @"POSITION";
 GLTFAttributeSemantic GLTFAttributeSemanticNormal = @"NORMAL";
 GLTFAttributeSemantic GLTFAttributeSemanticTangent = @"TANGENT";
@@ -23,6 +25,10 @@ GLTFAnimationPath GLTFAnimationPathTranslation = @"translation";
 GLTFAnimationPath GLTFAnimationPathRotation = @"rotation";
 GLTFAnimationPath GLTFAnimationPathScale = @"scale";
 GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
+
+float GLTFDegFromRad(float rad) {
+    return rad * (180.0 / M_PI);
+}
 
 int GLTFBytesPerComponentForComponentType(GLTFComponentType type) {
     switch (type) {

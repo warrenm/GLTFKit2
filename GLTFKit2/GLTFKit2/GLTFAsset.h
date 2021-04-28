@@ -5,6 +5,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+extern const float LumensPerCandela;
+
 typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
 extern GLTFAttributeSemantic GLTFAttributeSemanticPosition;
 extern GLTFAttributeSemantic GLTFAttributeSemanticNormal;
@@ -29,6 +31,7 @@ extern GLTFAnimationPath GLTFAnimationPathRotation;
 extern GLTFAnimationPath GLTFAnimationPathScale;
 extern GLTFAnimationPath GLTFAnimationPathWeights;
 
+extern float GLTFDegFromRad(float rad);
 extern int GLTFBytesPerComponentForComponentType(GLTFComponentType type);
 extern int GLTFComponentCountForDimension(GLTFValueDimension dim);
 

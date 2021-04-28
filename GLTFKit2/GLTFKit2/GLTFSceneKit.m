@@ -9,12 +9,6 @@ typedef NSImage NSUIImage;
 #error "Unsupported operating system. Cannot determine suitable image class"
 #endif
 
-static const float LumensPerCandela = 1.0 / (4.0 * M_PI);
-
-static float GLTFDegFromRad(float rad) {
-    return rad * (180.0 / M_PI);
-}
-
 static SCNFilterMode GLTFSCNFilterModeForMagFilter(GLTFMagFilter filter) {
     switch (filter) {
         case GLTFMagFilterNearest:
