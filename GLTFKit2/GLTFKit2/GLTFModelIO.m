@@ -314,7 +314,6 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
         MDLTextureSampler *mdlSampler = [MDLTextureSampler new];
         mdlSampler.texture = texturesForImageIdenfiers[texture.source.identifier];
         mdlSampler.hardwareFilter = filtersForSamplerIdentifiers[texture.sampler.identifier];
-        //mdlSampler.transform = GLTFMDLTransformFromMatrix(texture.sampler.transform);
         textureSamplersForTextureIdentifiers[texture.identifier] = mdlSampler;
     }
 
@@ -322,13 +321,19 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
     for (GLTFMaterial *material in asset.materials) {
         MDLPhysicallyPlausibleScatteringFunction *func = [MDLPhysicallyPlausibleScatteringFunction new];
         if (material.metallicRoughness.baseColorTexture) {
-            MDLTextureSampler *baseColorSampler = textureSamplersForTextureIdentifiers[material.metallicRoughness.baseColorTexture.texture.identifier];
+            MDLTextureSampler *baseColorSampler = [textureSamplersForTextureIdentifiers[material.metallicRoughness.baseColorTexture.texture.identifier] copy];
+            if (material.metallicRoughness.baseColorTexture.transform) {
+                baseColorSampler.transform = [[MDLTransform alloc] initWithMatrix:material.metallicRoughness.baseColorTexture.transform.matrix];
+            }
             baseColorSampler.mappingChannel = material.metallicRoughness.baseColorTexture.texCoord;
             func.baseColor.textureSamplerValue = baseColorSampler;
         }
         if (material.metallicRoughness.metallicRoughnessTexture) {
-            MDLTextureSampler *metallicRoughnessSampler = textureSamplersForTextureIdentifiers[material.metallicRoughness.metallicRoughnessTexture.texture.identifier];
-            
+            MDLTextureSampler *metallicRoughnessSampler = [textureSamplersForTextureIdentifiers[material.metallicRoughness.metallicRoughnessTexture.texture.identifier] copy];
+            if (material.metallicRoughness.metallicRoughnessTexture.transform) {
+                metallicRoughnessSampler.transform = [[MDLTransform alloc] initWithMatrix:material.metallicRoughness.metallicRoughnessTexture.transform.matrix];
+            }
+
             MDLTextureSampler *metallicSampler = [MDLTextureSampler new];
             metallicSampler.texture = metallicRoughnessSampler.texture;
             metallicSampler.hardwareFilter = metallicRoughnessSampler.hardwareFilter;
@@ -344,12 +349,18 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             func.roughness.textureSamplerValue = roughnessSampler;
         }
         if (material.normalTexture) {
-            MDLTextureSampler *normalSampler = textureSamplersForTextureIdentifiers[material.normalTexture.texture.identifier];
+            MDLTextureSampler *normalSampler = [textureSamplersForTextureIdentifiers[material.normalTexture.texture.identifier] copy];
+            if (material.normalTexture.transform) {
+                normalSampler.transform = [[MDLTransform alloc] initWithMatrix:material.normalTexture.transform.matrix];
+            }
             normalSampler.mappingChannel = material.normalTexture.texCoord;
             func.normal.textureSamplerValue = normalSampler;
         }
         if (material.emissiveTexture) {
-            MDLTextureSampler *emissiveSampler = textureSamplersForTextureIdentifiers[material.emissiveTexture.texture.identifier];
+            MDLTextureSampler *emissiveSampler = [textureSamplersForTextureIdentifiers[material.emissiveTexture.texture.identifier] copy];
+            if (material.emissiveTexture.transform) {
+                emissiveSampler.transform = [[MDLTransform alloc] initWithMatrix:material.emissiveTexture.transform.matrix];
+            }
             emissiveSampler.mappingChannel = material.emissiveTexture.texCoord;
             func.emission.textureSamplerValue = emissiveSampler;
         }
