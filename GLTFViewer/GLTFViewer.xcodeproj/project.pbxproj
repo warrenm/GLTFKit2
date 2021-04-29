@@ -32,7 +32,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		8365142325C6919A009B5814 /* shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
 		83869A5425C671B4006CAFF1 /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		83D9950125C6573C00B5B234 /* GLTFViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GLTFViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		83D9950425C6573C00B5B234 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -87,7 +86,6 @@
 				83D9950425C6573C00B5B234 /* AppDelegate.swift */,
 				83D9950625C6573C00B5B234 /* ViewController.swift */,
 				83D9950825C6573C00B5B234 /* GLTFDocument.swift */,
-				8365142325C6919A009B5814 /* shaders.metal */,
 				83D9950A25C6573E00B5B234 /* Assets.xcassets */,
 				83D9950C25C6573E00B5B234 /* Main.storyboard */,
 				83D9950F25C6573E00B5B234 /* Info.plist */,
@@ -166,7 +164,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8365142425C6919A009B5814 /* shaders.metal in Sources */,
 				83D9950725C6573C00B5B234 /* ViewController.swift in Sources */,
 				83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */,
 				83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */,
