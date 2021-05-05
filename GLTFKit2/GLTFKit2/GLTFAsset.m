@@ -584,6 +584,7 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 - (instancetype)init {
     if (self = [super init]) {
         _scale = 1.0f;
+        _extensions = @{};
     }
     return self;
 }

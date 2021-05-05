@@ -462,6 +462,8 @@ GLTFKIT2_EXPORT
 @property (nonatomic, assign) NSInteger texCoord;
 @property (nonatomic, assign) float scale; // occlusion map strength or normal map scale
 @property (nonatomic, nullable, strong) GLTFTextureTransform *transform;
+@property (nonatomic, copy) NSDictionary<NSString *, id> *extensions;
+@property (nonatomic, nullable, copy) id extras;
 
 @end
 

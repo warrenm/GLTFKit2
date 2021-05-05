@@ -151,6 +151,35 @@ _Nullable id GLTFObjectFromExtras(char const* json, cgltf_extras extras, NSError
     return obj;
 }
 
+NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, NSError **outError) {
+    NSMutableDictionary *extensionsMap = [NSMutableDictionary dictionary];
+    NSError *internalError = nil;
+    for (int i = 0; i < count; ++i) {
+        cgltf_extension *extension = extensions + i;
+        if (extension->name == NULL || extension->data == NULL) {
+            continue;
+        }
+        NSString *name = [NSString stringWithUTF8String:extension->name];
+        NSData *jsonData = [NSData dataWithBytesNoCopy:extension->data length:strlen(extension->data) freeWhenDone:NO];
+        id obj = [NSJSONSerialization JSONObjectWithData:jsonData
+                                                 options:NSJSONReadingFragmentsAllowed
+                                                   error:&internalError];
+        if (obj) {
+            extensionsMap[name] = obj;
+        } else if (internalError != nil) {
+            if (outError) {
+                *outError = internalError;
+            }
+            break;
+        }
+    }
+    if (outError && internalError) {
+        *outError = internalError;
+    }
+    return extensionsMap;
+}
+
+
 static dispatch_queue_t _loaderQueue;
 
 @implementation GLTFAssetReader
@@ -240,6 +269,7 @@ static dispatch_queue_t _loaderQueue;
         }
         buffer.name = b->name ? [NSString stringWithUTF8String:b->name]
                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Buffer"];
+        buffer.extensions = GLTFConvertExtensions(b->extensions, b->extensions_count, nil);
         buffer.extras = GLTFObjectFromExtras(gltf->json, b->extras, nil);
         [buffers addObject:buffer];
     }
@@ -257,6 +287,7 @@ static dispatch_queue_t _loaderQueue;
                                                                      stride:bv->stride];
         bufferView.name = bv->name ? [NSString stringWithUTF8String:bv->name]
                                    : [self.nameGenerator nextUniqueNameWithPrefix:@"BufferView"];
+        bufferView.extensions = GLTFConvertExtensions(bv->extensions, bv->extensions_count, nil);
         bufferView.extras = GLTFObjectFromExtras(gltf->json, bv->extras, nil);
         [bufferViews addObject:bufferView];
     }
@@ -318,6 +349,7 @@ static dispatch_queue_t _loaderQueue;
         
         accessor.name = a->name ? [NSString stringWithUTF8String:a->name]
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Accessor"];
+        accessor.extensions = GLTFConvertExtensions(a->extensions, a->extensions_count, nil);
         accessor.extras = GLTFObjectFromExtras(gltf->json, a->extras, nil);
         [accessors addObject:accessor];
     }
@@ -336,6 +368,7 @@ static dispatch_queue_t _loaderQueue;
         sampler.wrapT = s->wrap_t;
         sampler.name = s->name ? [NSString stringWithUTF8String:s->name]
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Sampler"];
+        sampler.extensions = GLTFConvertExtensions(s->extensions, s->extensions_count, nil);
         sampler.extras = GLTFObjectFromExtras(gltf->json, s->extras, nil);
         [textureSamplers addObject:sampler];
     }
@@ -361,6 +394,7 @@ static dispatch_queue_t _loaderQueue;
         }
         image.name = img->name ? [NSString stringWithUTF8String:img->name]
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Image"];
+        image.extensions = GLTFConvertExtensions(img->extensions, img->extensions_count, nil);
         image.extras = GLTFObjectFromExtras(gltf->json, img->extras, nil);
         [images addObject:image];
     }
@@ -386,6 +420,7 @@ static dispatch_queue_t _loaderQueue;
         texture.sampler = sampler;
         texture.name = t->name ? [NSString stringWithUTF8String:t->name]
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Texture"];
+        texture.extensions = GLTFConvertExtensions(t->extensions, t->extensions_count, nil);
         texture.extras = GLTFObjectFromExtras(gltf->json, t->extras, nil);
         [textures addObject:texture];
     }
@@ -406,7 +441,8 @@ static dispatch_queue_t _loaderQueue;
         transform.texCoord = tv->transform.texcoord;
         params.transform = transform;
     }
-    // TODO: Support extras and extensions on texture views
+    params.extensions = GLTFConvertExtensions(tv->extensions, tv->extensions_count, nil);
+    params.extras = GLTFObjectFromExtras(gltf->json, tv->extras, nil);
     return params;
 }
 
@@ -479,6 +515,7 @@ static dispatch_queue_t _loaderQueue;
         // TODO: sheen
         material.name = m->name ? [NSString stringWithUTF8String:m->name]
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Material"];
+        material.extensions = GLTFConvertExtensions(m->extensions, m->extensions_count, nil);
         material.extras = GLTFObjectFromExtras(gltf->json, m->extras, nil);
         [materials addObject:material];
     }
@@ -541,6 +578,7 @@ static dispatch_queue_t _loaderQueue;
         mesh.weights = weights;
         mesh.name = m->name ? [NSString stringWithUTF8String:m->name]
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Mesh"];
+        mesh.extensions = GLTFConvertExtensions(m->extensions, m->extensions_count, nil);
         mesh.extras = GLTFObjectFromExtras(gltf->json, m->extras, nil);
         [meshes addObject:mesh];
     }
@@ -572,6 +610,7 @@ static dispatch_queue_t _loaderQueue;
         }
         camera.name = c->name ? [NSString stringWithUTF8String:c->name]
                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Camera"];
+        camera.extensions = GLTFConvertExtensions(c->extensions, c->extensions_count, nil);
         camera.extras = GLTFObjectFromExtras(gltf->json, c->extras, nil);
         [cameras addObject:camera];
     }
@@ -643,6 +682,7 @@ static dispatch_queue_t _loaderQueue;
         // TODO: morph target weights
         node.name = n->name ? [NSString stringWithUTF8String:n->name]
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Node"];
+        node.extensions = GLTFConvertExtensions(n->extensions, n->extensions_count, nil);
         node.extras = GLTFObjectFromExtras(gltf->json, n->extras, nil);
         [nodes addObject:node];
     }
@@ -686,6 +726,7 @@ static dispatch_queue_t _loaderQueue;
         }
         skin.name = s->name ? [NSString stringWithUTF8String:s->name]
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Skin"];
+        skin.extensions = GLTFConvertExtensions(s->extensions, s->extensions_count, nil);
         skin.extras = GLTFObjectFromExtras(gltf->json, s->extras, nil);
         [skins addObject:skin];
     }
@@ -731,6 +772,7 @@ static dispatch_queue_t _loaderQueue;
             size_t samplerIndex = c->sampler - a->samplers;
             GLTFAnimationSampler *sampler = samplers[samplerIndex];
             GLTFAnimationChannel *channel = [[GLTFAnimationChannel alloc] initWithTarget:target sampler:sampler];
+            channel.extensions = GLTFConvertExtensions(c->extensions, c->extensions_count, nil);
             channel.extras = GLTFObjectFromExtras(gltf->json, c->extras, nil);
             [channels addObject:channel];
         }
@@ -758,6 +800,7 @@ static dispatch_queue_t _loaderQueue;
         scene.nodes = rootNodes;
         scene.name = s->name ? [NSString stringWithUTF8String:s->name]
                              : [self.nameGenerator nextUniqueNameWithPrefix:@"Scene"];
+        scene.extensions = GLTFConvertExtensions(s->extensions, s->extensions_count, nil);
         scene.extras = GLTFObjectFromExtras(gltf->json, s->extras, nil);
         [scenes addObject:scene];
     }
@@ -780,9 +823,24 @@ static dispatch_queue_t _loaderQueue;
     if (meta->version) {
         self.asset.version = [NSString stringWithUTF8String:meta->version];
     }
-    // TODO: extensions meta
+    if (gltf->extensions_used_count > 0) {
+        NSMutableArray *extensionsUsed = [NSMutableArray arrayWithCapacity:gltf->extensions_used_count];
+        for (int i = 0; i < gltf->extensions_used_count; ++i) {
+            NSString *extension = [NSString stringWithUTF8String:gltf->extensions_used[i]];
+            [extensionsUsed addObject:extension];
+        }
+        self.asset.extensionsUsed = extensionsUsed;
+    }
+    if (gltf->extensions_required_count > 0) {
+        NSMutableArray *extensionsRequired = [NSMutableArray arrayWithCapacity:gltf->extensions_required_count];
+        for (int i = 0; i < gltf->extensions_required_count; ++i) {
+            NSString *extension = [NSString stringWithUTF8String:gltf->extensions_required[i]];
+            [extensionsRequired addObject:extension];
+        }
+        self.asset.extensionsRequired = extensionsRequired;
+    }
+    self.asset.extensions = GLTFConvertExtensions(meta->extensions, meta->extensions_count, nil);
     self.asset.extras = GLTFObjectFromExtras(gltf->json, meta->extras, nil);
-    // TODO: extensions
     self.asset.buffers = [self convertBuffers];
     self.asset.bufferViews = [self convertBufferViews];
     self.asset.accessors = [self convertAccessors];
