@@ -435,6 +435,10 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @implementation GLTFMesh
 
+- (instancetype)init {
+    return [self initWithPrimitives:@[]];
+}
+
 - (instancetype)initWithPrimitives:(NSArray<GLTFPrimitive *> *)primitives {
     if (self = [super init]) {
         _primitives = [primitives copy];

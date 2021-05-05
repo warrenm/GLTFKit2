@@ -352,7 +352,6 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, copy) NSArray<NSNumber *> *weights;
 
 - (instancetype)initWithPrimitives:(NSArray<GLTFPrimitive *> *)primitives NS_DESIGNATED_INITIALIZER;
-- (instancetype)init NS_UNAVAILABLE;
 
 @end
 
