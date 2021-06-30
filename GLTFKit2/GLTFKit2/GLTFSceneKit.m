@@ -405,17 +405,30 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     for (GLTFImage *image in asset.images) {
         NSUIImage *uiImage = nil;
         if (image.uri) {
+            #if TARGET_OS_IOS
+            uiImage = [UIImage imageWithContentsOfFile: image.uri.path];
+            #elif TARGET_OS_OSX
             uiImage = [[NSUIImage alloc] initWithContentsOfURL:image.uri];
+            #else
+            #error "Unsupported operating system."
+            #endif
+
         } else {
             CGImageRef cgImage = [image newCGImage];
+            #if TARGET_OS_IOS
+            uiImage = [UIImage imageWithCGImage: cgImage];
+            #elif TARGET_OS_OSX
             uiImage = [[NSUIImage alloc] initWithCGImage:cgImage size:NSZeroSize];
+            #else
+            #error "Unsupported operating system."
+            #endif
             CFRelease(cgImage);
         }
         imagesForIdentfiers[image.identifier] = uiImage;
     }
-    
+
     CGColorSpaceRef colorSpaceLinearSRGB = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
-    
+
     SCNMaterial *defaultMaterial = [SCNMaterial material];
     defaultMaterial.lightingModelName = SCNLightingModelPhysicallyBased;
     defaultMaterial.locksAmbientWithDiffuse = YES;
@@ -456,12 +469,12 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             if (material.metallicRoughness.metallicRoughnessTexture) {
                 GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
                 id metallicRoughnessImage = imagesForIdentfiers[metallicRoughnessTexture.texture.source.identifier];
-                
+
                 SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
                 metallicProperty.contents = metallicRoughnessImage;
                 GLTFConfigureSCNMaterialProperty(metallicProperty, metallicRoughnessTexture);
                 metallicProperty.textureComponents = SCNColorMaskBlue;
-                
+
                 SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
                 roughnessProperty.contents = metallicRoughnessImage;
                 GLTFConfigureSCNMaterialProperty(roughnessProperty, metallicRoughnessTexture);
@@ -546,7 +559,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         // TODO: Use shader modifiers to implement more precise alpha test cutoff?
         materialsForIdentifiers[material.identifier] = scnMaterial;
     }
-    
+
     NSMutableDictionary <NSUUID *, SCNGeometry *> *geometryForIdentifiers = [NSMutableDictionary dictionary];
     NSMutableDictionary <NSUUID *, SCNGeometryElement *> *geometryElementForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFMesh *mesh in asset.meshes) {
@@ -595,13 +608,14 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                 // we need to adjust the vertex data.
                 [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attrAccessor, key)];
             }
-            
+
             SCNGeometry *geometry = [SCNGeometry geometryWithSources:geometrySources elements:@[element]];
+            geometry.name = mesh.name;
             geometry.firstMaterial = material ?: defaultMaterial;
             geometryForIdentifiers[primitive.identifier] = geometry;
         }
     }
-    
+
     NSMutableDictionary<NSUUID *, SCNCamera *> *camerasForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFCamera *camera in asset.cameras) {
         SCNCamera *scnCamera = [SCNCamera camera];
@@ -620,7 +634,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         scnCamera.zFar = camera.zFar;
         camerasForIdentifiers[camera.identifier] = scnCamera;
     }
-    
+
     NSMutableDictionary<NSUUID *, SCNLight *> *lightsForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFLight *light in asset.lights) {
         SCNLight *scnLight = [SCNLight light];
@@ -644,7 +658,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         scnLight.castsShadow = YES;
         lightsForIdentifiers[light.identifier] = scnLight;
     }
-    
+
     NSMutableDictionary<NSUUID *, SCNNode *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = [SCNNode node];
@@ -663,7 +677,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
 
     for (GLTFNode *node in asset.nodes) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
-        
+
         if (node.camera) {
             scnNode.camera = camerasForIdentifiers[node.camera.identifier];
         }
@@ -696,14 +710,20 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                 if (primitive.targets.count > 0) {
                     SCNGeometryElement *element = geometryElementForIdentifiers[primitive.identifier];
                     NSMutableArray<SCNGeometry *> *morphGeometries = [NSMutableArray array];
+                    int index = 0;
                     for (GLTFMorphTarget *target in primitive.targets) {
                         NSMutableArray<SCNGeometrySource *> *sources = [NSMutableArray array];
                         for (NSString *key in target.allKeys) {
                             GLTFAccessor *targetAccessor = target[key];
                             [sources addObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
                         }
-                        [morphGeometries addObject:[SCNGeometry geometryWithSources:sources
-                                                                           elements:@[element]]];
+                        SCNGeometry* geom = [SCNGeometry geometryWithSources:sources
+                                                                    elements:@[element]];
+                        if (index < node.mesh.targetNames.count) {
+                            geom.name = node.mesh.targetNames[index];
+                        }
+                        index++;
+                        [morphGeometries addObject:geom];
                     }
 
                     SCNMorpher *scnMorpher = [[SCNMorpher alloc] init];
@@ -796,7 +816,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
             clipChannel.animation = scnAnimation;
             [scnChannels addObject:clipChannel];
-            
+
             //[clipChannel.target addAnimation:scnAnimation forKey:channel.target.path]; // HACK for testing
         }
         GLTFSCNAnimation *animationClip = [GLTFSCNAnimation new];
@@ -814,9 +834,9 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         }
         scenesForIdentifiers[scene.identifier] = scnScene;
     }
-    
+
     CGColorSpaceRelease(colorSpaceLinearSRGB);
-    
+
     if (asset.defaultScene) {
         return scenesForIdentifiers[asset.defaultScene.identifier];
     } else if (asset.scenes.count > 0) {
