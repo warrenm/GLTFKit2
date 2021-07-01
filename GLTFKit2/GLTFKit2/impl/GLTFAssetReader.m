@@ -127,7 +127,7 @@ static NSError *GLTFErrorForCGLTFStatus(cgltf_result result, NSString *_Nullable
             description = @"An unknown error occurred.";
             break;
     }
-    
+
     return [NSError errorWithDomain:@"com.metalbyexample.gltfkit2" code:(result + 1000) userInfo:@{
         NSLocalizedDescriptionKey : description
     }];
@@ -224,7 +224,7 @@ static dispatch_queue_t _loaderQueue;
                      handler:(nullable GLTFAssetLoadingHandler)handler
 {
     self.assetURL = assetURL;
-    
+
     if (assetURL) {
         self.lastAccessedPath = assetURL.path;
     }
@@ -235,15 +235,15 @@ static dispatch_queue_t _loaderQueue;
         handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
         return;
     }
-    
+
     cgltf_options parseOptions = {0};
     parseOptions.file.read = GLTFReadFile;
     parseOptions.file.user_data = (__bridge void *)self;
     cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
-    
+
     if (result != cgltf_result_success) {
         handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
-    } else {        
+    } else {
         result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
         if (result != cgltf_result_success) {
             NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
@@ -253,7 +253,7 @@ static dispatch_queue_t _loaderQueue;
             handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
         }
     }
-    
+
     cgltf_free(gltf);
 }
 
@@ -310,7 +310,7 @@ static dispatch_queue_t _loaderQueue;
                                                                 dimension:GLTFDimensionForAccessorType(a->type)
                                                                     count:a->count
                                                                normalized:a->normalized];
-        
+
         size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
         if (a->has_min) {
             NSMutableArray *minArray = [NSMutableArray array];
@@ -346,7 +346,7 @@ static dispatch_queue_t _loaderQueue;
                                                                             count:a->sparse.count];
             accessor.sparse = sparse;
         }
-        
+
         accessor.name = a->name ? [NSString stringWithUTF8String:a->name]
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Accessor"];
         accessor.extensions = GLTFConvertExtensions(a->extensions, a->extensions_count, nil);
@@ -575,7 +575,14 @@ static dispatch_queue_t _loaderQueue;
             [weights addObject:@(weight[0])];
         }
         mesh.primitives = primitives;
-        mesh.weights = weights;
+
+        NSMutableArray * targetNames = [NSMutableArray array];
+        for (int j = 0; j < m->target_names_count; j++)
+        {
+            [targetNames addObject: [NSString stringWithUTF8String:m->target_names[j]]];
+        }
+        mesh.targetNames = targetNames;
+
         mesh.name = m->name ? [NSString stringWithUTF8String:m->name]
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Mesh"];
         mesh.extensions = GLTFConvertExtensions(m->extensions, m->extensions_count, nil);
@@ -730,7 +737,7 @@ static dispatch_queue_t _loaderQueue;
         skin.extras = GLTFObjectFromExtras(gltf->json, s->extras, nil);
         [skins addObject:skin];
     }
-    
+
     for (int i = 0; i < gltf->nodes_count; ++i) {
         cgltf_node *n = gltf->nodes + i;
         GLTFNode *node = self.asset.nodes[i];
