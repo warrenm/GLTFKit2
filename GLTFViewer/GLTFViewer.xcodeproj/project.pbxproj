@@ -14,6 +14,15 @@
 		83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950825C6573C00B5B234 /* GLTFDocument.swift */; };
 		83D9950B25C6573E00B5B234 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 83D9950A25C6573E00B5B234 /* Assets.xcassets */; };
 		83D9950E25C6573E00B5B234 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83D9950C25C6573E00B5B234 /* Main.storyboard */; };
+		83FFB68B26CF0CF3008AE676 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83FFB68A26CF0CF3008AE676 /* AppDelegate.swift */; };
+		83FFB68F26CF0CF3008AE676 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83FFB68E26CF0CF3008AE676 /* ViewController.swift */; };
+		83FFB69226CF0CF3008AE676 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB69026CF0CF3008AE676 /* Main.storyboard */; };
+		83FFB69426CF0CF5008AE676 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB69326CF0CF5008AE676 /* Assets.xcassets */; };
+		83FFB69726CF0CF5008AE676 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB69526CF0CF5008AE676 /* LaunchScreen.storyboard */; };
+		83FFB69D26CF0F7B008AE676 /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; };
+		83FFB69E26CF0F7B008AE676 /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		83FFB6A226CF11BE008AE676 /* DamagedHelmet.glb in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB6A126CF11BE008AE676 /* DamagedHelmet.glb */; };
+		83FFB6A326CF11BE008AE676 /* DamagedHelmet.glb in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB6A126CF11BE008AE676 /* DamagedHelmet.glb */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -28,11 +37,22 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		83FFB69F26CF0F7B008AE676 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				83FFB69E26CF0F7B008AE676 /* GLTFKit2.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		83869A5425C671B4006CAFF1 /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		83D9950125C6573C00B5B234 /* GLTFViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GLTFViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		83D9950125C6573C00B5B234 /* GLTFViewer-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GLTFViewer-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		83D9950425C6573C00B5B234 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		83D9950625C6573C00B5B234 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		83D9950825C6573C00B5B234 /* GLTFDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GLTFDocument.swift; sourceTree = "<group>"; };
@@ -40,6 +60,14 @@
 		83D9950D25C6573E00B5B234 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		83D9950F25C6573E00B5B234 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		83D9951025C6573E00B5B234 /* GLTFViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GLTFViewer.entitlements; sourceTree = "<group>"; };
+		83FFB68826CF0CF3008AE676 /* GLTFViewer-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GLTFViewer-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		83FFB68A26CF0CF3008AE676 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		83FFB68E26CF0CF3008AE676 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		83FFB69126CF0CF3008AE676 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		83FFB69326CF0CF5008AE676 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		83FFB69626CF0CF5008AE676 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		83FFB69826CF0CF5008AE676 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		83FFB6A126CF11BE008AE676 /* DamagedHelmet.glb */ = {isa = PBXFileReference; lastKnownFileType = file; path = DamagedHelmet.glb; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,6 +76,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				83869A5525C671B4006CAFF1 /* GLTFKit2.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		83FFB68526CF0CF3008AE676 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				83FFB69D26CF0F7B008AE676 /* GLTFKit2.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,7 +101,9 @@
 		83D994F825C6573C00B5B234 = {
 			isa = PBXGroup;
 			children = (
-				83D9950325C6573C00B5B234 /* GLTFViewer */,
+				83FFB6A026CF11A8008AE676 /* Resources */,
+				83D9950325C6573C00B5B234 /* macOS */,
+				83FFB68926CF0CF3008AE676 /* iOS */,
 				83D9950225C6573C00B5B234 /* Products */,
 				83869A5325C671B4006CAFF1 /* Frameworks */,
 			);
@@ -74,12 +112,13 @@
 		83D9950225C6573C00B5B234 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				83D9950125C6573C00B5B234 /* GLTFViewer.app */,
+				83D9950125C6573C00B5B234 /* GLTFViewer-macOS.app */,
+				83FFB68826CF0CF3008AE676 /* GLTFViewer-iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		83D9950325C6573C00B5B234 /* GLTFViewer */ = {
+		83D9950325C6573C00B5B234 /* macOS */ = {
 			isa = PBXGroup;
 			children = (
 				83D9950425C6573C00B5B234 /* AppDelegate.swift */,
@@ -90,15 +129,36 @@
 				83D9950F25C6573E00B5B234 /* Info.plist */,
 				83D9951025C6573E00B5B234 /* GLTFViewer.entitlements */,
 			);
-			path = GLTFViewer;
+			path = macOS;
+			sourceTree = "<group>";
+		};
+		83FFB68926CF0CF3008AE676 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				83FFB68A26CF0CF3008AE676 /* AppDelegate.swift */,
+				83FFB68E26CF0CF3008AE676 /* ViewController.swift */,
+				83FFB69026CF0CF3008AE676 /* Main.storyboard */,
+				83FFB69326CF0CF5008AE676 /* Assets.xcassets */,
+				83FFB69526CF0CF5008AE676 /* LaunchScreen.storyboard */,
+				83FFB69826CF0CF5008AE676 /* Info.plist */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
+		83FFB6A026CF11A8008AE676 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				83FFB6A126CF11BE008AE676 /* DamagedHelmet.glb */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		83D9950025C6573C00B5B234 /* GLTFViewer */ = {
+		83D9950025C6573C00B5B234 /* GLTFViewer-macOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 83D9951325C6573E00B5B234 /* Build configuration list for PBXNativeTarget "GLTFViewer" */;
+			buildConfigurationList = 83D9951325C6573E00B5B234 /* Build configuration list for PBXNativeTarget "GLTFViewer-macOS" */;
 			buildPhases = (
 				83D994FD25C6573C00B5B234 /* Sources */,
 				83D994FE25C6573C00B5B234 /* Frameworks */,
@@ -109,9 +169,27 @@
 			);
 			dependencies = (
 			);
-			name = GLTFViewer;
+			name = "GLTFViewer-macOS";
 			productName = GLTFViewer;
-			productReference = 83D9950125C6573C00B5B234 /* GLTFViewer.app */;
+			productReference = 83D9950125C6573C00B5B234 /* GLTFViewer-macOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		83FFB68726CF0CF3008AE676 /* GLTFViewer-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 83FFB69B26CF0CF5008AE676 /* Build configuration list for PBXNativeTarget "GLTFViewer-iOS" */;
+			buildPhases = (
+				83FFB68426CF0CF3008AE676 /* Sources */,
+				83FFB68526CF0CF3008AE676 /* Frameworks */,
+				83FFB68626CF0CF3008AE676 /* Resources */,
+				83FFB69F26CF0F7B008AE676 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "GLTFViewer-iOS";
+			productName = GLTFViewer_iOS;
+			productReference = 83FFB68826CF0CF3008AE676 /* GLTFViewer-iOS.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -120,11 +198,14 @@
 		83D994F925C6573C00B5B234 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 1240;
+				LastSwiftUpdateCheck = 1250;
 				LastUpgradeCheck = 1250;
 				TargetAttributes = {
 					83D9950025C6573C00B5B234 = {
 						CreatedOnToolsVersion = 12.4;
+					};
+					83FFB68726CF0CF3008AE676 = {
+						CreatedOnToolsVersion = 12.5.1;
 					};
 				};
 			};
@@ -141,7 +222,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				83D9950025C6573C00B5B234 /* GLTFViewer */,
+				83D9950025C6573C00B5B234 /* GLTFViewer-macOS */,
+				83FFB68726CF0CF3008AE676 /* GLTFViewer-iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -152,7 +234,19 @@
 			buildActionMask = 2147483647;
 			files = (
 				83D9950B25C6573E00B5B234 /* Assets.xcassets in Resources */,
+				83FFB6A226CF11BE008AE676 /* DamagedHelmet.glb in Resources */,
 				83D9950E25C6573E00B5B234 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		83FFB68626CF0CF3008AE676 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				83FFB69726CF0CF5008AE676 /* LaunchScreen.storyboard in Resources */,
+				83FFB69426CF0CF5008AE676 /* Assets.xcassets in Resources */,
+				83FFB6A326CF11BE008AE676 /* DamagedHelmet.glb in Resources */,
+				83FFB69226CF0CF3008AE676 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -169,6 +263,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		83FFB68426CF0CF3008AE676 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				83FFB68F26CF0CF3008AE676 /* ViewController.swift in Sources */,
+				83FFB68B26CF0CF3008AE676 /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
@@ -178,6 +281,22 @@
 				83D9950D25C6573E00B5B234 /* Base */,
 			);
 			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		83FFB69026CF0CF3008AE676 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				83FFB69126CF0CF3008AE676 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		83FFB69526CF0CF5008AE676 /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				83FFB69626CF0CF5008AE676 /* Base */,
+			);
+			name = LaunchScreen.storyboard;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -309,7 +428,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = RHRJ88BAB5;
 				ENABLE_HARDENED_RUNTIME = YES;
-				INFOPLIST_FILE = GLTFViewer/Info.plist;
+				INFOPLIST_FILE = macOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -331,7 +450,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = RHRJ88BAB5;
 				ENABLE_HARDENED_RUNTIME = YES;
-				INFOPLIST_FILE = GLTFViewer/Info.plist;
+				INFOPLIST_FILE = macOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -339,6 +458,49 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2.GLTFViewer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		83FFB69926CF0CF5008AE676 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RHRJ88BAB5;
+				INFOPLIST_FILE = iOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2.GLTFViewer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		83FFB69A26CF0CF5008AE676 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RHRJ88BAB5;
+				INFOPLIST_FILE = iOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2.GLTFViewer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -354,11 +516,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		83D9951325C6573E00B5B234 /* Build configuration list for PBXNativeTarget "GLTFViewer" */ = {
+		83D9951325C6573E00B5B234 /* Build configuration list for PBXNativeTarget "GLTFViewer-macOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83D9951425C6573E00B5B234 /* Debug */,
 				83D9951525C6573E00B5B234 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		83FFB69B26CF0CF5008AE676 /* Build configuration list for PBXNativeTarget "GLTFViewer-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				83FFB69926CF0CF5008AE676 /* Debug */,
+				83FFB69A26CF0CF5008AE676 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

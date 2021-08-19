@@ -1,6 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <simd/simd.h>
-#import <CoreImage/CoreImage.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 #import <GLTFKit2/GLTFTypes.h>
 

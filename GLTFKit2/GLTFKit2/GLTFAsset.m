@@ -1,6 +1,7 @@
 
 #import "GLTFAsset.h"
 #import "GLTFAssetReader.h"
+#import <ImageIO/ImageIO.h>
 
 const float LumensPerCandela = 1.0 / (4.0 * M_PI);
 
