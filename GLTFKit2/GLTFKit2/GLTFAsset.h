@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <simd/simd.h>
+#import <CoreImage/CoreImage.h>
 
 #import <GLTFKit2/GLTFTypes.h>
 
@@ -350,6 +351,7 @@ GLTFKIT2_EXPORT
 
 @property (nonatomic, copy) NSArray<GLTFPrimitive *> *primitives;
 @property (nonatomic, nullable, copy) NSArray<NSNumber *> *weights;
+@property (nonatomic, nullable, copy) NSArray<NSString *> *targetNames;
 
 - (instancetype)initWithPrimitives:(NSArray<GLTFPrimitive *> *)primitives NS_DESIGNATED_INITIALIZER;
 
