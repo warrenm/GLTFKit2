@@ -548,7 +548,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             GLTFConfigureSCNMaterialProperty(occlusionProperty, occlusionTexture);
         }
         if (material.clearcoat) {
-            if (@available(macOS 10.15, *)) {
+            if (@available(macOS 10.15, iOS 13.0, *)) {
                 if (material.clearcoat.clearcoatTexture) {
                     GLTFTextureParams *clearcoatTexture = material.clearcoat.clearcoatTexture;
                     SCNMaterialProperty *clearcoatProperty = scnMaterial.clearCoat;

@@ -1,6 +1,23 @@
 
 #import "GLTFModelIO.h"
 
+@interface MDLTextureFilter (GLTFCopyingExtensions)
+- (id)GLTF_copy;
+@end
+
+@implementation MDLTextureFilter (GLTFCopyingExtensions)
+- (id)GLTF_copy {
+    MDLTextureFilter *filter = [MDLTextureFilter new];
+    filter.sWrapMode = self.sWrapMode;
+    filter.tWrapMode = self.tWrapMode;
+    filter.rWrapMode = self.rWrapMode;
+    filter.minFilter = self.minFilter;
+    filter.magFilter = self.magFilter;
+    filter.mipFilter = self.mipFilter;
+    return filter;
+}
+@end
+
 typedef NS_OPTIONS(long long, GLTFMDLColorMask) {
     GLTFMDLColorMaskNone   = 0,
     GLTFMDLColorMaskRed    = 1 << 3,
@@ -18,6 +35,22 @@ typedef NS_OPTIONS(long long, GLTFMDLColorMask) {
 // safe to assume they'll be around for a while.
 @property (nonatomic, assign) UInt64 mappingChannel;
 @property (nonatomic, assign) GLTFMDLColorMask textureComponents;
+@end
+
+@interface MDLTextureSampler (GLTFCopyingExtensions)
+- (id)GLTF_copy;
+@end
+
+@implementation MDLTextureSampler (GLTFCopyingExtensions)
+- (id)GLTF_copy {
+    MDLTextureSampler *sampler = [[MDLTextureSampler alloc] init];
+    sampler.texture = self.texture;
+    sampler.hardwareFilter = [self.hardwareFilter GLTF_copy];
+    sampler.transform = [self.transform copy];
+    sampler.mappingChannel = self.mappingChannel;
+    sampler.textureComponents = self.textureComponents;
+    return sampler;
+}
 @end
 
 static MDLMaterialTextureFilterMode GLTFMDLTextureFilterModeForMagFilter(GLTFMagFilter filter) {
@@ -321,7 +354,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
     for (GLTFMaterial *material in asset.materials) {
         MDLPhysicallyPlausibleScatteringFunction *func = [MDLPhysicallyPlausibleScatteringFunction new];
         if (material.metallicRoughness.baseColorTexture) {
-            MDLTextureSampler *baseColorSampler = [textureSamplersForTextureIdentifiers[material.metallicRoughness.baseColorTexture.texture.identifier] copy];
+            MDLTextureSampler *baseColorSampler = [textureSamplersForTextureIdentifiers[material.metallicRoughness.baseColorTexture.texture.identifier] GLTF_copy];
             if (material.metallicRoughness.baseColorTexture.transform) {
                 baseColorSampler.transform = [[MDLTransform alloc] initWithMatrix:material.metallicRoughness.baseColorTexture.transform.matrix];
             }
@@ -329,7 +362,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             func.baseColor.textureSamplerValue = baseColorSampler;
         }
         if (material.metallicRoughness.metallicRoughnessTexture) {
-            MDLTextureSampler *metallicRoughnessSampler = [textureSamplersForTextureIdentifiers[material.metallicRoughness.metallicRoughnessTexture.texture.identifier] copy];
+            MDLTextureSampler *metallicRoughnessSampler = [textureSamplersForTextureIdentifiers[material.metallicRoughness.metallicRoughnessTexture.texture.identifier] GLTF_copy];
             if (material.metallicRoughness.metallicRoughnessTexture.transform) {
                 metallicRoughnessSampler.transform = [[MDLTransform alloc] initWithMatrix:material.metallicRoughness.metallicRoughnessTexture.transform.matrix];
             }
@@ -349,7 +382,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             func.roughness.textureSamplerValue = roughnessSampler;
         }
         if (material.normalTexture) {
-            MDLTextureSampler *normalSampler = [textureSamplersForTextureIdentifiers[material.normalTexture.texture.identifier] copy];
+            MDLTextureSampler *normalSampler = [textureSamplersForTextureIdentifiers[material.normalTexture.texture.identifier] GLTF_copy];
             if (material.normalTexture.transform) {
                 normalSampler.transform = [[MDLTransform alloc] initWithMatrix:material.normalTexture.transform.matrix];
             }
@@ -357,7 +390,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             func.normal.textureSamplerValue = normalSampler;
         }
         if (material.emissiveTexture) {
-            MDLTextureSampler *emissiveSampler = [textureSamplersForTextureIdentifiers[material.emissiveTexture.texture.identifier] copy];
+            MDLTextureSampler *emissiveSampler = [textureSamplersForTextureIdentifiers[material.emissiveTexture.texture.identifier] GLTF_copy];
             if (material.emissiveTexture.transform) {
                 emissiveSampler.transform = [[MDLTransform alloc] initWithMatrix:material.emissiveTexture.transform.matrix];
             }
