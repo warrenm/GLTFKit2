@@ -4,7 +4,6 @@ import SceneKit
 import GLTFKit2
 
 class ViewController: UIViewController {
-
     private let camera = SCNCamera()
     private let cameraNode = SCNNode()
 
