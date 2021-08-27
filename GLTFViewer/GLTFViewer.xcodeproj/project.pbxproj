@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		83869A5525C671B4006CAFF1 /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; };
 		83869A5625C671B4006CAFF1 /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		83AB9EA126D98BEB00FD9C95 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = 83AB9EA026D98BCF00FD9C95 /* Models */; };
 		83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950425C6573C00B5B234 /* AppDelegate.swift */; };
 		83D9950725C6573C00B5B234 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950625C6573C00B5B234 /* ViewController.swift */; };
 		83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950825C6573C00B5B234 /* GLTFDocument.swift */; };
@@ -21,8 +22,6 @@
 		83FFB69726CF0CF5008AE676 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB69526CF0CF5008AE676 /* LaunchScreen.storyboard */; };
 		83FFB69D26CF0F7B008AE676 /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; };
 		83FFB69E26CF0F7B008AE676 /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		83FFB6A226CF11BE008AE676 /* DamagedHelmet.glb in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB6A126CF11BE008AE676 /* DamagedHelmet.glb */; };
-		83FFB6A326CF11BE008AE676 /* DamagedHelmet.glb in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB6A126CF11BE008AE676 /* DamagedHelmet.glb */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -52,6 +51,7 @@
 
 /* Begin PBXFileReference section */
 		83869A5425C671B4006CAFF1 /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		83AB9EA026D98BCF00FD9C95 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
 		83D9950125C6573C00B5B234 /* GLTFViewer-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GLTFViewer-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		83D9950425C6573C00B5B234 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		83D9950625C6573C00B5B234 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -67,7 +67,6 @@
 		83FFB69326CF0CF5008AE676 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		83FFB69626CF0CF5008AE676 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		83FFB69826CF0CF5008AE676 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		83FFB6A126CF11BE008AE676 /* DamagedHelmet.glb */ = {isa = PBXFileReference; lastKnownFileType = file; path = DamagedHelmet.glb; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -101,7 +100,7 @@
 		83D994F825C6573C00B5B234 = {
 			isa = PBXGroup;
 			children = (
-				83FFB6A026CF11A8008AE676 /* Resources */,
+				83AB9EA026D98BCF00FD9C95 /* Models */,
 				83D9950325C6573C00B5B234 /* macOS */,
 				83FFB68926CF0CF3008AE676 /* iOS */,
 				83D9950225C6573C00B5B234 /* Products */,
@@ -143,14 +142,6 @@
 				83FFB69826CF0CF5008AE676 /* Info.plist */,
 			);
 			path = iOS;
-			sourceTree = "<group>";
-		};
-		83FFB6A026CF11A8008AE676 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				83FFB6A126CF11BE008AE676 /* DamagedHelmet.glb */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -234,7 +225,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				83D9950B25C6573E00B5B234 /* Assets.xcassets in Resources */,
-				83FFB6A226CF11BE008AE676 /* DamagedHelmet.glb in Resources */,
 				83D9950E25C6573E00B5B234 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -243,9 +233,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83AB9EA126D98BEB00FD9C95 /* Models in Resources */,
 				83FFB69726CF0CF5008AE676 /* LaunchScreen.storyboard in Resources */,
 				83FFB69426CF0CF5008AE676 /* Assets.xcassets in Resources */,
-				83FFB6A326CF11BE008AE676 /* DamagedHelmet.glb in Resources */,
 				83FFB69226CF0CF3008AE676 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -433,7 +423,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2.GLTFViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.GLTFKit2.Viewer.macOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
@@ -455,7 +445,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2.GLTFViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.GLTFKit2.Viewer.macOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
@@ -474,7 +464,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2.GLTFViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.GLTFKit2.Viewer.iOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -495,7 +485,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2.GLTFViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.GLTFKit2.Viewer.iOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;

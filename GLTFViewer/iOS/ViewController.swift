@@ -34,7 +34,11 @@ class ViewController: UIViewController {
     }
 
     private func loadAsset() {
-        guard let assetURL = Bundle.main.url(forResource: "DamagedHelmet", withExtension: "glb") else {
+
+        guard let assetURL = Bundle.main.url(forResource: "DamagedHelmet",
+                                             withExtension: "glb",
+                                             subdirectory: "Models")
+        else {
             print("Failed to find asset for URL")
             return
         }
