@@ -423,7 +423,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.GLTFKit2.Viewer.macOS;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-macos";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
@@ -445,7 +445,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.GLTFKit2.Viewer.macOS;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-macos";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
@@ -464,7 +464,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.GLTFKit2.Viewer.iOS;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-ios";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -485,7 +485,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.GLTFKit2.Viewer.iOS;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-ios";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
