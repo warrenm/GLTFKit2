@@ -1,46 +1,46 @@
 
 #import "GLTFSceneKit.h"
+#import "GLTFLogging.h"
 
-#if TARGET_OS_IOS
-typedef UIImage NSUIImage;
-
-@interface UIImage (GLTFKit2Extensions)
-- (nullable instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size;
-- (nullable instancetype)GLTF_initWithContentsOfURL:(NSURL *)url;
-@end
-
-@implementation UIImage (GLTFKit2Extensions)
-- (instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size {
-    (void)size;
-    return [self initWithCGImage:cgImage];
-}
-
-- (instancetype)GLTF_initWithContentsOfURL:(NSURL *)url {
-    return [[UIImage alloc] initWithContentsOfFile:url.path];
-}
-@end
-
-#elif TARGET_OS_OSX
-typedef NSImage NSUIImage;
-
-@interface NSImage (GLTFKit2Extensions)
-- (nullable instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size;
-- (nullable instancetype)GLTF_initWithContentsOfURL:(NSURL *)url;
-@end
-
-@implementation NSImage (GLTFKit2Extensions)
-- (instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size {
-    (void)size;
-    return [self initWithCGImage:cgImage size:size];
-}
-
-- (instancetype)GLTF_initWithContentsOfURL:(NSURL *)url {
-    return [[NSImage alloc] initWithContentsOfURL:url];
-}
-@end
-#else
-#error "Unsupported operating system. Cannot determine suitable image class"
-#endif
+//#if TARGET_OS_IOS
+//typedef UIImage NSUIImage;
+//
+//@interface UIImage (GLTFKit2Extensions)
+//- (nullable instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size;
+//- (nullable instancetype)GLTF_initWithContentsOfURL:(NSURL *)url;
+//@end
+//
+//@implementation UIImage (GLTFKit2Extensions)
+//- (instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size {
+//    (void)size;
+//    return [self initWithCGImage:cgImage];
+//}
+//
+//- (instancetype)GLTF_initWithContentsOfURL:(NSURL *)url {
+//    return [[UIImage alloc] initWithContentsOfFile:url.path];
+//}
+//@end
+//
+//#elif TARGET_OS_OSX
+//typedef NSImage NSUIImage;
+//
+//@interface NSImage (GLTFKit2Extensions)
+//- (nullable instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size;
+//- (nullable instancetype)GLTF_initWithContentsOfURL:(NSURL *)url;
+//@end
+//
+//@implementation NSImage (GLTFKit2Extensions)
+//- (instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size {
+//    return [self initWithCGImage:cgImage size:size];
+//}
+//
+//- (instancetype)GLTF_initWithContentsOfURL:(NSURL *)url {
+//    return [[NSImage alloc] initWithContentsOfURL:url];
+//}
+//@end
+//#else
+//#error "Unsupported operating system. Cannot determine suitable image class"
+//#endif
 
 static SCNFilterMode GLTFSCNFilterModeForMagFilter(GLTFMagFilter filter) {
     switch (filter) {
@@ -434,17 +434,10 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
 
 + (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset
 {
-    NSMutableDictionary<NSUUID *, NSUIImage *> *imagesForIdentfiers = [NSMutableDictionary dictionary];
+    NSMutableDictionary<NSUUID *, id> *imagesForIdentfiers = [NSMutableDictionary dictionary];
     for (GLTFImage *image in asset.images) {
-        NSUIImage *uiImage = nil;
-        if (image.uri) {
-            uiImage = [[NSUIImage alloc] GLTF_initWithContentsOfURL:image.uri];
-        } else {
-            CGImageRef cgImage = [image newCGImage];
-            uiImage = [[NSUIImage alloc] GLTF_initWithCGImage:cgImage size:CGSizeZero];
-            CFRelease(cgImage);
-        }
-        imagesForIdentfiers[image.identifier] = uiImage;
+        CGImageRef cgImage = [image newCGImage];
+        imagesForIdentfiers[image.identifier] = (__bridge_transfer id)cgImage;
     }
 
     CGColorSpaceRef colorSpaceLinearSRGB = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
