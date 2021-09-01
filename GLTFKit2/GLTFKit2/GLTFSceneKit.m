@@ -258,7 +258,7 @@ static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
 static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTFTextureParams *textureParams) {
     static GLTFTextureSampler *defaultSampler = nil;
     if (defaultSampler == nil) {
-        defaultSampler = [[GLTFTextureSampler alloc] init];
+        defaultSampler = [GLTFTextureSampler new];
         defaultSampler.magFilter = GLTFMagFilterLinear;
         defaultSampler.minMipFilter = GLTFMinMipFilterLinearLinear;
         defaultSampler.wrapS = GLTFAddressModeRepeat;
@@ -746,7 +746,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                         [morphGeometries addObject:geom];
                     }
 
-                    SCNMorpher *scnMorpher = [[SCNMorpher alloc] init];
+                    SCNMorpher *scnMorpher = [SCNMorpher new];
                     scnMorpher.calculationMode = SCNMorpherCalculationModeAdditive;
                     scnMorpher.targets = morphGeometries;
                     scnMorpher.weights = node.mesh.weights;

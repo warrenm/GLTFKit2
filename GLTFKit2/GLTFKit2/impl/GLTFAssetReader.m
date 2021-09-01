@@ -196,7 +196,7 @@ static dispatch_queue_t _loaderQueue;
                  handler:(nullable GLTFAssetLoadingHandler)handler
 {
     dispatch_async(self.loaderQueue, ^{
-        GLTFAssetReader *loader = [[GLTFAssetReader alloc] init];
+        GLTFAssetReader *loader = [GLTFAssetReader new];
         [loader syncLoadAssetWithURL:url data:nil options:options handler:handler];
     });
 }
@@ -206,7 +206,7 @@ static dispatch_queue_t _loaderQueue;
                   handler:(nullable GLTFAssetLoadingHandler)handler
 {
     dispatch_async(self.loaderQueue, ^{
-        GLTFAssetReader *loader = [[GLTFAssetReader alloc] init];
+        GLTFAssetReader *loader = [GLTFAssetReader new];
         [loader syncLoadAssetWithURL:nil data:data options:options handler:handler];
     });
 }
@@ -599,21 +599,21 @@ static dispatch_queue_t _loaderQueue;
         cgltf_camera *c = gltf->cameras + i;
         GLTFCamera *camera = nil;
         if (c->type == cgltf_camera_type_orthographic) {
-            GLTFOrthographicProjectionParams *params = [[GLTFOrthographicProjectionParams alloc] init];
+            GLTFOrthographicProjectionParams *params = [GLTFOrthographicProjectionParams new];
             params.xMag = c->data.orthographic.xmag;
             params.yMag = c->data.orthographic.ymag;
             camera = [[GLTFCamera alloc] initWithOrthographicProjection:params];
             camera.zNear = c->data.orthographic.znear;
             camera.zFar = c->data.orthographic.zfar;
         } else if (c->type == cgltf_camera_type_perspective) {
-            GLTFPerspectiveProjectionParams *params = [[GLTFPerspectiveProjectionParams alloc] init];
+            GLTFPerspectiveProjectionParams *params = [GLTFPerspectiveProjectionParams new];
             params.yFOV = c->data.perspective.yfov;
             params.aspectRatio = c->data.perspective.aspect_ratio;
             camera = [[GLTFCamera alloc] initWithPerspectiveProjection:params];
             camera.zNear = c->data.perspective.znear;
             camera.zFar = c->data.perspective.zfar;
         } else {
-            camera = [[GLTFCamera alloc] init]; // Got an invalid camera, so just make a dummy to occupy the slot
+            camera = [GLTFCamera new]; // Got an invalid camera, so just make a dummy to occupy the slot
         }
         camera.name = c->name ? [NSString stringWithUTF8String:c->name]
                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Camera"];
@@ -647,7 +647,7 @@ static dispatch_queue_t _loaderQueue;
     NSMutableArray *nodes = [NSMutableArray array];
     for (int i = 0; i < gltf->nodes_count; ++i) {
         cgltf_node *n = gltf->nodes + i;
-        GLTFNode *node = [[GLTFNode alloc] init];
+        GLTFNode *node = [GLTFNode new];
         if (n->camera) {
             size_t cameraIndex = n->camera - gltf->cameras;
             node.camera = self.asset.cameras[cameraIndex];

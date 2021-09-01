@@ -43,7 +43,7 @@ typedef NS_OPTIONS(long long, GLTFMDLColorMask) {
 
 @implementation MDLTextureSampler (GLTFCopyingExtensions)
 - (id)GLTF_copy {
-    MDLTextureSampler *sampler = [[MDLTextureSampler alloc] init];
+    MDLTextureSampler *sampler = [MDLTextureSampler new];
     sampler.texture = self.texture;
     sampler.hardwareFilter = [self.hardwareFilter GLTF_copy];
     sampler.transform = [self.transform copy];
