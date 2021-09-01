@@ -749,7 +749,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                     SCNMorpher *scnMorpher = [SCNMorpher new];
                     scnMorpher.calculationMode = SCNMorpherCalculationModeAdditive;
                     scnMorpher.targets = morphGeometries;
-                    scnMorpher.weights = node.mesh.weights;
+                    scnMorpher.weights = node.weights ?: node.mesh.weights;
                     geometryNode.morpher = scnMorpher;
                 }
             }

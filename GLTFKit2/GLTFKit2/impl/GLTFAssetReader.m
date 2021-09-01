@@ -574,6 +574,9 @@ static dispatch_queue_t _loaderQueue;
             cgltf_float *weight = m->weights + j;
             [weights addObject:@(weight[0])];
         }
+        if (weights.count > 0) {
+            mesh.weights = weights;
+        }
         mesh.primitives = primitives;
 
         NSMutableArray * targetNames = [NSMutableArray array];
