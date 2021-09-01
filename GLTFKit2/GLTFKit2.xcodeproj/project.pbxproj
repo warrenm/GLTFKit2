@@ -19,6 +19,7 @@
 		834FF1E625C3BE64001887C2 /* cgltf.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1E125C3BE64001887C2 /* cgltf.h */; };
 		83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */ = {isa = PBXBuildFile; fileRef = 83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		83BEF9D825CF3240005DFE80 /* GLTFModelIO.m in Sources */ = {isa = PBXBuildFile; fileRef = 83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */; };
+		83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 83DA575526DEEAA9007B440E /* GLTFLogging.h */; settings = {ATTRIBUTES = (Private, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +38,7 @@
 		83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFModelIO.h; sourceTree = "<group>"; };
 		83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFModelIO.m; sourceTree = "<group>"; };
 		83C1BC9C25C3EABF003A485D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
+		83DA575526DEEAA9007B440E /* GLTFLogging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFLogging.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,6 +110,7 @@
 			children = (
 				834FF1D725C3BE51001887C2 /* GLTFAssetReader.h */,
 				834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */,
+				83DA575526DEEAA9007B440E /* GLTFLogging.h */,
 			);
 			path = impl;
 			sourceTree = "<group>";
@@ -124,6 +127,7 @@
 				83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */,
 				834AD61025E1BD850010608A /* GLTFTypes.h in Headers */,
 				834FF1C925C27938001887C2 /* GLTFKit2.h in Headers */,
+				83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */,
 				834FF1E625C3BE64001887C2 /* cgltf.h in Headers */,
 				834FF1D925C3BE51001887C2 /* GLTFAssetReader.h in Headers */,
 				834AD60A25E1A3960010608A /* GLTFSceneKit.h in Headers */,

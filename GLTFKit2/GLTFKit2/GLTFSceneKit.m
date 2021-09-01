@@ -811,6 +811,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                 // TODO: Weight animations
                 continue;
             } else {
+                GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
                 // TODO: This shouldn't be a hard failure, but not sure what to do here yet
                 assert(false);
             }
