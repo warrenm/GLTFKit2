@@ -569,7 +569,14 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         scnMaterial.doubleSided = material.isDoubleSided;
         scnMaterial.blendMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNBlendModeAlpha : SCNBlendModeReplace;
         scnMaterial.transparencyMode = SCNTransparencyModeDefault;
-        // TODO: Use shader modifiers to implement more precise alpha test cutoff?
+        NSString *unpremulSurfaceDiffuse = [NSString stringWithFormat:@"if (_surface.diffuse.a > 0.0f) {\n\t_surface.diffuse.rgb /= _surface.diffuse.a;\n}"];
+        if (material.alphaMode == GLTFAlphaModeMask) {
+            NSString *alphaTestFragment = [NSString stringWithFormat:@"if (_output.color.a < %f) {\n\tdiscard_fragment();\n}", material.alphaCutoff];
+            scnMaterial.shaderModifiers = @{ SCNShaderModifierEntryPointSurface : unpremulSurfaceDiffuse,
+                                             SCNShaderModifierEntryPointFragment : alphaTestFragment };
+        } else if (material.alphaMode == GLTFAlphaModeOpaque) {
+            scnMaterial.shaderModifiers = @{ SCNShaderModifierEntryPointSurface : unpremulSurfaceDiffuse };
+        }
         materialsForIdentifiers[material.identifier] = scnMaterial;
     }
 
