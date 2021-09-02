@@ -8,7 +8,7 @@ class GLTFDocument: NSDocument {
         didSet {
             if let asset = asset {
                 if let contentViewController = self.windowControllers.first?.contentViewController as? ViewController {
-                    contentViewController.scene = SCNScene(gltfAsset: asset)
+                    contentViewController.asset = asset
                 }
             }
         }

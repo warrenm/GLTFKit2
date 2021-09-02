@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		83869A5525C671B4006CAFF1 /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; };
 		83869A5625C671B4006CAFF1 /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		839D603C26E05EF0000AB9C1 /* Backgrounds in Resources */ = {isa = PBXBuildFile; fileRef = 839D603B26E05EF0000AB9C1 /* Backgrounds */; };
 		83AB9EA126D98BEB00FD9C95 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = 83AB9EA026D98BCF00FD9C95 /* Models */; };
 		83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950425C6573C00B5B234 /* AppDelegate.swift */; };
 		83D9950725C6573C00B5B234 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950625C6573C00B5B234 /* ViewController.swift */; };
@@ -51,6 +52,7 @@
 
 /* Begin PBXFileReference section */
 		83869A5425C671B4006CAFF1 /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		839D603B26E05EF0000AB9C1 /* Backgrounds */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Backgrounds; sourceTree = "<group>"; };
 		83AB9EA026D98BCF00FD9C95 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
 		83D9950125C6573C00B5B234 /* GLTFViewer-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GLTFViewer-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		83D9950425C6573C00B5B234 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -100,6 +102,7 @@
 		83D994F825C6573C00B5B234 = {
 			isa = PBXGroup;
 			children = (
+				839D603B26E05EF0000AB9C1 /* Backgrounds */,
 				83AB9EA026D98BCF00FD9C95 /* Models */,
 				83D9950325C6573C00B5B234 /* macOS */,
 				83FFB68926CF0CF3008AE676 /* iOS */,
@@ -224,6 +227,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				839D603C26E05EF0000AB9C1 /* Backgrounds in Resources */,
 				83D9950B25C6573E00B5B234 /* Assets.xcassets in Resources */,
 				83D9950E25C6573E00B5B234 /* Main.storyboard in Resources */,
 			);

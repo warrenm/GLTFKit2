@@ -9,11 +9,24 @@ class ViewController: NSViewController {
         return self.view as! SCNView
     }
     
-    var scene: SCNScene? {
+    var asset: GLTFAsset? {
         didSet {
-            scnView.scene = scene
+            if let asset = asset {
+                let source = GLTFSCNSceneSource(asset: asset)
+                scnView.scene = source.defaultScene
+                animations = source.animations
+                if let defaultAnimation = animations.first {
+                    for channel in defaultAnimation.channels {
+                        channel.target.addAnimation(channel.animation, forKey: nil)
+                    }
+                }
+                scnView.scene?.lightingEnvironment.contents = "Backgrounds/studio007.hdr"
+                scnView.scene?.background.contents = NSColor(white: 0.18, alpha: 1.0)
+            }
         }
     }
+
+    var animations = [GLTFSCNAnimation]()
 
     override func viewDidLoad() {
         super.viewDidLoad()
