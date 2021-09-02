@@ -405,6 +405,24 @@ static NSArray<NSValue *> *GLTFSCNVector4ArrayForAccessor(GLTFAccessor *accessor
     return values;
 }
 
+static NSArray<NSArray<NSNumber *> *> *GLTFWeightsArraysForAccessor(GLTFAccessor *accessor, NSUInteger targetCount) {
+    assert(accessor.componentType == GLTFComponentTypeFloat);
+    assert(accessor.dimension = GLTFValueDimensionScalar);
+    size_t keyframeCount = accessor.count / targetCount;
+    NSMutableArray<NSMutableArray *> *weights = [NSMutableArray arrayWithCapacity:keyframeCount];
+    for (int t = 0; t < targetCount; ++t) {
+        [weights addObject:[NSMutableArray arrayWithCapacity:targetCount]];
+    }
+    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
+    const float *values = (float *)(bufferViewBaseAddr + accessor.offset);
+    for (int k = 0; k < keyframeCount; ++k) {
+        for (int t = 0; t < targetCount; ++t) {
+            [weights[t] addObject:@(values[k * targetCount + t])];
+        }
+    }
+    return weights;
+}
+
 static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accessor) {
     assert(accessor.componentType == GLTFComponentTypeFloat);
     assert(accessor.dimension == GLTFValueDimensionMatrix4);
@@ -797,48 +815,88 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
             }
         }
         for (GLTFAnimationChannel *channel in animation.channels) {
-            CAKeyframeAnimation *caAnimation = nil;
-            if ([channel.target.path isEqualToString:GLTFAnimationPathTranslation]) {
-                caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"position"];
-                caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
-            } else if ([channel.target.path isEqualToString:GLTFAnimationPathRotation]) {
-                caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"orientation"];
-                caAnimation.values = GLTFSCNVector4ArrayForAccessor(channel.sampler.output);
-            } else if ([channel.target.path isEqualToString:GLTFAnimationPathScale]) {
-                caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"scale"];
-                caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
-            } else if ([channel.target.path isEqualToString:GLTFAnimationPathWeights]) {
-                // TODO: Weight animations
-                continue;
-            } else {
-                GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
-                // TODO: This shouldn't be a hard failure, but not sure what to do here yet
-                assert(false);
-            }
             NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, maxChannelKeyTime);
-            caAnimation.keyTimes = baseKeyTimes;
-            switch (channel.sampler.interpolationMode) {
-                case GLTFInterpolationModeLinear:
-                    caAnimation.calculationMode = kCAAnimationLinear;
-                    break;
-                case GLTFInterpolationModeStep:
-                    caAnimation.calculationMode = kCAAnimationDiscrete;
-                    caAnimation.keyTimes = [@[@(0.0)] arrayByAddingObjectsFromArray:caAnimation.keyTimes];
-                    break;
-                case GLTFInterpolationModeCubic:
-                    caAnimation.calculationMode = kCAAnimationCubic;
-                    break;
-            }
-            caAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
-            caAnimation.duration = maxChannelKeyTime;
-            caAnimation.repeatDuration = FLT_MAX;
-            GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
-            clipChannel.target = nodesForIdentifiers[channel.target.node.identifier];
-            SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
-            clipChannel.animation = scnAnimation;
-            [scnChannels addObject:clipChannel];
+            if ([channel.target.path isEqualToString:GLTFAnimationPathWeights]) {
+                NSUInteger targetCount = channel.target.node.mesh.primitives.firstObject.targets.count;
+                assert(targetCount > 0);
+                NSArray<NSArray<NSNumber *> *> *weightArrays = GLTFWeightsArraysForAccessor(channel.sampler.output, targetCount);
 
-            //[clipChannel.target addAnimation:scnAnimation forKey:channel.target.path]; // HACK for testing
+                NSMutableArray *weightAnimations = [NSMutableArray array];
+                for (int t = 0; t < targetCount; ++t) {
+                    NSString *keyPath = [NSString stringWithFormat:@"morpher.weights[%d]", t];
+                    CAKeyframeAnimation *weightAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
+                    weightAnimation.keyTimes = baseKeyTimes;
+                    weightAnimation.values = weightArrays[t];
+                    // TODO: Support non-linear calculation modes?
+                    weightAnimation.calculationMode = kCAAnimationLinear;
+                    weightAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
+                    weightAnimation.duration = maxChannelKeyTime;
+                    weightAnimation.repeatDuration = FLT_MAX;
+                    [weightAnimations addObject:weightAnimation];
+                }
+                CAAnimationGroup *caAnimation = [CAAnimationGroup animation];
+                caAnimation.animations = weightAnimations;
+                caAnimation.duration = maxChannelKeyTime;
+                caAnimation.repeatDuration = FLT_MAX;
+
+                SCNNode *targetRoot = nodesForIdentifiers[channel.target.node.identifier];
+                NSMutableArray *geometryNodes = [NSMutableArray array];
+                if (targetRoot.geometry != nil) {
+                    [geometryNodes addObject:targetRoot];
+                } else {
+                    for (SCNNode *child in targetRoot.childNodes) {
+                        if (child.geometry != nil) {
+                            [geometryNodes addObject:child];
+                        }
+                    }
+                }
+
+                for (SCNNode *geometryNode in geometryNodes) {
+                    GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
+                    clipChannel.target = geometryNode;
+                    SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
+                    clipChannel.animation = scnAnimation;
+                    [scnChannels addObject:clipChannel];
+                }
+            } else {
+                CAKeyframeAnimation *caAnimation = nil;
+                if ([channel.target.path isEqualToString:GLTFAnimationPathTranslation]) {
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"position"];
+                    caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
+                } else if ([channel.target.path isEqualToString:GLTFAnimationPathRotation]) {
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"orientation"];
+                    caAnimation.values = GLTFSCNVector4ArrayForAccessor(channel.sampler.output);
+                } else if ([channel.target.path isEqualToString:GLTFAnimationPathScale]) {
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"scale"];
+                    caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
+                } else {
+                    GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
+                    // TODO: This shouldn't be a hard failure, but not sure what to do here yet
+                    assert(false);
+                }
+                caAnimation.keyTimes = baseKeyTimes;
+                switch (channel.sampler.interpolationMode) {
+                    case GLTFInterpolationModeLinear:
+                        caAnimation.calculationMode = kCAAnimationLinear;
+                        break;
+                    case GLTFInterpolationModeStep:
+                        caAnimation.calculationMode = kCAAnimationDiscrete;
+                        caAnimation.keyTimes = [@[@(0.0)] arrayByAddingObjectsFromArray:caAnimation.keyTimes];
+                        break;
+                    case GLTFInterpolationModeCubic:
+                        caAnimation.calculationMode = kCAAnimationCubic;
+                        break;
+                }
+                caAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
+                caAnimation.duration = maxChannelKeyTime;
+                caAnimation.repeatDuration = FLT_MAX;
+
+                GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
+                clipChannel.target = nodesForIdentifiers[channel.target.node.identifier];
+                SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
+                clipChannel.animation = scnAnimation;
+                [scnChannels addObject:clipChannel];
+            }
         }
         GLTFSCNAnimation *animationClip = [GLTFSCNAnimation new];
         animationClip.name = animation.name;
