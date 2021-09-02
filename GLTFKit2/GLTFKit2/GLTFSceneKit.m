@@ -2,46 +2,6 @@
 #import "GLTFSceneKit.h"
 #import "GLTFLogging.h"
 
-//#if TARGET_OS_IOS
-//typedef UIImage NSUIImage;
-//
-//@interface UIImage (GLTFKit2Extensions)
-//- (nullable instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size;
-//- (nullable instancetype)GLTF_initWithContentsOfURL:(NSURL *)url;
-//@end
-//
-//@implementation UIImage (GLTFKit2Extensions)
-//- (instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size {
-//    (void)size;
-//    return [self initWithCGImage:cgImage];
-//}
-//
-//- (instancetype)GLTF_initWithContentsOfURL:(NSURL *)url {
-//    return [[UIImage alloc] initWithContentsOfFile:url.path];
-//}
-//@end
-//
-//#elif TARGET_OS_OSX
-//typedef NSImage NSUIImage;
-//
-//@interface NSImage (GLTFKit2Extensions)
-//- (nullable instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size;
-//- (nullable instancetype)GLTF_initWithContentsOfURL:(NSURL *)url;
-//@end
-//
-//@implementation NSImage (GLTFKit2Extensions)
-//- (instancetype)GLTF_initWithCGImage:(CGImageRef)cgImage size:(CGSize)size {
-//    return [self initWithCGImage:cgImage size:size];
-//}
-//
-//- (instancetype)GLTF_initWithContentsOfURL:(NSURL *)url {
-//    return [[NSImage alloc] initWithContentsOfURL:url];
-//}
-//@end
-//#else
-//#error "Unsupported operating system. Cannot determine suitable image class"
-//#endif
-
 static SCNFilterMode GLTFSCNFilterModeForMagFilter(GLTFMagFilter filter) {
     switch (filter) {
         case GLTFMagFilterNearest:
