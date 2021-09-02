@@ -2,6 +2,13 @@
 #import "GLTFSceneKit.h"
 #import "GLTFLogging.h"
 
+NSString *const GLTFAssetPropertyKeyCopyright = @"GLTFAssetPropertyKeyCopyright";
+NSString *const GLTFAssetPropertyKeyGenerator = @"GLTFAssetPropertyKeyGenerator";
+NSString *const GLTFAssetPropertyKeyVersion = @"GLTFAssetPropertyKeyVersion";
+NSString *const GLTFAssetPropertyKeyMinVersion = @"GLTFAssetPropertyKeyMinVersion";
+NSString *const GLTFAssetPropertyKeyExtensionsUsed = @"GLTFAssetPropertyKeyExtensionsUsed";
+NSString *const GLTFAssetPropertyKeyExtensionsRequired = @"GLTFAssetPropertyKeyExtensionsRequired";
+
 static SCNFilterMode GLTFSCNFilterModeForMagFilter(GLTFMagFilter filter) {
     switch (filter) {
         case GLTFMagFilterNearest:
@@ -410,10 +417,54 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
 
 @implementation SCNScene (GLTFSceneKit)
 
-+ (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset
-{
++ (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset {
+    GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset];
+    return source.defaultScene;
+}
+
+@end
+
+@interface GLTFSCNSceneSource ()
+@property (nonatomic, copy) NSDictionary *properties;
+@property (nonatomic, copy) NSArray<SCNMaterial *> *materials;
+@property (nonatomic, copy) NSArray<SCNLight *> *lights;
+@property (nonatomic, copy) NSArray<SCNCamera *> *cameras;
+@property (nonatomic, copy) NSArray<SCNNode *> *nodes;
+@property (nonatomic, copy) NSArray<SCNGeometry *> *geometries;
+@property (nonatomic, copy) NSArray<SCNSkinner *> *skinners;
+@property (nonatomic, copy) NSArray<SCNMorpher *> *morphers;
+@property (nonatomic, copy) NSArray<SCNScene *> *scenes;
+@property (nonatomic, copy) NSArray<GLTFSCNAnimation *> *animations;
+@property (nonatomic, strong) SCNScene *defaultScene;
+@property (nonatomic, strong) GLTFAsset *asset;
+@end
+
+@implementation GLTFSCNSceneSource
+
+- (instancetype)initWithAsset:(GLTFAsset *)asset {
+    if (self = [super init]) {
+        _asset = asset;
+        [self convertAsset];
+    }
+    return self;
+}
+
+- (nullable id)propertyForKey:(NSString *)key {
+    return _properties[key];
+}
+
+- (void)convertAsset {
+    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+    properties[GLTFAssetPropertyKeyCopyright] = self.asset.copyright;
+    properties[GLTFAssetPropertyKeyGenerator] = self.asset.generator;
+    properties[GLTFAssetPropertyKeyVersion] = self.asset.version;
+    properties[GLTFAssetPropertyKeyMinVersion] = self.asset.minVersion;
+    properties[GLTFAssetPropertyKeyExtensionsUsed] = self.asset.extensionsUsed;
+    properties[GLTFAssetPropertyKeyExtensionsRequired] = self.asset.extensionsRequired;
+    _properties = properties;
+
     NSMutableDictionary<NSUUID *, id> *imagesForIdentfiers = [NSMutableDictionary dictionary];
-    for (GLTFImage *image in asset.images) {
+    for (GLTFImage *image in self.asset.images) {
         CGImageRef cgImage = [image newCGImage];
         imagesForIdentfiers[image.identifier] = (__bridge_transfer id)cgImage;
     }
@@ -429,7 +480,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     defaultMaterial.roughness.contents = @(1.0);
 
     NSMutableDictionary <NSUUID *, SCNMaterial *> *materialsForIdentifiers = [NSMutableDictionary dictionary];
-    for (GLTFMaterial *material in asset.materials) {
+    for (GLTFMaterial *material in self.asset.materials) {
         SCNMaterial *scnMaterial = [SCNMaterial new];
         scnMaterial.locksAmbientWithDiffuse = YES;
         if (material.isUnlit) {
@@ -560,7 +611,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
 
     NSMutableDictionary <NSUUID *, SCNGeometry *> *geometryForIdentifiers = [NSMutableDictionary dictionary];
     NSMutableDictionary <NSUUID *, SCNGeometryElement *> *geometryElementForIdentifiers = [NSMutableDictionary dictionary];
-    for (GLTFMesh *mesh in asset.meshes) {
+    for (GLTFMesh *mesh in self.asset.meshes) {
         for (GLTFPrimitive *primitive in mesh.primitives) {
             int vertexCount = 0;
             GLTFAccessor *positionAccessor = primitive.attributes[GLTFAttributeSemanticPosition];
@@ -615,7 +666,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     }
 
     NSMutableDictionary<NSUUID *, SCNCamera *> *camerasForIdentifiers = [NSMutableDictionary dictionary];
-    for (GLTFCamera *camera in asset.cameras) {
+    for (GLTFCamera *camera in self.asset.cameras) {
         SCNCamera *scnCamera = [SCNCamera camera];
         scnCamera.name = camera.name;
         if (camera.orthographic) {
@@ -634,7 +685,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     }
 
     NSMutableDictionary<NSUUID *, SCNLight *> *lightsForIdentifiers = [NSMutableDictionary dictionary];
-    for (GLTFLight *light in asset.lights) {
+    for (GLTFLight *light in self.asset.lights) {
         SCNLight *scnLight = [SCNLight light];
         scnLight.name = light.name;
         CGFloat rgba[] = { light.color[0], light.color[1], light.color[2], 1.0 };
@@ -658,14 +709,14 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     }
 
     NSMutableDictionary<NSUUID *, SCNNode *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
-    for (GLTFNode *node in asset.nodes) {
+    for (GLTFNode *node in self.asset.nodes) {
         SCNNode *scnNode = [SCNNode node];
         scnNode.name = node.name;
         scnNode.simdTransform = node.matrix;
         nodesForIdentifiers[node.identifier] = scnNode;
     }
 
-    for (GLTFNode *node in asset.nodes) {
+    for (GLTFNode *node in self.asset.nodes) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
         for (GLTFNode *childNode in node.childNodes) {
             SCNNode *scnChildNode = nodesForIdentifiers[childNode.identifier];
@@ -673,7 +724,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
         }
     }
 
-    for (GLTFNode *node in asset.nodes) {
+    for (GLTFNode *node in self.asset.nodes) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
 
         if (node.camera) {
@@ -763,7 +814,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     }
 
     NSMutableDictionary<NSUUID *, GLTFSCNAnimation *> *animationsForIdentifiers = [NSMutableDictionary dictionary];
-    for (GLTFAnimation *animation in asset.animations) {
+    for (GLTFAnimation *animation in self.asset.animations) {
         NSMutableArray *scnChannels = [NSMutableArray array];
         NSTimeInterval maxChannelKeyTime = 0.0;
         for (GLTFAnimationChannel *channel in animation.channels) {
@@ -865,7 +916,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     }
 
     NSMutableDictionary *scenesForIdentifiers = [NSMutableDictionary dictionary];
-    for (GLTFScene *scene in asset.scenes) {
+    for (GLTFScene *scene in self.asset.scenes) {
         SCNScene *scnScene = [SCNScene scene];
         for (GLTFNode *rootNode in scene.nodes) {
             SCNNode *scnChildNode = nodesForIdentifiers[rootNode.identifier];
@@ -876,13 +927,21 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
 
     CGColorSpaceRelease(colorSpaceLinearSRGB);
 
-    if (asset.defaultScene) {
-        return scenesForIdentifiers[asset.defaultScene.identifier];
-    } else if (asset.scenes.count > 0) {
-        return scenesForIdentifiers[asset.scenes.firstObject];
+    _materials = [materialsForIdentifiers allValues];
+    _lights = [lightsForIdentifiers allValues];
+    _cameras = [camerasForIdentifiers allValues];
+    _nodes = [nodesForIdentifiers allValues];
+    _geometries = [geometryForIdentifiers allValues];
+    _scenes = [scenesForIdentifiers allValues];
+    _animations = [animationsForIdentifiers allValues];
+
+    if (self.asset.defaultScene) {
+        _defaultScene = scenesForIdentifiers[self.asset.defaultScene.identifier];
+    } else if (self.asset.scenes.count > 0) {
+        _defaultScene = scenesForIdentifiers[self.asset.scenes.firstObject.identifier];
     } else {
         // Last resort. The asset doesn't contain any scenes but we're contractually obligated to return something.
-        return [SCNScene scene];
+        _defaultScene = [SCNScene scene];
     }
 }
 
