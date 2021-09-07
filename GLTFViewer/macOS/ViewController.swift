@@ -21,7 +21,7 @@ class ViewController: NSViewController {
                     }
                 }
                 scnView.scene?.lightingEnvironment.contents = "Backgrounds/studio007.hdr"
-                scnView.scene?.background.contents = NSColor(white: 0.18, alpha: 1.0)
+                scnView.scene?.lightingEnvironment.intensity = 1.5
             }
         }
     }
@@ -33,6 +33,7 @@ class ViewController: NSViewController {
         
         scnView.allowsCameraControl = true
         scnView.autoenablesDefaultLighting = true
+        scnView.backgroundColor = NSColor(white: 0.18, alpha: 1.0)
         
         let pointOfView = SCNNode()
         let camera = SCNCamera()
