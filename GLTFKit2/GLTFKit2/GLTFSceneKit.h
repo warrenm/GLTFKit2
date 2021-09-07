@@ -19,6 +19,7 @@ extern NSString *const GLTFAssetPropertyKeyExtensionsRequired;
 @interface GLTFSCNAnimation : NSObject
 @property (nonatomic, copy) NSString *name;
 @property (nonatomic, copy) NSArray<GLTFSCNAnimationChannel *> *channels;
+- (void)play;
 @end
 
 @interface SCNScene (GLTFSceneKit)

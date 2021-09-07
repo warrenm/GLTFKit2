@@ -417,6 +417,13 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
 @end
 
 @implementation GLTFSCNAnimation
+
+- (void)play {
+    for (GLTFSCNAnimationChannel *channel in self.channels) {
+        [channel.target addAnimation:channel.animation forKey:nil];
+    }
+}
+
 @end
 
 @implementation SCNScene (GLTFSceneKit)

@@ -15,11 +15,7 @@ class ViewController: NSViewController {
                 let source = GLTFSCNSceneSource(asset: asset)
                 scnView.scene = source.defaultScene
                 animations = source.animations
-                if let defaultAnimation = animations.first {
-                    for channel in defaultAnimation.channels {
-                        channel.target.addAnimation(channel.animation, forKey: nil)
-                    }
-                }
+                animations.first?.play()
                 scnView.scene?.lightingEnvironment.contents = "Backgrounds/studio007.hdr"
                 scnView.scene?.lightingEnvironment.intensity = 1.5
             }

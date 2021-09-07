@@ -11,10 +11,15 @@ class ViewController: UIViewController {
         return view as! SCNView
     }
 
-    private var asset: GLTFAsset? {
+    private var animations = [GLTFSCNAnimation]()
+
+    var asset: GLTFAsset? {
         didSet {
             if let asset = asset {
-                sceneView.scene = SCNScene(gltfAsset: asset)
+                let source = GLTFSCNSceneSource(asset: asset)
+                sceneView.scene = source.defaultScene
+                animations = source.animations
+                animations.first?.play()
                 sceneView.scene?.rootNode.addChildNode(cameraNode)
             }
         }
