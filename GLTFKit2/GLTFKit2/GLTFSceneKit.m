@@ -409,6 +409,10 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     return values;
 }
 
+static float GLTFLuminanceFromRGB(simd_float4 rgba) {
+    return 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2];
+}
+
 @implementation GLTFSCNAnimationChannel
 @end
 
@@ -497,11 +501,10 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 baseColorProperty.contents = imagesForIdentfiers[baseColorTexture.texture.source.identifier];
                 GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
-                // This is pretty awful, but we have no other straightforward way of supporting
-                // base color textures and factors simultaneously
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
-                CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-                scnMaterial.multiply.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+                // This is a lossy transformation because we only have a scalar intensity,
+                // instead of proper support for color factors.
+                baseColorProperty.intensity = GLTFLuminanceFromRGB(rgba);
             } else {
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
@@ -533,11 +536,10 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
                 SCNMaterialProperty *diffuseProperty = scnMaterial.diffuse;
                 diffuseProperty.contents = imagesForIdentfiers[diffuseTexture.texture.source.identifier];
                 GLTFConfigureSCNMaterialProperty(diffuseProperty, diffuseTexture);
-                // This is pretty awful, but we have no other straightforward way of supporting
-                // diffuse textures and factors simultaneously
                 simd_float4 rgba = material.specularGlossiness.diffuseFactor;
-                CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-                scnMaterial.multiply.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+                // This is a lossy transformation because we only have a scalar intensity,
+                // instead of proper support for color factors.
+                diffuseProperty.intensity = GLTFLuminanceFromRGB(rgba);
             } else {
                 SCNMaterialProperty *diffuseProperty = scnMaterial.diffuse;
                 simd_float4 rgba = material.specularGlossiness.diffuseFactor;
