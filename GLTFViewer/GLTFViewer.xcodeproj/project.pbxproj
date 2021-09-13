@@ -54,7 +54,7 @@
 		83869A5425C671B4006CAFF1 /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		839D603B26E05EF0000AB9C1 /* Backgrounds */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Backgrounds; sourceTree = "<group>"; };
 		83AB9EA026D98BCF00FD9C95 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
-		83D9950125C6573C00B5B234 /* GLTFViewer-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GLTFViewer-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		83D9950125C6573C00B5B234 /* glTF Viewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "glTF Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		83D9950425C6573C00B5B234 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		83D9950625C6573C00B5B234 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		83D9950825C6573C00B5B234 /* GLTFDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GLTFDocument.swift; sourceTree = "<group>"; };
@@ -62,7 +62,7 @@
 		83D9950D25C6573E00B5B234 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		83D9950F25C6573E00B5B234 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		83D9951025C6573E00B5B234 /* GLTFViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GLTFViewer.entitlements; sourceTree = "<group>"; };
-		83FFB68826CF0CF3008AE676 /* GLTFViewer-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GLTFViewer-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		83FFB68826CF0CF3008AE676 /* glTF Viewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "glTF Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		83FFB68A26CF0CF3008AE676 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		83FFB68E26CF0CF3008AE676 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		83FFB69126CF0CF3008AE676 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -114,8 +114,8 @@
 		83D9950225C6573C00B5B234 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				83D9950125C6573C00B5B234 /* GLTFViewer-macOS.app */,
-				83FFB68826CF0CF3008AE676 /* GLTFViewer-iOS.app */,
+				83D9950125C6573C00B5B234 /* glTF Viewer.app */,
+				83FFB68826CF0CF3008AE676 /* glTF Viewer.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -165,7 +165,7 @@
 			);
 			name = "GLTFViewer-macOS";
 			productName = GLTFViewer;
-			productReference = 83D9950125C6573C00B5B234 /* GLTFViewer-macOS.app */;
+			productReference = 83D9950125C6573C00B5B234 /* glTF Viewer.app */;
 			productType = "com.apple.product-type.application";
 		};
 		83FFB68726CF0CF3008AE676 /* GLTFViewer-iOS */ = {
@@ -183,7 +183,7 @@
 			);
 			name = "GLTFViewer-iOS";
 			productName = GLTFViewer_iOS;
-			productReference = 83FFB68826CF0CF3008AE676 /* GLTFViewer-iOS.app */;
+			productReference = 83FFB68826CF0CF3008AE676 /* glTF Viewer.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -428,7 +428,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-macos";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "glTF Viewer";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -450,7 +450,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-macos";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "glTF Viewer";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -469,7 +469,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-ios";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "glTF Viewer";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -490,7 +490,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-ios";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "glTF Viewer";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

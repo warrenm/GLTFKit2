@@ -4,6 +4,13 @@
 #define CGLTF_IMPLEMENTATION
 #import "cgltf.h"
 
+static NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
+
+enum GLTFErrorCode {
+    GLTFErrorCodeNoDataToLoad = 1010,
+    GLTFErrorCodeFailedToLoad = 1011,
+};
+
 @interface GLTFUniqueNameGenerator : NSObject
 - (NSString *)nextUniqueNameWithPrefix:(NSString *)prefix;
 @end
@@ -128,7 +135,7 @@ static NSError *GLTFErrorForCGLTFStatus(cgltf_result result, NSString *_Nullable
             break;
     }
 
-    return [NSError errorWithDomain:@"com.metalbyexample.gltfkit2" code:(result + 1000) userInfo:@{
+    return [NSError errorWithDomain:GLTFErrorDomain code:(result + 1000) userInfo:@{
         NSLocalizedDescriptionKey : description
     }];
 }
@@ -230,9 +237,21 @@ static dispatch_queue_t _loaderQueue;
     }
 
     BOOL stop = NO;
+    if (assetURL == nil && data == nil) {
+        if (handler) {
+            NSError *error = [NSError errorWithDomain:GLTFErrorDomain
+                                                 code:GLTFErrorCodeNoDataToLoad
+                                             userInfo:
+                              @{ NSLocalizedDescriptionKey : @"URL and data cannot both be nil when loading asset" }];
+            handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+        }
+        return;
+    }
+
     NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
     if (internalData == nil) {
-        handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
+        NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:nil];
+        handler(1.0, GLTFAssetStatusError, nil, error, &stop);
         return;
     }
 
@@ -242,7 +261,8 @@ static dispatch_queue_t _loaderQueue;
     cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
 
     if (result != cgltf_result_success) {
-        handler(1.0, GLTFAssetStatusError, nil, nil, &stop);
+        NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
+        handler(1.0, GLTFAssetStatusError, nil, error, &stop);
     } else {
         result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
         if (result != cgltf_result_success) {
@@ -338,13 +358,15 @@ static dispatch_queue_t _loaderQueue;
                 indicesBufferView = self.asset.bufferViews[indicesBufferViewIndex];
             }
 
-            GLTFSparseStorage *sparse = [[GLTFSparseStorage alloc] initWithValues:valuesBufferView
-                                                                      valueOffset:a->sparse.values_byte_offset
-                                                                          indices:indicesBufferView
-                                                                      indexOffset:a->sparse.indices_byte_offset
-                                                               indexComponentType:GLTFComponentTypeForType(a->sparse.indices_component_type)
-                                                                            count:a->sparse.count];
-            accessor.sparse = sparse;
+            if (valuesBufferView) {
+                GLTFSparseStorage *sparse = [[GLTFSparseStorage alloc] initWithValues:valuesBufferView
+                                                                          valueOffset:a->sparse.values_byte_offset
+                                                                              indices:indicesBufferView
+                                                                          indexOffset:a->sparse.indices_byte_offset
+                                                                   indexComponentType:GLTFComponentTypeForType(a->sparse.indices_component_type)
+                                                                                count:a->sparse.count];
+                accessor.sparse = sparse;
+            }
         }
 
         accessor.name = a->name ? [NSString stringWithUTF8String:a->name]

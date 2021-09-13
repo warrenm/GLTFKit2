@@ -489,7 +489,9 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
         mdlLight.name = light.name;
         mdlLight.lightType = GLTFMDLLightTypeForLightType(light.type);
         CGFloat rgba[] = { light.color[0], light.color[1], light.color[2], 1.0 };
-        mdlLight.color = CGColorCreate(colorSpaceLinearSRGB, rgba);
+        CGColorRef lightColor = CGColorCreate(colorSpaceLinearSRGB, rgba);
+        mdlLight.color = lightColor;
+        CGColorRelease(lightColor);
         switch (light.type) {
             case GLTFLightTypeDirectional:
                 mdlLight.lumens = light.intensity; // TODO: Convert from lux to lumens? How?

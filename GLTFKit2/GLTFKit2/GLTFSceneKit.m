@@ -65,7 +65,7 @@ static SCNWrapMode GLTFSCNWrapModeForMode(GLTFAddressMode mode) {
     }
 }
 
-static NSData *GLTFLineIndexDataForLineLoopIndexData(NSData *lineLoopIndexData,
+static NSData *GLTFLineIndexDataForLineLoopIndexData(NSData *_Nonnull lineLoopIndexData,
                                                      int lineLoopIndexCount,
                                                      int bytesPerIndex) {
     if (lineLoopIndexCount < 2) {
@@ -97,7 +97,7 @@ static NSData *GLTFLineIndexDataForLineLoopIndexData(NSData *lineLoopIndexData,
                           freeWhenDone:YES];
 }
 
-static NSData *GLTFLineIndexDataForLineStripIndexData(NSData *lineStripIndexData,
+static NSData *GLTFLineIndexDataForLineStripIndexData(NSData *_Nonnull lineStripIndexData,
                                                       int lineStripIndexCount,
                                                       int bytesPerIndex) {
     if (lineStripIndexCount < 2) {
@@ -132,7 +132,7 @@ static NSData *GLTFLineIndexDataForLineStripIndexData(NSData *lineStripIndexData
                           freeWhenDone:YES];
 }
 
-static NSData *GLTFTrianglesIndexDataForTriangleFanIndexData(NSData *triangleFanIndexData,
+static NSData *GLTFTrianglesIndexDataForTriangleFanIndexData(NSData *_Nonnull triangleFanIndexData,
                                                              int triangleFanIndexCount,
                                                              int bytesPerIndex) {
     if (triangleFanIndexCount < 3) {
@@ -161,6 +161,7 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
                                                               int indexCount,
                                                               int bytesPerIndex,
                                                               GLTFPrimitive *primitive) {
+    NSData *finalIndexData = indexData;
     SCNGeometryPrimitiveType primitiveType;
     int primitiveCount;
     switch (primitive.primitiveType) {
@@ -175,12 +176,16 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
         case GLTFPrimitiveTypeLineLoop:
             primitiveCount = indexCount;
             primitiveType = SCNGeometryPrimitiveTypeLine;
-            indexData = GLTFLineIndexDataForLineLoopIndexData(indexData, indexCount, bytesPerIndex);
+            if (indexData) {
+                finalIndexData = GLTFLineIndexDataForLineLoopIndexData(indexData, indexCount, bytesPerIndex);
+            }
             break;
         case GLTFPrimitiveTypeLineStrip:
             primitiveCount = indexCount - 1;
             primitiveType = SCNGeometryPrimitiveTypeLine;
-            indexData = GLTFLineIndexDataForLineStripIndexData(indexData, indexCount, bytesPerIndex);
+            if (indexData) {
+                finalIndexData = GLTFLineIndexDataForLineStripIndexData(indexData, indexCount, bytesPerIndex);
+            }
             break;
         case GLTFPrimitiveTypeTriangles:
             primitiveCount = indexCount / 3;
@@ -193,11 +198,13 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
         case GLTFPrimitiveTypeTriangleFan:
             primitiveCount = indexCount - 2;
             primitiveType = SCNGeometryPrimitiveTypeTriangles;
-            indexData = GLTFTrianglesIndexDataForTriangleFanIndexData(indexData, indexCount, bytesPerIndex);
+            if (indexData) {
+                finalIndexData = GLTFTrianglesIndexDataForTriangleFanIndexData(indexData, indexCount, bytesPerIndex);
+            }
             break;
     }
 
-    return [SCNGeometryElement geometryElementWithData:indexData
+    return [SCNGeometryElement geometryElementWithData:finalIndexData
                                          primitiveType:primitiveType
                                         primitiveCount:primitiveCount
                                          bytesPerIndex:bytesPerIndex];
@@ -374,7 +381,7 @@ static NSArray<NSValue *> *GLTFSCNVector4ArrayForAccessor(GLTFAccessor *accessor
 
 static NSArray<NSArray<NSNumber *> *> *GLTFWeightsArraysForAccessor(GLTFAccessor *accessor, NSUInteger targetCount) {
     assert(accessor.componentType == GLTFComponentTypeFloat);
-    assert(accessor.dimension = GLTFValueDimensionScalar);
+    assert(accessor.dimension == GLTFValueDimensionScalar);
     size_t keyframeCount = accessor.count / targetCount;
     NSMutableArray<NSMutableArray *> *weights = [NSMutableArray arrayWithCapacity:keyframeCount];
     for (int t = 0; t < targetCount; ++t) {
