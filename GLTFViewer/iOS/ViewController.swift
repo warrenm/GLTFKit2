@@ -4,15 +4,6 @@ import SceneKit
 import GLTFKit2
 
 class ViewController: UIViewController {
-    private let camera = SCNCamera()
-    private let cameraNode = SCNNode()
-
-    private var sceneView: SCNView {
-        return view as! SCNView
-    }
-
-    private var animations = [GLTFSCNAnimation]()
-
     var asset: GLTFAsset? {
         didSet {
             if let asset = asset {
@@ -24,6 +15,15 @@ class ViewController: UIViewController {
             }
         }
     }
+
+    private var sceneView: SCNView {
+        return view as! SCNView
+    }
+
+    private var animations = [GLTFSCNAnimation]()
+
+    private let camera = SCNCamera()
+    private let cameraNode = SCNNode()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -39,7 +39,6 @@ class ViewController: UIViewController {
     }
 
     private func loadAsset() {
-
         guard let assetURL = Bundle.main.url(forResource: "DamagedHelmet",
                                              withExtension: "glb",
                                              subdirectory: "Models")

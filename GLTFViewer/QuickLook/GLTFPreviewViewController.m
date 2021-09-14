@@ -1,0 +1,39 @@
+
+#import "GLTFPreviewViewController.h"
+
+#import <Quartz/Quartz.h>
+#import <SceneKit/SceneKit.h>
+#import <GLTFKit2/GLTFKit2.h>
+
+@interface GLTFPreviewViewController () <QLPreviewingController>
+@property (nonatomic, weak) IBOutlet SCNView *sceneView;
+@end
+
+@implementation GLTFPreviewViewController
+
+- (NSString *)nibName {
+    return @"PreviewViewController";
+}
+
+- (void)loadView {
+    [super loadView];
+}
+
+- (void)preparePreviewOfFileAtURL:(NSURL *)url completionHandler:(void (^)(NSError * _Nullable))handler {
+    [GLTFAsset loadAssetWithURL:url options:@{} handler:^(float progress, GLTFAssetStatus status,
+                                                          GLTFAsset *asset, NSError *error, BOOL *stop)
+    {
+        handler(error);
+        if (asset) {
+            GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset];
+            self.sceneView.scene = source.defaultScene;
+            NSArray<GLTFSCNAnimation *> *animations = source.animations;
+            [animations.firstObject play];
+            self.sceneView.scene.lightingEnvironment.contents = @"studio-ql.hdr";
+            self.sceneView.scene.lightingEnvironment.intensity = 1.5;
+        }
+    }];
+}
+
+@end
+

@@ -4,39 +4,39 @@ import SceneKit
 import GLTFKit2
 
 class ViewController: NSViewController {
-
-    var scnView: SCNView {
-        return self.view as! SCNView
-    }
-    
     var asset: GLTFAsset? {
         didSet {
             if let asset = asset {
                 let source = GLTFSCNSceneSource(asset: asset)
-                scnView.scene = source.defaultScene
+                sceneView.scene = source.defaultScene
                 animations = source.animations
                 animations.first?.play()
-                scnView.scene?.lightingEnvironment.contents = "Backgrounds/studio007.hdr"
-                scnView.scene?.lightingEnvironment.intensity = 1.5
+                sceneView.scene?.rootNode.addChildNode(cameraNode)
+                sceneView.scene?.lightingEnvironment.contents = "studio.hdr"
+                sceneView.scene?.lightingEnvironment.intensity = 1.5
             }
         }
     }
 
-    var animations = [GLTFSCNAnimation]()
+    private var sceneView: SCNView {
+        return view as! SCNView
+    }
+
+    private var animations = [GLTFSCNAnimation]()
+
+    private let camera = SCNCamera()
+    private let cameraNode = SCNNode()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        scnView.allowsCameraControl = true
-        scnView.autoenablesDefaultLighting = true
-        scnView.backgroundColor = NSColor(white: 0.18, alpha: 1.0)
-        
-        let pointOfView = SCNNode()
-        let camera = SCNCamera()
-        camera.zNear = 0.01
-        camera.zFar = 120.0
-        pointOfView.camera = camera
-        scnView.pointOfView = pointOfView
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(0, 0, 3.5)
+
+        sceneView.allowsCameraControl = true
+        sceneView.autoenablesDefaultLighting = true
+        sceneView.backgroundColor = NSColor(white: 0.18, alpha: 1.0)
+        sceneView.pointOfView = cameraNode
     }
 }
 
