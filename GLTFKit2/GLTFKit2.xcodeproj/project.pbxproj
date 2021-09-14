@@ -161,7 +161,7 @@
 		834FF1BB25C27938001887C2 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1240;
+				LastUpgradeCheck = 1300;
 				TargetAttributes = {
 					834FF1C325C27938001887C2 = {
 						CreatedOnToolsVersion = 12.4;
@@ -333,6 +333,7 @@
 		834FF1CD25C27938001887C2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				ARCHS = (
 					arm64,
 					x86_64,
@@ -361,6 +362,7 @@
 		834FF1CE25C27938001887C2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				ARCHS = (
 					arm64,
 					x86_64,

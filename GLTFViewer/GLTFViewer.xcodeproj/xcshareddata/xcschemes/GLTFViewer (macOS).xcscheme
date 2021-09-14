@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1250"
+   LastUpgradeVersion = "1300"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "83D9950025C6573C00B5B234"
-               BuildableName = "GLTFViewer-macOS.app"
+               BuildableName = "glTF Viewer.app"
                BlueprintName = "GLTFViewer-macOS"
                ReferencedContainer = "container:GLTFViewer.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "83D9950025C6573C00B5B234"
-            BuildableName = "GLTFViewer-macOS.app"
+            BuildableName = "glTF Viewer.app"
             BlueprintName = "GLTFViewer-macOS"
             ReferencedContainer = "container:GLTFViewer.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "83D9950025C6573C00B5B234"
-            BuildableName = "GLTFViewer-macOS.app"
+            BuildableName = "glTF Viewer.app"
             BlueprintName = "GLTFViewer-macOS"
             ReferencedContainer = "container:GLTFViewer.xcodeproj">
          </BuildableReference>
