@@ -1,11 +1,10 @@
 
 #import "GLTFPreviewViewController.h"
 
-#import <Quartz/Quartz.h>
 #import <SceneKit/SceneKit.h>
 #import <GLTFKit2/GLTFKit2.h>
 
-@interface GLTFPreviewViewController () <QLPreviewingController>
+@interface GLTFPreviewViewController ()
 @property (nonatomic, weak) IBOutlet SCNView *sceneView;
 @end
 

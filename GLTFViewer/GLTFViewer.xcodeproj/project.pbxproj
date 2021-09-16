@@ -7,19 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		830C44B226F292C60075CCBF /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 830C44B126F292C60075CCBF /* GLTFKit2.framework */; };
+		830C44B326F292C60075CCBF /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 830C44B126F292C60075CCBF /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		830C44B526F29B2C0075CCBF /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 830C44B126F292C60075CCBF /* GLTFKit2.framework */; };
+		830C44B626F29B2C0075CCBF /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 830C44B126F292C60075CCBF /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		833684CC26F139840057B9CA /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 833684CB26F139830057B9CA /* Quartz.framework */; };
 		833684D026F139840057B9CA /* GLTFPreviewViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 833684CF26F139840057B9CA /* GLTFPreviewViewController.m */; };
-		833684D326F139840057B9CA /* GLTFPreviewProvider.m in Sources */ = {isa = PBXBuildFile; fileRef = 833684D226F139840057B9CA /* GLTFPreviewProvider.m */; };
 		833684D626F139840057B9CA /* PreviewViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 833684D426F139840057B9CA /* PreviewViewController.xib */; };
 		833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 833684CA26F139830057B9CA /* GLTFQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		833684E226F154DA0057B9CA /* studio.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E026F154D40057B9CA /* studio.hdr */; };
 		833684E326F154DA0057B9CA /* studio.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E026F154D40057B9CA /* studio.hdr */; };
 		833684E426F154DD0057B9CA /* studio-ql.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E126F154D40057B9CA /* studio-ql.hdr */; };
-		8373775726F14D5A00595C2A /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; };
 		8373775926F14D6400595C2A /* QuickLook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8373775826F14D6400595C2A /* QuickLook.framework */; };
-		83869A5525C671B4006CAFF1 /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; };
-		83869A5625C671B4006CAFF1 /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		83AB9EA126D98BEB00FD9C95 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = 83AB9EA026D98BCF00FD9C95 /* Models */; };
+		83CFBF4826F2BE66003BEBFA /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 830C44B126F292C60075CCBF /* GLTFKit2.framework */; };
 		83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950425C6573C00B5B234 /* AppDelegate.swift */; };
 		83D9950725C6573C00B5B234 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950625C6573C00B5B234 /* ViewController.swift */; };
 		83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950825C6573C00B5B234 /* GLTFDocument.swift */; };
@@ -30,8 +31,6 @@
 		83FFB69226CF0CF3008AE676 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB69026CF0CF3008AE676 /* Main.storyboard */; };
 		83FFB69426CF0CF5008AE676 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB69326CF0CF5008AE676 /* Assets.xcassets */; };
 		83FFB69726CF0CF5008AE676 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83FFB69526CF0CF5008AE676 /* LaunchScreen.storyboard */; };
-		83FFB69D26CF0F7B008AE676 /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; };
-		83FFB69E26CF0F7B008AE676 /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 83869A5425C671B4006CAFF1 /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,7 +61,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				83869A5625C671B4006CAFF1 /* GLTFKit2.framework in Embed Frameworks */,
+				830C44B326F292C60075CCBF /* GLTFKit2.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -73,7 +72,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				83FFB69E26CF0F7B008AE676 /* GLTFKit2.framework in Embed Frameworks */,
+				830C44B626F29B2C0075CCBF /* GLTFKit2.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -81,18 +80,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		830C44B126F292C60075CCBF /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		833684CA26F139830057B9CA /* GLTFQuickLook.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GLTFQuickLook.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		833684CB26F139830057B9CA /* Quartz.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Quartz.framework; path = System/Library/Frameworks/Quartz.framework; sourceTree = SDKROOT; };
 		833684CE26F139840057B9CA /* GLTFPreviewViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFPreviewViewController.h; sourceTree = "<group>"; };
 		833684CF26F139840057B9CA /* GLTFPreviewViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFPreviewViewController.m; sourceTree = "<group>"; };
-		833684D126F139840057B9CA /* GLTFPreviewProvider.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFPreviewProvider.h; sourceTree = "<group>"; };
-		833684D226F139840057B9CA /* GLTFPreviewProvider.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFPreviewProvider.m; sourceTree = "<group>"; };
 		833684D526F139840057B9CA /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/PreviewViewController.xib; sourceTree = "<group>"; };
 		833684D726F139840057B9CA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		833684E026F154D40057B9CA /* studio.hdr */ = {isa = PBXFileReference; lastKnownFileType = text; path = studio.hdr; sourceTree = "<group>"; };
 		833684E126F154D40057B9CA /* studio-ql.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; path = "studio-ql.hdr"; sourceTree = "<group>"; };
 		8373775826F14D6400595C2A /* QuickLook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLook.framework; path = System/Library/Frameworks/QuickLook.framework; sourceTree = SDKROOT; };
-		83869A5425C671B4006CAFF1 /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		83AB9EA026D98BCF00FD9C95 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
 		83D9950125C6573C00B5B234 /* glTF Viewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "glTF Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		83D9950425C6573C00B5B234 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -116,8 +113,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83CFBF4826F2BE66003BEBFA /* GLTFKit2.framework in Frameworks */,
 				8373775926F14D6400595C2A /* QuickLook.framework in Frameworks */,
-				8373775726F14D5A00595C2A /* GLTFKit2.framework in Frameworks */,
 				833684CC26F139840057B9CA /* Quartz.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -126,7 +123,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				83869A5525C671B4006CAFF1 /* GLTFKit2.framework in Frameworks */,
+				830C44B226F292C60075CCBF /* GLTFKit2.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -134,7 +131,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				83FFB69D26CF0F7B008AE676 /* GLTFKit2.framework in Frameworks */,
+				830C44B526F29B2C0075CCBF /* GLTFKit2.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -146,8 +143,6 @@
 			children = (
 				833684CE26F139840057B9CA /* GLTFPreviewViewController.h */,
 				833684CF26F139840057B9CA /* GLTFPreviewViewController.m */,
-				833684D126F139840057B9CA /* GLTFPreviewProvider.h */,
-				833684D226F139840057B9CA /* GLTFPreviewProvider.m */,
 				833684D426F139840057B9CA /* PreviewViewController.xib */,
 				833684D726F139840057B9CA /* Info.plist */,
 			);
@@ -166,8 +161,8 @@
 		83869A5325C671B4006CAFF1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				830C44B126F292C60075CCBF /* GLTFKit2.framework */,
 				8373775826F14D6400595C2A /* QuickLook.framework */,
-				83869A5425C671B4006CAFF1 /* GLTFKit2.framework */,
 				833684CB26F139830057B9CA /* Quartz.framework */,
 			);
 			name = Frameworks;
@@ -361,7 +356,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				833684D026F139840057B9CA /* GLTFPreviewViewController.m in Sources */,
-				833684D326F139840057B9CA /* GLTFPreviewProvider.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

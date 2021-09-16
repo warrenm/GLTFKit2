@@ -30,6 +30,7 @@ class ViewController: UIViewController {
 
         cameraNode.camera = camera
         cameraNode.position = SCNVector3(0, 0, 3.5)
+        camera.automaticallyAdjustsZRange = true
 
         sceneView.allowsCameraControl = true
         sceneView.autoenablesDefaultLighting = true

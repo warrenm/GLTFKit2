@@ -50,7 +50,7 @@
 	<string>Main</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<key>UTImportedTypeDeclarations</key>
+	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
 			<key>UTTypeConformsTo</key>
@@ -66,10 +66,10 @@
 				<key>UTTypeIconBadgeName</key>
 				<string>AppIcon</string>
 				<key>UTTypeIconText</key>
-				<string>GLTF</string>
+				<string></string>
 			</dict>
 			<key>UTTypeIdentifier</key>
-			<string>org.khronos.gltf</string>
+			<string>com.metalbyexample.gltf2</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -80,6 +80,7 @@
 				<key>public.mime-type</key>
 				<array>
 					<string>model/gltf+json</string>
+					<string>model/gltf-binary</string>
 				</array>
 			</dict>
 		</dict>
