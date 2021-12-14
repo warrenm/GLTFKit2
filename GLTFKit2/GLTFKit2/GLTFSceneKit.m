@@ -276,18 +276,26 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
     size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
     size_t elementSize = bytesPerComponent * componentCount;
     size_t bufferLength = elementSize * accessor.count;
-    void *bytes = malloc(elementSize * accessor.count);
-    void *bufferViewBaseAddr = (void *)buffer.data.bytes + bufferView.offset;
-    if (bufferView.stride == 0 || bufferView.stride == elementSize) {
-        // Fast path
-        memcpy(bytes, bufferViewBaseAddr + accessor.offset, accessor.count * elementSize);
-    } else {
-        // Slow path, element by element
-        for (int i = 0; i < accessor.count; ++i) {
-            void *src = bufferViewBaseAddr + (i * bufferView.stride ?: elementSize);
-            void *dest = bytes + (i * elementSize);
-            memcpy(dest, src, elementSize);
+    void *bytes = malloc(bufferLength);
+    if (bufferView != nil) {
+        void *bufferViewBaseAddr = (void *)buffer.data.bytes + bufferView.offset;
+        if (bufferView.stride == 0 || bufferView.stride == elementSize) {
+            // Fast path
+            memcpy(bytes, bufferViewBaseAddr + accessor.offset, accessor.count * elementSize);
+        } else {
+            // Slow path, element by element
+            for (int i = 0; i < accessor.count; ++i) {
+                void *src = bufferViewBaseAddr + (i * bufferView.stride ?: elementSize);
+                void *dest = bytes + (i * elementSize);
+                memcpy(dest, src, elementSize);
+            }
         }
+    } else {
+        // 3.6.2.3. Sparse Accessors
+        // When accessor.bufferView is undefined, the sparse accessor is initialized as
+        // an array of zeros of size (size of the accessor element) * (accessor.count) bytes.
+        // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#sparse-accessors
+        memset(bytes, 0, bufferLength);
     }
     if (accessor.sparse) {
         assert(accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedShort ||
