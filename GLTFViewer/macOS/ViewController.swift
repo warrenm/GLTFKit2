@@ -13,7 +13,32 @@ class ViewController: NSViewController {
                 animations.first?.play()
                 sceneView.scene?.rootNode.addChildNode(cameraNode)
                 sceneView.scene?.lightingEnvironment.contents = "studio.hdr"
-                sceneView.scene?.lightingEnvironment.intensity = 1.5
+                sceneView.scene?.lightingEnvironment.intensity = 1.0
+
+                let sunLight = SCNLight()
+                sunLight.type = .directional
+                sunLight.intensity = 800
+                sunLight.color = NSColor.white
+                sunLight.castsShadow = true
+                let sun = SCNNode()
+                sun.light = sunLight
+                sceneView.scene?.rootNode.addChildNode(sun)
+                sun.look(at: SCNVector3(-1, -1, -1))
+
+                let moonLight = SCNLight()
+                moonLight.type = .directional
+                moonLight.intensity = 200
+                moonLight.color = NSColor.white
+                let moon = SCNNode()
+                moon.light = moonLight
+                sceneView.scene?.rootNode.addChildNode(moon)
+                moon.look(at: SCNVector3(1, -1, -1))
+
+                let cameraLight = SCNLight()
+                cameraLight.type = .directional
+                cameraLight.intensity = 500
+                cameraLight.color = NSColor.white
+                cameraNode.light = cameraLight
             }
         }
     }
