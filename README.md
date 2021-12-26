@@ -72,8 +72,8 @@ Below is a checklist of glTF features and their current level of support.
 - [x] TEXCOORD_0
 - [x] TEXCOORD_1
 - [x] COLOR_0
-- [ ] JOINTS_0
-- [ ] WEIGHTS_0
+- [x] JOINTS_0
+- [x] WEIGHTS_0
 
 #### Primitive Types
 - [ ] Points
@@ -90,9 +90,6 @@ Below is a checklist of glTF features and their current level of support.
 - [x] PNG
 - [x] JPEG
 - [x] TIFF
-- [ ] OpenEXR
-- [ ] Radiance
-- [ ] KTX2 / Basis Universal
 
 #### Materials
 - [x] Base color factor
@@ -101,9 +98,9 @@ Below is a checklist of glTF features and their current level of support.
 - [x] Emissive factor
 - [x] Base color map
 - [x] Metallic-roughness map
-- [ ] Occlusion map
+- [x] Occlusion map
 - [x] Emissive map
-- [ ] Normal texture scale
+- [x] Normal texture scale
 - [x] Alpha mode
     - [x] Opaque alpha mode
     - [x] Mask alpha mode
@@ -120,54 +117,37 @@ Below is a checklist of glTF features and their current level of support.
 - [ ] Orthographic cameras
 
 #### Morph Targets
-- [ ] Morph targets
+- [x] Morph targets
   
 #### Animation
 - [x] Translation animations
 - [x] Rotation animations
 - [x] Scale animations
-- [ ] Morph target weight animations
+- [x] Morph target weight animations
 - [x] Linear interpolation
 - [ ] Discrete animations
 - [ ] Cubic spline interpolation
 
 #### Skinning
-- [ ] Joint matrix calculation
+- [x] Joint matrix calculation
 
 #### Sparse Accessors
 - [ ] Sparse accessors
 
 #### Extensions
- - [ ] KHR_draco_mesh_compression (_No support planned._)
  - [ ] KHR_lights_punctual
- - [ ] KHR_materials_clearcoat
+ - [x] KHR_materials_clearcoat
  - [ ] KHR_materials_ior
  - [ ] KHR_materials_pbrSpecularGlossiness
  - [ ] KHR_materials_sheen
  - [ ] KHR_materials_specular
  - [ ] KHR_materials_transmission
- - [ ] KHR_materials_unlit
+ - [x] KHR_materials_unlit
  - [ ] KHR_materials_variants
- - [ ] KHR_materials_volume (_No support planned._)
- - [ ] KHR_mesh_quantization (_No support planned._)
- - [ ] KHR_techniques_webgl (_No support planned._)
  - [ ] KHR_texture_basisu
  - [x] KHR_texture_transform
  - [ ] KHR_xmp
- - [ ] ADOBE_materials_clearcoat_specular (_No support planned._)
- - [ ] ADOBE_materials_thin_transparency (_No support planned._)
- - [ ] AGI_articulations (_No support planned._)
- - [ ] AGI_stk_metadata (_No support planned._)
- - [ ] CESIUM_primitive_outline (_No support planned._)
  - [ ] EXT_lights_image_based
- - [ ] EXT_mesh_gpu_instancing (_No support planned._)
- - [ ] EXT_meshopt_compression (_No support planned._)
- - [ ] EXT_texture_webp (_No support planned._)
- - [ ] FB_geometry_metadata (_No support planned._)
- - [ ] MSFT_lod (_No support planned._)
- - [ ] MSFT_packing_normalRoughnessMetallic
- - [ ] MSFT_packing_occlusionRoughnessMetallic
- - [ ] MSFT_texture_dds (_No support planned._)
 
 ### Conformance
 
@@ -179,7 +159,7 @@ Pull requests are welcome, but will be audited strictly in order to maintain cod
 
 ## License
 
-    Copyright (c) 2021 Warren Moore
+    Copyright (c) 2021—2022 Warren Moore
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
     documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
