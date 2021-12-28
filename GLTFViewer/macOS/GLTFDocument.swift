@@ -16,14 +16,8 @@ class GLTFDocument: NSDocument {
     
     override func makeWindowControllers() {
         let storyboard = NSStoryboard(name: NSStoryboard.Name("Main"), bundle: nil)
-        let windowController = storyboard.instantiateController(withIdentifier: NSStoryboard.SceneIdentifier("GLTFWindowController"))  as! NSWindowController
-        self.addWindowController(windowController)
-
-        if let asset = asset {
-            if let contentViewController = windowController.contentViewController as? ViewController {
-                contentViewController.asset = asset
-            }
-        }
+        let windowController = storyboard.instantiateController(withIdentifier: NSStoryboard.SceneIdentifier("GLTFWindowController"))
+        self.addWindowController(windowController as! NSWindowController)
     }
     
     override func read(from url: URL, ofType typeName: String) throws {
