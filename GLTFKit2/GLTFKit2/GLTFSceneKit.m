@@ -284,8 +284,9 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
             memcpy(bytes, bufferViewBaseAddr + accessor.offset, accessor.count * elementSize);
         } else {
             // Slow path, element by element
+            size_t sourceStride = bufferView.stride ?: elementSize;
             for (int i = 0; i < accessor.count; ++i) {
-                void *src = bufferViewBaseAddr + accessor.offset + (i * bufferView.stride ?: elementSize);
+                void *src = bufferViewBaseAddr + (i * sourceStride) + accessor.offset;
                 void *dest = bytes + (i * elementSize);
                 memcpy(dest, src, elementSize);
             }
@@ -677,8 +678,8 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 {
                     indexSize = indexAccessor.componentType == GLTFComponentTypeUnsignedInt ? sizeof(UInt32) : sizeof(UInt16);
                     indexData = [NSData dataWithBytesNoCopy:(void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset
-                                                             length:indexCount * indexSize
-                                                       freeWhenDone:NO];
+                                                     length:indexCount * indexSize
+                                               freeWhenDone:NO];
                 }
                 else
                 {
