@@ -56,6 +56,9 @@ Below is a checklist of glTF features and their current level of support.
 
 ### Status
 
+- [x] Import
+- [ ] Export
+
 #### Encodings
 - [x] JSON
 - [x] Binary (.glb)
@@ -135,19 +138,22 @@ Below is a checklist of glTF features and their current level of support.
 - [ ] Sparse accessors
 
 #### Extensions
+ - [ ] KHR_draco_mesh_compression
  - [ ] KHR_lights_punctual
  - [x] KHR_materials_clearcoat
  - [ ] KHR_materials_ior
- - [ ] KHR_materials_pbrSpecularGlossiness
  - [ ] KHR_materials_sheen
  - [ ] KHR_materials_specular
  - [ ] KHR_materials_transmission
  - [x] KHR_materials_unlit
  - [ ] KHR_materials_variants
+ - [ ] KHR_materials_volume
+ - [ ] KHR_mesh_quantization
  - [ ] KHR_texture_basisu
  - [x] KHR_texture_transform
- - [ ] KHR_xmp
- - [ ] EXT_lights_image_based
+ - [ ] KHR_xmp_json_ld
+
+ Extension support indicates that an extension's features are available as first-class objects through the `GLTFAsset` API. Not all features are available after an asset is bridged to another framework (e.g. SceneKit) that does not have support for such features.
 
 ### Conformance
 
