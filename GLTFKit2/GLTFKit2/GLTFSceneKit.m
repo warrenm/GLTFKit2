@@ -285,7 +285,7 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
         } else {
             // Slow path, element by element
             for (int i = 0; i < accessor.count; ++i) {
-                void *src = bufferViewBaseAddr + (i * bufferView.stride ?: elementSize);
+                void *src = bufferViewBaseAddr + accessor.offset + (i * bufferView.stride ?: elementSize);
                 void *dest = bytes + (i * elementSize);
                 memcpy(dest, src, elementSize);
             }
