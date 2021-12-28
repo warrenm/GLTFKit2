@@ -347,6 +347,26 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
     size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
     size_t elementSize = bytesPerComponent * componentCount;
     NSData *attrData = GLTFSCNPackedDataForAccessor(accessor);
+
+    // Ensure linear sum of weights is equal to 1; this is required by the spec,
+    // and SceneKit relies on this invariant as of iOS 12 and macOS Mojave.
+    // TODO: Support multiple sets of weights, assuring that sum of weights across
+    // all weight sets is 1.
+    if ([semanticName isEqualToString:@"WEIGHTS_0"]) {
+        assert(accessor.componentType == GLTFComponentTypeFloat && accessor.dimension == GLTFValueDimensionVector4 &&
+                 "Accessor for joint weights must be of float4 type; other data types are not currently supported");
+        for (int i = 0; i < accessor.count; ++i) {
+            float *weights = (float *)(attrData.bytes + i * elementSize);
+            float sum = weights[0] + weights[1] + weights[2] + weights[3];
+            if (sum != 1.0f) {
+                weights[0] /= sum;
+                weights[1] /= sum;
+                weights[2] /= sum;
+                weights[3] /= sum;
+            }
+        }
+    }
+
     return [SCNGeometrySource geometrySourceWithData:attrData
                                             semantic:GLTFSCNGeometrySourceSemanticForSemantic(semanticName)
                                          vectorCount:accessor.count
