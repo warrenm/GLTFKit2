@@ -10,7 +10,7 @@
 			<false/>
 			<key>QLSupportedContentTypes</key>
 			<array>
-				<string>com.metalbyexample.gltf2</string>
+				<string>org.khronos.gltf</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>

@@ -69,7 +69,7 @@
 				<string></string>
 			</dict>
 			<key>UTTypeIdentifier</key>
-			<string>com.metalbyexample.gltf2</string>
+			<string>org.khronos.gltf</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
