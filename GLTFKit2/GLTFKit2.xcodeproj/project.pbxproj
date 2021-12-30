@@ -15,8 +15,8 @@
 		834FF1D325C27A02001887C2 /* GLTFAsset.m in Sources */ = {isa = PBXBuildFile; fileRef = 834FF1D125C27A02001887C2 /* GLTFAsset.m */; };
 		834FF1D925C3BE51001887C2 /* GLTFAssetReader.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1D725C3BE51001887C2 /* GLTFAssetReader.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		834FF1DA25C3BE51001887C2 /* GLTFAssetReader.m in Sources */ = {isa = PBXBuildFile; fileRef = 834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */; };
-		834FF1E525C3BE64001887C2 /* cgltf_write.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1E025C3BE64001887C2 /* cgltf_write.h */; };
-		834FF1E625C3BE64001887C2 /* cgltf.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1E125C3BE64001887C2 /* cgltf.h */; };
+		836805A5277D3F6C00F3222A /* cgltf_write.h in Headers */ = {isa = PBXBuildFile; fileRef = 836805A0277D3F6C00F3222A /* cgltf_write.h */; };
+		836805A6277D3F6C00F3222A /* cgltf.h in Headers */ = {isa = PBXBuildFile; fileRef = 836805A1277D3F6C00F3222A /* cgltf.h */; };
 		83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */ = {isa = PBXBuildFile; fileRef = 83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		83BEF9D825CF3240005DFE80 /* GLTFModelIO.m in Sources */ = {isa = PBXBuildFile; fileRef = 83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */; };
 		83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 83DA575526DEEAA9007B440E /* GLTFLogging.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -33,8 +33,8 @@
 		834FF1D125C27A02001887C2 /* GLTFAsset.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFAsset.m; sourceTree = "<group>"; };
 		834FF1D725C3BE51001887C2 /* GLTFAssetReader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFAssetReader.h; sourceTree = "<group>"; };
 		834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFAssetReader.m; sourceTree = "<group>"; };
-		834FF1E025C3BE64001887C2 /* cgltf_write.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cgltf_write.h; sourceTree = "<group>"; };
-		834FF1E125C3BE64001887C2 /* cgltf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cgltf.h; sourceTree = "<group>"; };
+		836805A0277D3F6C00F3222A /* cgltf_write.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cgltf_write.h; sourceTree = "<group>"; };
+		836805A1277D3F6C00F3222A /* cgltf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cgltf.h; sourceTree = "<group>"; };
 		83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFModelIO.h; sourceTree = "<group>"; };
 		83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFModelIO.m; sourceTree = "<group>"; };
 		83C1BC9C25C3EABF003A485D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
@@ -56,7 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				83C1BC9C25C3EABF003A485D /* README.md */,
-				834FF1DC25C3BE64001887C2 /* deps */,
+				8368059C277D3F6C00F3222A /* deps */,
 				834FF1C625C27938001887C2 /* GLTFKit2 */,
 				834FF1C525C27938001887C2 /* Products */,
 			);
@@ -87,24 +87,6 @@
 			path = GLTFKit2;
 			sourceTree = "<group>";
 		};
-		834FF1DC25C3BE64001887C2 /* deps */ = {
-			isa = PBXGroup;
-			children = (
-				834FF1DD25C3BE64001887C2 /* cgltf */,
-			);
-			name = deps;
-			path = ../deps;
-			sourceTree = "<group>";
-		};
-		834FF1DD25C3BE64001887C2 /* cgltf */ = {
-			isa = PBXGroup;
-			children = (
-				834FF1E125C3BE64001887C2 /* cgltf.h */,
-				834FF1E025C3BE64001887C2 /* cgltf_write.h */,
-			);
-			path = cgltf;
-			sourceTree = "<group>";
-		};
 		834FF1EA25C3C034001887C2 /* impl */ = {
 			isa = PBXGroup;
 			children = (
@@ -115,6 +97,23 @@
 			path = impl;
 			sourceTree = "<group>";
 		};
+		8368059C277D3F6C00F3222A /* deps */ = {
+			isa = PBXGroup;
+			children = (
+				8368059D277D3F6C00F3222A /* cgltf */,
+			);
+			path = deps;
+			sourceTree = "<group>";
+		};
+		8368059D277D3F6C00F3222A /* cgltf */ = {
+			isa = PBXGroup;
+			children = (
+				836805A0277D3F6C00F3222A /* cgltf_write.h */,
+				836805A1277D3F6C00F3222A /* cgltf.h */,
+			);
+			path = cgltf;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -123,12 +122,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				834FF1D225C27A02001887C2 /* GLTFAsset.h in Headers */,
-				834FF1E525C3BE64001887C2 /* cgltf_write.h in Headers */,
 				83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */,
 				834AD61025E1BD850010608A /* GLTFTypes.h in Headers */,
+				836805A6277D3F6C00F3222A /* cgltf.h in Headers */,
 				834FF1C925C27938001887C2 /* GLTFKit2.h in Headers */,
 				83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */,
-				834FF1E625C3BE64001887C2 /* cgltf.h in Headers */,
+				836805A5277D3F6C00F3222A /* cgltf_write.h in Headers */,
 				834FF1D925C3BE51001887C2 /* GLTFAssetReader.h in Headers */,
 				834AD60A25E1A3960010608A /* GLTFSceneKit.h in Headers */,
 			);
