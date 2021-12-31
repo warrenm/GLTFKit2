@@ -2,6 +2,8 @@
 #import "GLTFSceneKit.h"
 #import "GLTFLogging.h"
 
+#import <SceneKit/ModelIO.h>
+
 NSString *const GLTFAssetPropertyKeyCopyright = @"GLTFAssetPropertyKeyCopyright";
 NSString *const GLTFAssetPropertyKeyGenerator = @"GLTFAssetPropertyKeyGenerator";
 NSString *const GLTFAssetPropertyKeyVersion = @"GLTFAssetPropertyKeyVersion";
@@ -802,17 +804,50 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 geometryNode.geometry = geometryForIdentifiers[primitive.identifier];
 
                 if (primitive.targets.count > 0) {
+                    // If the base mesh doesn't contain normals, use Model I/O to generate them
+                    if ([geometryNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticNormal].count == 0) {
+                        MDLMesh *mdlMesh = [MDLMesh meshWithSCNGeometry:geometryNode.geometry];
+                        [mdlMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0.0];
+                        geometryNode.geometry = [SCNGeometry geometryWithMDLMesh:mdlMesh];
+                    }
+
                     SCNGeometryElement *element = geometryElementForIdentifiers[primitive.identifier];
                     NSMutableArray<SCNGeometry *> *morphGeometries = [NSMutableArray array];
                     int index = 0;
                     for (GLTFMorphTarget *target in primitive.targets) {
-                        NSMutableArray<SCNGeometrySource *> *sources = [NSMutableArray array];
+                        // We assemble the list of geometry sources for each morph target by first
+                        // shallow-copying the sources of the base mesh, then replacing each source
+                        // as we encounter a corresponding key in the target's key list. In this way
+                        // we always have a 1:1 correspondence between base and target sources.
+                        NSMutableArray<SCNGeometrySource *> *sources = [geometryNode.geometry.geometrySources mutableCopy];
                         for (NSString *key in target.allKeys) {
                             GLTFAccessor *targetAccessor = target[key];
-                            [sources addObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
+                            __block NSInteger replacementIndex = NSNotFound;
+                            [sources enumerateObjectsUsingBlock:^(SCNGeometrySource *source, NSUInteger idx, BOOL * stop) {
+                                if ([source.semantic isEqualToString:GLTFSCNGeometrySourceSemanticForSemantic(key)]) {
+                                    replacementIndex = idx;
+                                    *stop = YES;
+                                }
+                            }];
+                            if (replacementIndex != NSNotFound) {
+                                [sources replaceObjectAtIndex:replacementIndex
+                                                   withObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
+                            } else {
+                                // Targeting a source that doesn't exist in the base mesh. This shouldn't happen.
+                                [sources addObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
+                            }
+
                         }
-                        SCNGeometry* geom = [SCNGeometry geometryWithSources:sources
+                        SCNGeometry *geom = [SCNGeometry geometryWithSources:sources
                                                                     elements:@[element]];
+
+                        // If after creating the target geometry we don't have normals, use Model I/O to generate them
+                        if ([geom geometrySourcesForSemantic:SCNGeometrySourceSemanticNormal].count == 0) {
+                            MDLMesh *mdlMesh = [MDLMesh meshWithSCNGeometry:geom];
+                            [mdlMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0.0];
+                            geom = [SCNGeometry geometryWithMDLMesh:mdlMesh];
+                        }
+
                         if (index < node.mesh.targetNames.count) {
                             geom.name = node.mesh.targetNames[index];
                         }
