@@ -21,6 +21,8 @@
 		8373775926F14D6400595C2A /* QuickLook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8373775826F14D6400595C2A /* QuickLook.framework */; };
 		83AB9EA126D98BEB00FD9C95 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = 83AB9EA026D98BCF00FD9C95 /* Models */; };
 		83CFBF4826F2BE66003BEBFA /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 830C44B126F292C60075CCBF /* GLTFKit2.framework */; };
+		83D5B17B278295600015E015 /* AnimationPlaybackView.xib in Resources */ = {isa = PBXBuildFile; fileRef = 83D5B179278295600015E015 /* AnimationPlaybackView.xib */; };
+		83D5B17D278295C30015E015 /* AnimationPlaybackViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D5B17C278295C30015E015 /* AnimationPlaybackViewController.swift */; };
 		83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950425C6573C00B5B234 /* AppDelegate.swift */; };
 		83D9950725C6573C00B5B234 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950625C6573C00B5B234 /* ViewController.swift */; };
 		83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950825C6573C00B5B234 /* GLTFDocument.swift */; };
@@ -91,6 +93,8 @@
 		833684E126F154D40057B9CA /* studio-ql.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; path = "studio-ql.hdr"; sourceTree = "<group>"; };
 		8373775826F14D6400595C2A /* QuickLook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLook.framework; path = System/Library/Frameworks/QuickLook.framework; sourceTree = SDKROOT; };
 		83AB9EA026D98BCF00FD9C95 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
+		83D5B17A278295600015E015 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/AnimationPlaybackView.xib; sourceTree = "<group>"; };
+		83D5B17C278295C30015E015 /* AnimationPlaybackViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationPlaybackViewController.swift; sourceTree = "<group>"; };
 		83D9950125C6573C00B5B234 /* glTF Viewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "glTF Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		83D9950425C6573C00B5B234 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		83D9950625C6573C00B5B234 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -197,7 +201,9 @@
 				83D9950425C6573C00B5B234 /* AppDelegate.swift */,
 				83D9950625C6573C00B5B234 /* ViewController.swift */,
 				83D9950825C6573C00B5B234 /* GLTFDocument.swift */,
+				83D5B17C278295C30015E015 /* AnimationPlaybackViewController.swift */,
 				83D9950A25C6573E00B5B234 /* Assets.xcassets */,
+				83D5B179278295600015E015 /* AnimationPlaybackView.xib */,
 				83D9950C25C6573E00B5B234 /* Main.storyboard */,
 				83D9950F25C6573E00B5B234 /* Info.plist */,
 				83D9951025C6573E00B5B234 /* GLTFViewer.entitlements */,
@@ -330,6 +336,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83D5B17B278295600015E015 /* AnimationPlaybackView.xib in Resources */,
 				83D9950B25C6573E00B5B234 /* Assets.xcassets in Resources */,
 				833684E226F154DA0057B9CA /* studio.hdr in Resources */,
 				83D9950E25C6573E00B5B234 /* Main.storyboard in Resources */,
@@ -364,6 +371,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				83D9950725C6573C00B5B234 /* ViewController.swift in Sources */,
+				83D5B17D278295C30015E015 /* AnimationPlaybackViewController.swift in Sources */,
 				83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */,
 				83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */,
 			);
@@ -395,6 +403,14 @@
 				833684D526F139840057B9CA /* Base */,
 			);
 			name = PreviewViewController.xib;
+			sourceTree = "<group>";
+		};
+		83D5B179278295600015E015 /* AnimationPlaybackView.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				83D5B17A278295600015E015 /* Base */,
+			);
+			name = AnimationPlaybackView.xib;
 			sourceTree = "<group>";
 		};
 		83D9950C25C6573E00B5B234 /* Main.storyboard */ = {

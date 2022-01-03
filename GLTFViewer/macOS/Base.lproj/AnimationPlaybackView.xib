@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="19455" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="19455"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="AnimationPlaybackViewController" customModule="glTF_Viewer" customModuleProvider="target">
+            <connections>
+                <outlet property="animationNamePopUp" destination="JqY-Lp-rg7" id="9EZ-e2-on9"/>
+                <outlet property="durationLabel" destination="LeB-Tg-Raz" id="TG9-jA-Qhf"/>
+                <outlet property="modeSegmentedControl" destination="w6s-dl-2yV" id="rFE-Vu-M3J"/>
+                <outlet property="playPauseButton" destination="hOg-BW-amg" id="B2k-x2-Ob5"/>
+                <outlet property="progressLabel" destination="cHP-qA-B8k" id="06V-az-peS"/>
+                <outlet property="progressSlider" destination="XJ9-rS-hOQ" id="MLz-LW-UGz"/>
+                <outlet property="view" destination="c22-O7-iKe" id="KuG-gs-YeL"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
+        <customView id="c22-O7-iKe">
+            <rect key="frame" x="0.0" y="0.0" width="480" height="96"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+            <subviews>
+                <visualEffectView appearanceType="vibrantDark" fixedFrame="YES" blendingMode="behindWindow" material="HUDWindow" state="followsWindowActiveState" translatesAutoresizingMaskIntoConstraints="NO" id="9Mq-Qk-BNf">
+                    <rect key="frame" x="0.0" y="-1" width="480" height="97"/>
+                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                    <subviews>
+                        <popUpButton wantsLayer="YES" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="JqY-Lp-rg7">
+                            <rect key="frame" x="18" y="53" width="216" height="26"/>
+                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                            <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="s0P-Nf-sTc" id="Qrg-lG-6QS">
+                                <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                <font key="font" metaFont="menu"/>
+                                <menu key="menu" id="FvV-rD-X7a">
+                                    <items>
+                                        <menuItem title="Item 1" state="on" id="s0P-Nf-sTc"/>
+                                        <menuItem title="Item 2" id="G7P-8c-Fns"/>
+                                        <menuItem title="Item 3" id="wX7-FL-6N3"/>
+                                    </items>
+                                </menu>
+                            </popUpButtonCell>
+                            <connections>
+                                <action selector="didSelectAnimationName:" target="-2" id="nyE-iE-WY7"/>
+                            </connections>
+                        </popUpButton>
+                        <segmentedControl verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="w6s-dl-2yV">
+                            <rect key="frame" x="248" y="54" width="209" height="24"/>
+                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                            <segmentedCell key="cell" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="cXp-El-UQA">
+                                <font key="font" metaFont="system"/>
+                                <segments>
+                                    <segment label="Loop All" width="68"/>
+                                    <segment label="Loop One" width="67" selected="YES" tag="1"/>
+                                    <segment label="No Loop" width="67"/>
+                                </segments>
+                            </segmentedCell>
+                            <connections>
+                                <action selector="didSelectMode:" target="-2" id="A7R-R0-Kvu"/>
+                            </connections>
+                        </segmentedControl>
+                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="LeB-Tg-Raz">
+                            <rect key="frame" x="413" y="23" width="44" height="16"/>
+                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="88.88" id="7f6-IK-w7j">
+                                <font key="font" metaFont="system"/>
+                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                            </textFieldCell>
+                        </textField>
+                        <button wantsLayer="YES" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="hOg-BW-amg">
+                            <rect key="frame" x="14" y="13" width="60" height="32"/>
+                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                            <buttonCell key="cell" type="push" bezelStyle="rounded" image="NSTouchBarPlayPauseTemplate" imagePosition="overlaps" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="eHw-Cb-R89">
+                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                <font key="font" metaFont="system"/>
+                            </buttonCell>
+                            <connections>
+                                <action selector="didClickPlayPause:" target="-2" id="8hK-UU-FZ6"/>
+                            </connections>
+                        </button>
+                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="cHP-qA-B8k">
+                            <rect key="frame" x="74" y="23" width="44" height="16"/>
+                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="88.88" id="SC5-lX-I4M">
+                                <font key="font" metaFont="system"/>
+                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                            </textFieldCell>
+                        </textField>
+                        <slider verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XJ9-rS-hOQ">
+                            <rect key="frame" x="122" y="23" width="287" height="15"/>
+                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                            <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" maxValue="1" tickMarkPosition="above" sliderType="linear" id="GFb-CF-cB9"/>
+                            <connections>
+                                <action selector="progressValueDidChange:" target="-2" id="imG-et-UgC"/>
+                            </connections>
+                        </slider>
+                    </subviews>
+                </visualEffectView>
+            </subviews>
+            <userDefinedRuntimeAttributes>
+                <userDefinedRuntimeAttribute type="boolean" keyPath="wantsLayer" value="YES"/>
+                <userDefinedRuntimeAttribute type="boolean" keyPath="layer.maskToBounds" value="YES"/>
+                <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                    <integer key="value" value="10"/>
+                </userDefinedRuntimeAttribute>
+            </userDefinedRuntimeAttributes>
+            <point key="canvasLocation" x="-438" y="53"/>
+        </customView>
+    </objects>
+    <resources>
+        <image name="NSTouchBarPlayPauseTemplate" width="23" height="13"/>
+    </resources>
+</document>

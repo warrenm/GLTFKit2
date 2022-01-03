@@ -39,6 +39,14 @@ class ViewController: NSViewController {
                 cameraLight.intensity = 500
                 cameraLight.color = NSColor.white
                 cameraNode.light = cameraLight
+
+                if asset.animations.count > 0 {
+                    if animationController == nil {
+                        showAnimationUI()
+                        animationController.sceneView = sceneView
+                    }
+                    animationController.animations = source.animations
+                }
             }
         }
     }
@@ -46,6 +54,8 @@ class ViewController: NSViewController {
     private var sceneView: SCNView {
         return view as! SCNView
     }
+
+    private var animationController: AnimationPlaybackViewController!
 
     private var animations = [GLTFSCNAnimation]()
 
@@ -63,6 +73,23 @@ class ViewController: NSViewController {
         sceneView.autoenablesDefaultLighting = true
         sceneView.backgroundColor = NSColor(white: 0.18, alpha: 1.0)
         sceneView.pointOfView = cameraNode
+    }
+
+    private func showAnimationUI() {
+        animationController = AnimationPlaybackViewController(nibName: "AnimationPlaybackView", bundle: nil)
+        animationController.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(animationController.view)
+        let views = [ "controller" : animationController.view ]
+        NSLayoutConstraint(item: animationController.view, attribute:.width, relatedBy:.equal,
+                           toItem: nil, attribute: .notAnAttribute, multiplier:0, constant:480).isActive = true
+        NSLayoutConstraint(item: animationController.view, attribute:.height, relatedBy:.equal,
+                           toItem: nil, attribute:.notAnAttribute, multiplier:0, constant:100).isActive = true
+        NSLayoutConstraint(item:animationController.view, attribute:.centerX, relatedBy:.equal,
+                           toItem: view, attribute: .centerX, multiplier:1, constant:0).isActive = true
+        view.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:[controller]-(12)-|",
+                                                           options: [],
+                                                           metrics:nil,
+                                                           views:views))
     }
 }
 
