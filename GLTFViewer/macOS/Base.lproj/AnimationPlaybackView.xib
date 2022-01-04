@@ -13,7 +13,7 @@
                 <outlet property="modeSegmentedControl" destination="w6s-dl-2yV" id="rFE-Vu-M3J"/>
                 <outlet property="playPauseButton" destination="hOg-BW-amg" id="B2k-x2-Ob5"/>
                 <outlet property="progressLabel" destination="cHP-qA-B8k" id="06V-az-peS"/>
-                <outlet property="progressSlider" destination="XJ9-rS-hOQ" id="MLz-LW-UGz"/>
+                <outlet property="progressSlider" destination="KFU-rK-d7F" id="wTj-yD-9fE"/>
                 <outlet property="view" destination="c22-O7-iKe" id="KuG-gs-YeL"/>
             </connections>
         </customObject>
@@ -23,7 +23,7 @@
             <rect key="frame" x="0.0" y="0.0" width="480" height="96"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <subviews>
-                <visualEffectView appearanceType="vibrantDark" fixedFrame="YES" blendingMode="behindWindow" material="HUDWindow" state="followsWindowActiveState" translatesAutoresizingMaskIntoConstraints="NO" id="9Mq-Qk-BNf">
+                <visualEffectView wantsLayer="YES" appearanceType="vibrantDark" fixedFrame="YES" alphaValue="0.84999999999999998" blendingMode="withinWindow" material="HUDWindow" state="followsWindowActiveState" translatesAutoresizingMaskIntoConstraints="NO" id="9Mq-Qk-BNf">
                     <rect key="frame" x="0.0" y="-1" width="480" height="97"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <subviews>
@@ -89,15 +89,23 @@
                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                             </textFieldCell>
                         </textField>
-                        <slider verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XJ9-rS-hOQ">
-                            <rect key="frame" x="122" y="23" width="287" height="15"/>
+                        <slider verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="KFU-rK-d7F">
+                            <rect key="frame" x="122" y="19" width="287" height="24"/>
                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                            <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" maxValue="1" tickMarkPosition="above" sliderType="linear" id="GFb-CF-cB9"/>
+                            <sliderCell key="cell" controlSize="small" state="on" alignment="left" maxValue="100" doubleValue="50" tickMarkPosition="above" sliderType="linear" id="WhD-Ws-Gt3"/>
                             <connections>
-                                <action selector="progressValueDidChange:" target="-2" id="imG-et-UgC"/>
+                                <action selector="progressValueDidChange:" target="-2" id="oaq-Sq-0vK"/>
                             </connections>
                         </slider>
                     </subviews>
+                    <backgroundFilters>
+                        <ciFilter name="CIGaussianBlur">
+                            <configuration>
+                                <null key="inputImage"/>
+                                <real key="inputRadius" value="10"/>
+                            </configuration>
+                        </ciFilter>
+                    </backgroundFilters>
                 </visualEffectView>
             </subviews>
             <userDefinedRuntimeAttributes>
