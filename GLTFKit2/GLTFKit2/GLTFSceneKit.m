@@ -771,6 +771,8 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
         }
     }
 
+    SCNNode* skeletonNode = nil;
+
     for (GLTFNode *node in self.asset.nodes) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
 
@@ -889,6 +891,10 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                     skinner.skeleton = nodesForIdentifiers[node.skin.skeleton.identifier];
                 }
                 skinnedNode.skinner = skinner;
+                if (skeletonNode == nil) {
+                    skeletonNode = skinner.skeleton;
+                }
+
             }
         }
     }
@@ -897,6 +903,9 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
     for (GLTFAnimation *animation in self.asset.animations) {
         NSMutableArray *scnChannels = [NSMutableArray array];
         NSTimeInterval maxChannelKeyTime = 0.0;
+        NSMutableArray<CAKeyframeAnimation *> *keyAnimations = [NSMutableArray array];
+        NSUUID *firstAnimatedNodeIdentifier = nil;
+
         for (GLTFAnimationChannel *channel in animation.channels) {
             if (channel.sampler.input.maxValues.count > 0) {
                 NSTimeInterval channelMaxTime = channel.sampler.input.maxValues.firstObject.doubleValue;
@@ -951,14 +960,27 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 }
             } else {
                 CAKeyframeAnimation *caAnimation = nil;
+                NSString *targetNodeName = channel.target.node.name;
+
+                if (firstAnimatedNodeIdentifier == nil) {
+                    firstAnimatedNodeIdentifier = channel.target.node.identifier;
+                }
+
+                // Fixup the node name if has dots in it because they conflict with CAKeyFrameAnimation keyPath KVC syntax.
+                if ([targetNodeName containsString:@"."]) {
+                    targetNodeName = [targetNodeName stringByReplacingOccurrencesOfString:@"." withString:@"_"];
+                    SCNNode *targetNode = nodesForIdentifiers[channel.target.node.identifier];
+                    targetNode.name = targetNodeName;
+                }
+
                 if ([channel.target.path isEqualToString:GLTFAnimationPathTranslation]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"position"];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:[NSString stringWithFormat:@"/%@.position", targetNodeName]];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else if ([channel.target.path isEqualToString:GLTFAnimationPathRotation]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"orientation"];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:[NSString stringWithFormat:@"/%@.orientation", targetNodeName]];
                     caAnimation.values = GLTFSCNVector4ArrayForAccessor(channel.sampler.output);
                 } else if ([channel.target.path isEqualToString:GLTFAnimationPathScale]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"scale"];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:[NSString stringWithFormat:@"/%@.scale", targetNodeName]];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else {
                     GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
@@ -980,7 +1002,9 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 }
                 caAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
                 caAnimation.duration = maxChannelKeyTime;
-                caAnimation.repeatDuration = FLT_MAX;
+//                caAnimation.repeatDuration = FLT_MAX;
+                caAnimation.removedOnCompletion = false;
+                [keyAnimations addObject:caAnimation];
 
                 GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
                 clipChannel.target = nodesForIdentifiers[channel.target.node.identifier];
@@ -993,6 +1017,19 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
         animationClip.name = animation.name;
         animationClip.channels = scnChannels;
         animationsForIdentifiers[animation.identifier] = animationClip;
+
+        // Make a group of all the channel key frame animations and make an animation player for the group.
+        // Add the player to either the first skeleton node or the parent of the first animated node.
+        if (keyAnimations.count != 0) {
+            CAAnimationGroup *caGroupAnimation = [CAAnimationGroup animation];
+            caGroupAnimation.animations = keyAnimations;
+            caGroupAnimation.duration = maxChannelKeyTime;
+
+            SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caGroupAnimation];
+            SCNAnimationPlayer *player = [SCNAnimationPlayer animationPlayerWithAnimation:scnAnimation];
+            SCNNode *node = (skeletonNode) ? skeletonNode : nodesForIdentifiers[firstAnimatedNodeIdentifier].parentNode;
+            [node addAnimationPlayer:player forKey:animation.name];
+        }
     }
 
     NSMutableDictionary *scenesForIdentifiers = [NSMutableDictionary dictionary];
