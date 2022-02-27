@@ -460,7 +460,10 @@ static dispatch_queue_t _loaderQueue;
         transform.offset = (simd_float2){ tv->transform.offset[0], tv->transform.offset[1] };
         transform.rotation = tv->transform.rotation;
         transform.scale = (simd_float2){ tv->transform.scale[0], tv->transform.scale[1] };
-        transform.texCoord = tv->transform.texcoord;
+        if (tv->transform.has_texcoord) {
+            transform.hasTexCoord = YES;
+            transform.texCoord = tv->transform.texcoord;
+        }
         params.transform = transform;
     }
     params.extensions = GLTFConvertExtensions(tv->extensions, tv->extensions_count, nil);

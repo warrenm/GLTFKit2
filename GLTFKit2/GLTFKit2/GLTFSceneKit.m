@@ -252,10 +252,7 @@ static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTF
     property.mappingChannel = textureParams.texCoord;
     if (textureParams.transform) {
         property.contentsTransform = SCNMatrix4FromMat4(textureParams.transform.matrix);
-        // clgtf doesn't distinguish between texture transforms that override the mapping
-        // channel to 0 and texture transforms that don't override, so we have to assume
-        // that if the mapping channel looks like an override to channel 0, it isn't.
-        if (textureParams.transform.texCoord > 0) {
+        if (textureParams.transform.hasTexCoord) {
             property.mappingChannel = textureParams.transform.texCoord;
         }
     }

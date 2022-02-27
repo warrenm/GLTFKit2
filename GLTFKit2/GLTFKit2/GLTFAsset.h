@@ -452,6 +452,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, assign) simd_float2 offset;
 @property (nonatomic, assign) float rotation;
 @property (nonatomic, assign) simd_float2 scale;
+@property (nonatomic, assign) BOOL hasTexCoord;
 @property (nonatomic, assign) int texCoord;
 @property (nonatomic, readonly) simd_float4x4 matrix;
 
