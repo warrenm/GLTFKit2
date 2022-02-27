@@ -973,6 +973,16 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                         break;
                     case GLTFInterpolationModeCubic:
                         caAnimation.calculationMode = kCAAnimationCubic;
+                        // CAKeyframeAnimation doesn't support explicit in- and out-tangents,
+                        // so we assume them to be zero, resulting in Catmull-Rom interpolation.
+                        // TODO: If possible, convert provided tangents into Kochanek–Bartels form.
+                        __block NSMutableArray *knots = [NSMutableArray array];
+                        [caAnimation.values enumerateObjectsUsingBlock:^(id value, NSUInteger i, BOOL *stop) {
+                            if (((i - 1) % 3) == 0) {
+                                [knots addObject:caAnimation.values[i]];
+                            }
+                        }];
+                        caAnimation.values = knots;
                         break;
                 }
                 caAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
