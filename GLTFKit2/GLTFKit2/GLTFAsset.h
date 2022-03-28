@@ -8,6 +8,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 extern const float LumensPerCandela;
 
+extern NSString *const GLTFErrorDomain;
+
+typedef NS_ENUM(NSUInteger, GLTFErrorCode) {
+    GLTFErrorCodeNoDataToLoad = 1010,
+    GLTFErrorCodeFailedToLoad = 1011,
+};
+
 typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
 extern GLTFAttributeSemantic GLTFAttributeSemanticPosition;
 extern GLTFAttributeSemantic GLTFAttributeSemanticNormal;

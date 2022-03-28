@@ -5,6 +5,8 @@
 
 const float LumensPerCandela = 1.0 / (4.0 * M_PI);
 
+NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
+
 GLTFAttributeSemantic GLTFAttributeSemanticPosition = @"POSITION";
 GLTFAttributeSemantic GLTFAttributeSemanticNormal = @"NORMAL";
 GLTFAttributeSemantic GLTFAttributeSemanticTangent = @"TANGENT";

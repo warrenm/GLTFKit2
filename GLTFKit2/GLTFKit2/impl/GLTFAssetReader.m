@@ -4,13 +4,6 @@
 #define CGLTF_IMPLEMENTATION
 #import "cgltf.h"
 
-static NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
-
-enum GLTFErrorCode {
-    GLTFErrorCodeNoDataToLoad = 1010,
-    GLTFErrorCodeFailedToLoad = 1011,
-};
-
 @interface GLTFUniqueNameGenerator : NSObject
 - (NSString *)nextUniqueNameWithPrefix:(NSString *)prefix;
 @end
