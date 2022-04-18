@@ -17,6 +17,8 @@
 		834FF1DA25C3BE51001887C2 /* GLTFAssetReader.m in Sources */ = {isa = PBXBuildFile; fileRef = 834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */; };
 		836805A5277D3F6C00F3222A /* cgltf_write.h in Headers */ = {isa = PBXBuildFile; fileRef = 836805A0277D3F6C00F3222A /* cgltf_write.h */; };
 		836805A6277D3F6C00F3222A /* cgltf.h in Headers */ = {isa = PBXBuildFile; fileRef = 836805A1277D3F6C00F3222A /* cgltf.h */; };
+		83821E05280CF37600D4A11A /* GLTFWorkflowHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = 83821E03280CF37600D4A11A /* GLTFWorkflowHelper.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		83821E06280CF37600D4A11A /* GLTFWorkflowHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 83821E04280CF37600D4A11A /* GLTFWorkflowHelper.m */; };
 		83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */ = {isa = PBXBuildFile; fileRef = 83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		83BEF9D825CF3240005DFE80 /* GLTFModelIO.m in Sources */ = {isa = PBXBuildFile; fileRef = 83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */; };
 		83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 83DA575526DEEAA9007B440E /* GLTFLogging.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -35,6 +37,9 @@
 		834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFAssetReader.m; sourceTree = "<group>"; };
 		836805A0277D3F6C00F3222A /* cgltf_write.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cgltf_write.h; sourceTree = "<group>"; };
 		836805A1277D3F6C00F3222A /* cgltf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cgltf.h; sourceTree = "<group>"; };
+		83821E03280CF37600D4A11A /* GLTFWorkflowHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFWorkflowHelper.h; sourceTree = "<group>"; };
+		83821E04280CF37600D4A11A /* GLTFWorkflowHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFWorkflowHelper.m; sourceTree = "<group>"; };
+		83821E07280D01FA00D4A11A /* WorkflowShaders.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = WorkflowShaders.txt; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.metal; };
 		83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFModelIO.h; sourceTree = "<group>"; };
 		83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFModelIO.m; sourceTree = "<group>"; };
 		83C1BC9C25C3EABF003A485D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
@@ -93,6 +98,9 @@
 				834FF1D725C3BE51001887C2 /* GLTFAssetReader.h */,
 				834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */,
 				83DA575526DEEAA9007B440E /* GLTFLogging.h */,
+				83821E03280CF37600D4A11A /* GLTFWorkflowHelper.h */,
+				83821E04280CF37600D4A11A /* GLTFWorkflowHelper.m */,
+				83821E07280D01FA00D4A11A /* WorkflowShaders.txt */,
 			);
 			path = impl;
 			sourceTree = "<group>";
@@ -129,6 +137,7 @@
 				83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */,
 				836805A5277D3F6C00F3222A /* cgltf_write.h in Headers */,
 				834FF1D925C3BE51001887C2 /* GLTFAssetReader.h in Headers */,
+				83821E05280CF37600D4A11A /* GLTFWorkflowHelper.h in Headers */,
 				834AD60A25E1A3960010608A /* GLTFSceneKit.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -201,6 +210,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				834AD60B25E1A3960010608A /* GLTFSceneKit.m in Sources */,
+				83821E06280CF37600D4A11A /* GLTFWorkflowHelper.m in Sources */,
 				834FF1DA25C3BE51001887C2 /* GLTFAssetReader.m in Sources */,
 				83BEF9D825CF3240005DFE80 /* GLTFModelIO.m in Sources */,
 				834FF1D325C27A02001887C2 /* GLTFAsset.m in Sources */,

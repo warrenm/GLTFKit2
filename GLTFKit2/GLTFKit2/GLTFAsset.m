@@ -333,6 +333,10 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @end
 
+@interface GLTFImage ()
+@property (nonatomic, nullable) CGImageRef cachedImage;
+@end
+
 @implementation GLTFImage
 
 - (instancetype)initWithURI:(NSURL *)uri {
@@ -350,7 +354,21 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     return self;
 }
 
+- (instancetype)initWithCGImage:(CGImageRef)cgImage {
+    if (self = [super init]) {
+        _cachedImage = CGImageRetain(cgImage);
+    }
+    return self;
+}
+
+- (void)dealloc {
+    CGImageRelease(_cachedImage);
+}
+
 - (CGImageRef)newCGImage {
+    if (self.cachedImage) {
+        return CGImageRetain(_cachedImage);
+    }
     CGImageSourceRef imageSource = NULL;
     if (self.bufferView) {
         NSData *imageData = self.bufferView.buffer.data;

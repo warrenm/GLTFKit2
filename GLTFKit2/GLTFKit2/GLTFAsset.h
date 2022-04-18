@@ -269,6 +269,7 @@ GLTFKIT2_EXPORT
 
 - (instancetype)initWithURI:(NSURL *)uri NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithBufferView:(GLTFBufferView *)bufferView mimeType:(NSString *)mimeType NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithCGImage:(CGImageRef)cgImage NS_DESIGNATED_INITIALIZER; // For internal use.
 - (instancetype)init NS_UNAVAILABLE;
 
 - (CGImageRef _Nullable)newCGImage;

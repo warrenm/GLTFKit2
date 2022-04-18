@@ -1,8 +1,10 @@
 
 #import "GLTFSceneKit.h"
 #import "GLTFLogging.h"
+#import "GLTFWorkflowHelper.h"
 
 #import <SceneKit/ModelIO.h>
+#import <simd/simd.h>
 
 NSString *const GLTFAssetPropertyKeyCopyright = @"GLTFAssetPropertyKeyCopyright";
 NSString *const GLTFAssetPropertyKeyGenerator = @"GLTFAssetPropertyKeyGenerator";
@@ -444,7 +446,7 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     return values;
 }
 
-static float GLTFLuminanceFromRGB(simd_float4 rgba) {
+static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     return 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2];
 }
 
@@ -546,7 +548,7 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
                 // This is a lossy transformation because we only have a scalar intensity,
                 // instead of proper support for color factors.
-                baseColorProperty.intensity = GLTFLuminanceFromRGB(rgba);
+                baseColorProperty.intensity = GLTFLuminanceFromRGBA(rgba);
             } else {
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
@@ -573,22 +575,38 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 roughnessProperty.contents = @(material.metallicRoughness.roughnessFactor);
             }
         } else if (material.specularGlossiness) {
-            if (material.specularGlossiness.diffuseTexture) {
-                GLTFTextureParams *diffuseTexture = material.specularGlossiness.diffuseTexture;
-                SCNMaterialProperty *diffuseProperty = scnMaterial.diffuse;
-                diffuseProperty.contents = imagesForIdentfiers[diffuseTexture.texture.source.identifier];
-                GLTFConfigureSCNMaterialProperty(diffuseProperty, diffuseTexture);
-                simd_float4 rgba = material.specularGlossiness.diffuseFactor;
-                // This is a lossy transformation because we only have a scalar intensity,
-                // instead of proper support for color factors.
-                diffuseProperty.intensity = GLTFLuminanceFromRGB(rgba);
+            GLTFWorkflowHelper *workflowConverter = [[GLTFWorkflowHelper alloc] initWithSpecularGlossiness:material.specularGlossiness];
+            if (workflowConverter.baseColorTexture) {
+                GLTFTextureParams *baseColorTexture = workflowConverter.baseColorTexture;
+                SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
+                baseColorProperty.contents = (__bridge_transfer id)[workflowConverter.baseColorTexture.texture.source newCGImage];
+                GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
+                baseColorProperty.intensity = GLTFLuminanceFromRGBA(workflowConverter.baseColorFactor);
             } else {
-                SCNMaterialProperty *diffuseProperty = scnMaterial.diffuse;
-                simd_float4 rgba = material.specularGlossiness.diffuseFactor;
+                SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
+                simd_float4 rgba = workflowConverter.baseColorFactor;
                 CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-                diffuseProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+                baseColorProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
             }
-            // TODO: Remainder of specular-glossiness model
+            if (workflowConverter.metallicRoughnessTexture) {
+                GLTFTextureParams *metallicRoughnessTexture = workflowConverter.metallicRoughnessTexture;
+                id metallicRoughnessImage = (__bridge_transfer id)[workflowConverter.metallicRoughnessTexture.texture.source newCGImage];
+
+                SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
+                metallicProperty.contents = metallicRoughnessImage;
+                GLTFConfigureSCNMaterialProperty(metallicProperty, metallicRoughnessTexture);
+                metallicProperty.textureComponents = SCNColorMaskBlue;
+
+                SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
+                roughnessProperty.contents = metallicRoughnessImage;
+                GLTFConfigureSCNMaterialProperty(roughnessProperty, metallicRoughnessTexture);
+                roughnessProperty.textureComponents = SCNColorMaskGreen;
+            } else {
+                SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
+                metallicProperty.contents = @(workflowConverter.metallicFactor);
+                SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
+                roughnessProperty.contents = @(workflowConverter.roughnessFactor);
+            }
         }
         if (material.normalTexture) {
             GLTFTextureParams *normalTexture = material.normalTexture;
