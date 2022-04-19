@@ -563,11 +563,13 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 metallicProperty.contents = metallicRoughnessImage;
                 GLTFConfigureSCNMaterialProperty(metallicProperty, metallicRoughnessTexture);
                 metallicProperty.textureComponents = SCNColorMaskBlue;
+                metallicProperty.intensity = material.metallicRoughness.metallicFactor;
 
                 SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
                 roughnessProperty.contents = metallicRoughnessImage;
                 GLTFConfigureSCNMaterialProperty(roughnessProperty, metallicRoughnessTexture);
                 roughnessProperty.textureComponents = SCNColorMaskGreen;
+                roughnessProperty.intensity = material.metallicRoughness.roughnessFactor;
             } else {
                 SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
                 metallicProperty.contents = @(material.metallicRoughness.metallicFactor);
