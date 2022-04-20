@@ -410,9 +410,13 @@ static dispatch_queue_t _loaderQueue;
             image = [[GLTFImage alloc] initWithBufferView:bufferView mimeType:mime];
         } else {
             assert(img->uri);
-            NSURL *baseURI = [self.asset.url URLByDeletingLastPathComponent];
-            NSURL *imageURI = [baseURI URLByAppendingPathComponent:[NSString stringWithUTF8String:img->uri]];
-            image = [[GLTFImage alloc] initWithURI:imageURI];
+            if (strncmp(img->uri, "data:", 5) == 0) {
+                image = [[GLTFImage alloc] initWithURI:[NSURL URLWithString:[NSString stringWithUTF8String:img->uri]]];
+            } else {
+                NSURL *baseURI = [self.asset.url URLByDeletingLastPathComponent];
+                NSURL *imageURI = [baseURI URLByAppendingPathComponent:[NSString stringWithUTF8String:img->uri]];
+                image = [[GLTFImage alloc] initWithURI:imageURI];
+            }
         }
         image.name = img->name ? [NSString stringWithUTF8String:img->name]
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Image"];

@@ -69,6 +69,25 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     return 0;
 }
 
+NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
+    NSString *prefix = @"data:";
+    if ([uriData hasPrefix:prefix]) {
+        NSInteger prefixEnd = prefix.length;
+        NSInteger firstComma = [uriData rangeOfString:@","].location;
+        if (firstComma != NSNotFound) {
+            NSString *mediaTypeAndTokenString = [uriData substringWithRange:NSMakeRange(prefixEnd, firstComma - prefixEnd)];
+            NSArray *mediaTypeAndToken = [mediaTypeAndTokenString componentsSeparatedByString:@";"];
+            if (mediaTypeAndToken.count > 0) {
+                NSString *encodedImageData = [uriData substringFromIndex:firstComma + 1];
+                NSData *imageData = [[NSData alloc] initWithBase64EncodedString:encodedImageData
+                                                                        options:NSDataBase64DecodingIgnoreUnknownCharacters];
+                return imageData;
+            }
+        }
+    }
+    return nil;
+}
+
 @implementation GLTFObject
 
 - (instancetype)init {
@@ -377,7 +396,12 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
         imageSource = CGImageSourceCreateWithData(sourceData, NULL);
         CFRelease(sourceData);
     } else if (self.uri) {
-        imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)_uri, NULL);
+        if ([self.uri.scheme isEqualTo:@"data"]) {
+            NSData *imageData = GLTFCreateImageDataFromDataURI(self.uri.absoluteString);
+            imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
+        } else {
+            imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)_uri, NULL);
+        }
     }
     if (imageSource) {
         CGImageRef image = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
