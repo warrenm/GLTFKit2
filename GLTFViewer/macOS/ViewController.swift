@@ -71,7 +71,7 @@ class ViewController: NSViewController {
 
         sceneView.allowsCameraControl = true
         sceneView.autoenablesDefaultLighting = true
-        sceneView.backgroundColor = NSColor(white: 0.18, alpha: 1.0)
+        sceneView.backgroundColor = NSColor(named: "BackgroundColor") ?? NSColor.white
         sceneView.pointOfView = cameraNode
     }
 
