@@ -71,7 +71,12 @@ typedef void (^GLTFAssetLoadingHandler)(float progress, GLTFAssetStatus status, 
 typedef BOOL (^GLTFFilterPredicate)(GLTFObject *entry, NSString *identifier, BOOL *stop);
 
 @class GLTFAccessor, GLTFAnimation, GLTFBuffer, GLTFBufferView, GLTFCamera, GLTFImage, GLTFLight;
-@class GLTFMaterial, GLTFMesh, GLTFNode, GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
+@class GLTFMaterial, GLTFMesh, GLTFNode, GLTFPrimitive, GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
+
+@protocol GLTFDracoMeshDecompressor
++ (GLTFPrimitive *)newPrimitiveForCompressedBufferView:(GLTFBufferView *)bufferView
+                                          attributeMap:(NSDictionary<NSString *, NSNumber *> *)attributes;
+@end
 
 GLTFKIT2_EXPORT
 @interface GLTFAsset : GLTFObject
@@ -92,6 +97,7 @@ GLTFKIT2_EXPORT
                   options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                   handler:(nullable GLTFAssetLoadingHandler)handler;
 
+@property (class, nonatomic, copy) NSString *dracoDecompressorClassName;
 @property (nonatomic, nullable) NSURL *url;
 @property (nonatomic, nullable, readonly) NSData *data;
 @property (nonatomic, nullable) NSString *copyright;
