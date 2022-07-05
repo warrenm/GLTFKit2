@@ -561,18 +561,34 @@ static dispatch_queue_t _loaderQueue;
         for (int j = 0; j < m->primitives_count; ++j) {
             cgltf_primitive *p = m->primitives + j;
             GLTFPrimitiveType type = GLTFPrimitiveTypeFromType(p->type);
+            GLTFPrimitive *dracoPrimitive = nil;
+            if (p->has_draco_mesh_compression && GLTFAsset.dracoDecompressorClassName != nil) {
+                Class DecompressorClass = NSClassFromString(GLTFAsset.dracoDecompressorClassName);
+                cgltf_draco_mesh_compression *draco = &p->draco_mesh_compression;
+                size_t bufferViewIndex = draco->buffer_view - gltf->buffer_views;
+                GLTFBufferView *bufferView = self.asset.bufferViews[bufferViewIndex];
+                NSMutableDictionary *dracoAttributes = [NSMutableDictionary dictionary];
+                for (int k = 0; k < draco->attributes_count; ++k) {
+                    cgltf_attribute *a = draco->attributes + k;
+                    NSString *attrName = [NSString stringWithUTF8String:a->name];
+                    NSInteger attrIndex = a->data - gltf->accessors;
+                    dracoAttributes[attrName] = @(attrIndex);
+                }
+                dracoPrimitive = [DecompressorClass newPrimitiveForCompressedBufferView:bufferView
+                                                                           attributeMap:dracoAttributes];
+            }
             NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
             for (int k = 0; k < p->attributes_count; ++k) {
                 cgltf_attribute *a = p->attributes + k;
                 NSString *attrName = [NSString stringWithUTF8String:a->name];
                 size_t attrIndex = a->data - gltf->accessors;
                 GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
-                attributes[attrName] = attrAccessor;
+                attributes[attrName] = dracoPrimitive.attributes[attrName] ?: attrAccessor;
             }
             GLTFPrimitive *primitive = nil;
             if (p->indices) {
                 size_t accessorIndex = p->indices - gltf->accessors;
-                GLTFAccessor *indices = self.asset.accessors[accessorIndex];
+                GLTFAccessor *indices = dracoPrimitive.indices ?: self.asset.accessors[accessorIndex];
                 primitive = [[GLTFPrimitive alloc] initWithPrimitiveType:type attributes:attributes indices:indices];
             } else {
                 primitive = [[GLTFPrimitive alloc] initWithPrimitiveType:type attributes:attributes];

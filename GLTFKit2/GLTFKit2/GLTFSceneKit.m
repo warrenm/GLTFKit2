@@ -208,6 +208,15 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
             break;
     }
 
+    if (finalIndexData.bytes == NULL) {
+        // Last resort. If we never had index data to begin with, fix up with an array of all zeros.
+        size_t indexBufferLength = indexCount * bytesPerIndex;
+        finalIndexData = [NSData dataWithBytesNoCopy:calloc(indexCount, bytesPerIndex)
+                                              length:indexBufferLength
+                                        freeWhenDone:YES];
+        NSLog(@"Index data appears empty; generating dummy index list");
+    }
+
     return [SCNGeometryElement geometryElementWithData:finalIndexData
                                          primitiveType:primitiveType
                                         primitiveCount:primitiveCount

@@ -4,7 +4,7 @@ GLTFKit2 is an efficient glTF loader and exporter for Objective-C and Swift.
 
 This project is a spiritual successor of the [GLTFKit](https://github.com/warrenm/GLTFKit) project, with many of the same aims, but some notable differences. GLTFKit2:
 
- - includes import and export, while GLTFKit was read-only.
+ - includes import and export (WIP), while GLTFKit was read-only.
  - strives to be as interoperable as possible, with extensions for Model I/O, SceneKit, and QuickLook. 
  - tries to retain all of the information from the asset file, meaning extensions and extras are available to client code even if they are unrecognized by the loader.
  - uses cgltf and JSMN internally to load the JSON portion of glTF files, which is more efficient than parsing with `NSJSONSerialization`.
@@ -49,6 +49,10 @@ The URL must be a local file URL. Loading of remote assets and resources is not 
 The framework can be used to easily transform glTF assets into `SCNScene`s to interoperate with SceneKit.
 
 First, load the asset as shown above. Then, to get the default scene of a glTF asset, use the `SCNScene` class extension method `+[SCNScene sceneWithGLTFAsset:]`.
+
+### Using Draco Mesh Decompression
+
+GLTFKit2 supports meshes compressed with the [Draco geometry compression library](https://github.com/google/draco) through a plugin system. To activate Draco decompression support, implement the `GLTFDracoMeshDecompressor` protocol in your target, then set the `dracoDecompressorClassName` property on `GLTFAsset` to the name of the conforming class. The framework will then use the supplied class to convert compressed mesh data into glTF primitives which are suitable for rendering. A sample Draco decompressor class is provided in the macOS GLTFViewer target. You are responsible for compiling and linking to the Draco library itself in your own target.
 
 ## Status and Conformance
 
@@ -138,7 +142,7 @@ Below is a checklist of glTF features and their current level of support.
 - [ ] Sparse accessors
 
 #### Extensions
- - [ ] KHR_draco_mesh_compression
+ - [x] KHR_draco_mesh_compression (via plug-in)
  - [ ] KHR_lights_punctual
  - [x] KHR_materials_clearcoat
  - [ ] KHR_materials_ior

@@ -1,10 +1,14 @@
 
 import Cocoa
+import GLTFKit2
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // Uncomment this to register the sample Draco decompressor.
+        // You must also link against Draco in your target.
+        //GLTFAsset.dracoDecompressorClassName = "DracoDecompressor"
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {

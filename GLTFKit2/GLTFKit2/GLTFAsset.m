@@ -5,6 +5,8 @@
 
 const float LumensPerCandela = 1.0 / (4.0 * M_PI);
 
+static NSString *g_dracoDecompressorClassName = nil;
+
 GLTFAttributeSemantic GLTFAttributeSemanticPosition = @"POSITION";
 GLTFAttributeSemantic GLTFAttributeSemanticNormal = @"NORMAL";
 GLTFAttributeSemantic GLTFAttributeSemanticTangent = @"TANGENT";
@@ -167,6 +169,14 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
                   handler:(nullable GLTFAssetLoadingHandler)handler
 {
     [GLTFAssetReader loadAssetWithData:data options:options handler:handler];
+}
+
++ (NSString *)dracoDecompressorClassName {
+    return g_dracoDecompressorClassName;
+}
+
++ (void)setDracoDecompressorClassName:(NSString *)dracoDecompressorClassName {
+    g_dracoDecompressorClassName = dracoDecompressorClassName;
 }
 
 - (instancetype)init {
