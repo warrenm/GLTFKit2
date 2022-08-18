@@ -14,7 +14,7 @@
 		833684CC26F139840057B9CA /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 833684CB26F139830057B9CA /* Quartz.framework */; };
 		833684D026F139840057B9CA /* GLTFPreviewViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 833684CF26F139840057B9CA /* GLTFPreviewViewController.m */; };
 		833684D626F139840057B9CA /* PreviewViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 833684D426F139840057B9CA /* PreviewViewController.xib */; };
-		833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 833684CA26F139830057B9CA /* GLTFQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 833684CA26F139830057B9CA /* GLTFQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		833684E226F154DA0057B9CA /* studio.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E026F154D40057B9CA /* studio.hdr */; };
 		833684E326F154DA0057B9CA /* studio.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E026F154D40057B9CA /* studio.hdr */; };
 		833684E426F154DD0057B9CA /* studio-ql.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E126F154D40057B9CA /* studio-ql.hdr */; };
@@ -47,15 +47,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		833684DB26F139840057B9CA /* Embed App Extensions */ = {
+		833684DB26F139840057B9CA /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed App Extensions */,
+				833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed Foundation Extensions */,
 			);
-			name = "Embed App Extensions";
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		83869A5725C671B4006CAFF1 /* Embed Frameworks */ = {
@@ -255,7 +255,7 @@
 				83D994FE25C6573C00B5B234 /* Frameworks */,
 				83D994FF25C6573C00B5B234 /* Resources */,
 				83869A5725C671B4006CAFF1 /* Embed Frameworks */,
-				833684DB26F139840057B9CA /* Embed App Extensions */,
+				833684DB26F139840057B9CA /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -292,7 +292,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1250;
-				LastUpgradeCheck = 1250;
+				LastUpgradeCheck = 1400;
 				TargetAttributes = {
 					833684C926F139830057B9CA = {
 						CreatedOnToolsVersion = 13.0;
@@ -451,6 +451,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = QuickLook/Info.plist;
@@ -476,6 +477,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = QuickLook/Info.plist;
@@ -528,6 +530,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -545,7 +548,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -589,6 +593,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -600,7 +605,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -617,6 +623,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = macOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -637,6 +644,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = macOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
