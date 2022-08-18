@@ -406,7 +406,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
         imageSource = CGImageSourceCreateWithData(sourceData, NULL);
         CFRelease(sourceData);
     } else if (self.uri) {
-        if ([self.uri.scheme isEqualTo:@"data"]) {
+        if ([self.uri.scheme isEqual:@"data"]) {
             NSData *imageData = GLTFCreateImageDataFromDataURI(self.uri.absoluteString);
             imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
         } else {
