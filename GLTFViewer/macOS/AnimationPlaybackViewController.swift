@@ -39,7 +39,6 @@ class AnimationPlaybackViewController : NSViewController {
     @IBOutlet var progressSlider: NSSlider!
     @IBOutlet var durationLabel: NSTextField!
 
-    private var nominalStartTime: TimeInterval = 0.0
     private var currentAnimationDuration: TimeInterval = 0.0
     private var playbackTimer: Timer?
     private var state: AnimationPlaybackState = .stopped
@@ -81,43 +80,29 @@ class AnimationPlaybackViewController : NSViewController {
 
     func startAnimation(at index: Int) {
         let animation = animations[index]
-
-        var minStartTime: TimeInterval = TimeInterval.greatestFiniteMagnitude
         var maxDuration: TimeInterval = 0
-        var longestAnimation: SCNAnimation? = nil
 
         for channel in animation.channels {
-            if channel.animation.startDelay < minStartTime {
-                minStartTime = channel.animation.startDelay
-            }
-            channel.animation.usesSceneTimeBase = true
-
-            channel.target.addAnimation(channel.animation, forKey:nil)
+            let channelAnimation = channel.animation
+            channelAnimation.usesSceneTimeBase = true
+            let animationPlayer = SCNAnimationPlayer(animation: channelAnimation)
+            channel.target.addAnimationPlayer(animationPlayer, forKey: nil)
             animatedNodes.insert(channel.target)
-            if channel.animation.duration > maxDuration {
-                maxDuration = channel.animation.duration
-                longestAnimation = channel.animation
+            if channelAnimation.duration > maxDuration {
+                maxDuration = channelAnimation.duration
             }
         }
 
         currentAnimationDuration = maxDuration
-        nominalStartTime = minStartTime
 
-        let endEvent = SCNAnimationEvent(keyTime: 1.0) { [weak self] animation, animatedObject, playingBackwards in
-            DispatchQueue.main.async {
-                self?.handleAnimationEnd()
-            }
-        }
-        longestAnimation?.animationEvents = [endEvent]
-
-        if longestAnimation == nil {
-            print("WARNING: Did not find animation with duration > 0 loop modes will not behave correctly")
+        if maxDuration == 0 {
+            print("WARNING: Did not find animation with duration > 0; loop modes will not behave correctly")
         }
 
         progressSlider.minValue = 0
         progressSlider.maxValue = currentAnimationDuration
         progressSlider.floatValue = 0
-        sceneView.sceneTime = nominalStartTime
+        sceneView.sceneTime = 0.0
 
         schedulePlaybackTimer()
 
@@ -180,9 +165,9 @@ class AnimationPlaybackViewController : NSViewController {
     }
 
     func updateProgressDisplay(forceUpdateSlider: Bool) {
-        let time = sceneView.sceneTime - nominalStartTime
+        let time = sceneView.sceneTime
         if forceUpdateSlider {
-            progressSlider.doubleValue = fmod(time, currentAnimationDuration)
+            progressSlider.doubleValue = time
         }
         progressLabel.stringValue = timeFormatter.string(from: NSNumber(value: fmod(time, currentAnimationDuration)))!
         durationLabel.stringValue = timeFormatter.string(from: NSNumber(value: currentAnimationDuration))!
@@ -237,14 +222,20 @@ class AnimationPlaybackViewController : NSViewController {
             break
         }
 
-        sceneView.sceneTime = progressSlider.doubleValue + nominalStartTime
+        sceneView.sceneTime = fmod(progressSlider.doubleValue, currentAnimationDuration)
         updateProgressDisplay(forceUpdateSlider: false)
     }
 
     @objc
     func playbackTimerDidFire(_ sender: Any) {
         let time = sceneView.sceneTime + AnimationFrameDuration
-        sceneView.sceneTime = time
+        let wouldLoop = time > currentAnimationDuration
+        if wouldLoop && (loopMode == .dontLoop) {
+            sceneView.sceneTime = 0.0
+            handleAnimationEnd()
+        } else {
+            sceneView.sceneTime = fmod(time, currentAnimationDuration)
+        }
         updateProgressDisplay(forceUpdateSlider: true)
     }
 }

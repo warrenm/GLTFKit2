@@ -922,17 +922,12 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     NSMutableDictionary<NSUUID *, GLTFSCNAnimation *> *animationsForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFAnimation *animation in self.asset.animations) {
         NSMutableArray *scnChannels = [NSMutableArray array];
-        NSTimeInterval maxChannelKeyTime = 0.0;
         for (GLTFAnimationChannel *channel in animation.channels) {
+            NSTimeInterval channelMaxKeyTime = 0.0;
             if (channel.sampler.input.maxValues.count > 0) {
-                NSTimeInterval channelMaxTime = channel.sampler.input.maxValues.firstObject.doubleValue;
-                if (channelMaxTime > maxChannelKeyTime) {
-                    maxChannelKeyTime = channelMaxTime;
-                }
+                channelMaxKeyTime = channel.sampler.input.maxValues.firstObject.doubleValue;
             }
-        }
-        for (GLTFAnimationChannel *channel in animation.channels) {
-            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, maxChannelKeyTime);
+            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, channelMaxKeyTime);
             if ([channel.target.path isEqualToString:GLTFAnimationPathWeights]) {
                 NSUInteger targetCount = channel.target.node.mesh.primitives.firstObject.targets.count;
                 assert(targetCount > 0);
@@ -946,14 +941,13 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     weightAnimation.values = weightArrays[t];
                     // TODO: Support non-linear calculation modes?
                     weightAnimation.calculationMode = kCAAnimationLinear;
-                    weightAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
-                    weightAnimation.duration = maxChannelKeyTime;
+                    weightAnimation.duration = channelMaxKeyTime;
                     weightAnimation.repeatDuration = FLT_MAX;
                     [weightAnimations addObject:weightAnimation];
                 }
                 CAAnimationGroup *caAnimation = [CAAnimationGroup animation];
                 caAnimation.animations = weightAnimations;
-                caAnimation.duration = maxChannelKeyTime;
+                caAnimation.duration = channelMaxKeyTime;
                 caAnimation.repeatDuration = FLT_MAX;
 
                 SCNNode *targetRoot = nodesForIdentifiers[channel.target.node.identifier];
@@ -1014,9 +1008,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                         caAnimation.values = knots;
                         break;
                 }
-                caAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
-                caAnimation.duration = maxChannelKeyTime;
-                caAnimation.repeatDuration = FLT_MAX;
+                caAnimation.duration = channelMaxKeyTime;
 
                 GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
                 clipChannel.target = nodesForIdentifiers[channel.target.node.identifier];
