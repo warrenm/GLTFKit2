@@ -7,8 +7,9 @@
 static NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
 
 enum GLTFErrorCode {
-    GLTFErrorCodeNoDataToLoad = 1010,
-    GLTFErrorCodeFailedToLoad = 1011,
+    GLTFErrorCodeNoDataToLoad         = 1010,
+    GLTFErrorCodeFailedToLoad         = 1011,
+    GLTFErrorCodeUnsupportedExtension = 1012,
 };
 
 @interface GLTFUniqueNameGenerator : NSObject
@@ -269,8 +270,13 @@ static dispatch_queue_t _loaderQueue;
             NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
             handler(1.0, GLTFAssetStatusError, nil, error, &stop);
         } else {
-            [self convertAsset];
-            handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
+            NSError *error = nil;
+            [self convertAsset:&error];
+            if (error == nil) {
+                handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
+            } else {
+                handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+            }
         }
     }
 
@@ -862,7 +868,33 @@ static dispatch_queue_t _loaderQueue;
     return scenes;
 }
 
-- (void)convertAsset {
+- (BOOL)validateRequiredExtensions:(NSError **)error {
+    NSArray *supportedExtensions = @[
+        @"KHR_draco_mesh_compression",
+        @"KHR_lights_punctual",
+        @"KHR_materials_clearcoat",
+        @"KHR_materials_unlit",
+        @"KHR_texture_transform",
+    ];
+    NSMutableArray *unsupportedExtensions = [NSMutableArray array];
+    for (NSString *requiredExtension in self.asset.extensionsRequired) {
+        if (![supportedExtensions containsObject:requiredExtension]) {
+            [unsupportedExtensions addObject:requiredExtension];
+        }
+    }
+    if (unsupportedExtensions.count > 0) {
+        if (error != nil) {
+            NSString *description = [NSString stringWithFormat:@"Asset contains unsupported required extensions: %@",
+                                     unsupportedExtensions];
+            *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeUnsupportedExtension userInfo:@{
+                NSLocalizedDescriptionKey : description
+            }];
+        }
+    }
+    return (unsupportedExtensions.count == 0);
+}
+
+- (BOOL)convertAsset:(NSError **)error {
     self.asset = [GLTFAsset new];
     self.asset.url = self.assetURL;
     cgltf_asset *meta = &gltf->asset;
@@ -894,6 +926,9 @@ static dispatch_queue_t _loaderQueue;
         }
         self.asset.extensionsRequired = extensionsRequired;
     }
+    if(![self validateRequiredExtensions:error]) {
+        return NO;
+    }
     self.asset.extensions = GLTFConvertExtensions(meta->extensions, meta->extensions_count, nil);
     self.asset.extras = GLTFObjectFromExtras(gltf->json, meta->extras, nil);
     self.asset.buffers = [self convertBuffers];
@@ -917,6 +952,7 @@ static dispatch_queue_t _loaderQueue;
     } else {
         self.asset.defaultScene = self.asset.scenes.firstObject;
     }
+    return YES;
 }
 
 @end
