@@ -4,6 +4,9 @@ import SceneKit
 import GLTFKit2
 
 class ViewController: UIViewController {
+    @IBAction func focusOnScene(_ sender: Any) {
+    }
+    @IBOutlet weak var focusOnScene: NSMenuItem!
     var asset: GLTFAsset? {
         didSet {
             if let asset = asset {

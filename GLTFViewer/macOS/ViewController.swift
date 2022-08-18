@@ -11,7 +11,6 @@ class ViewController: NSViewController {
                 sceneView.scene = source.defaultScene
                 animations = source.animations
                 animations.first?.play()
-                sceneView.scene?.rootNode.addChildNode(cameraNode)
                 sceneView.scene?.lightingEnvironment.contents = "studio.hdr"
                 sceneView.scene?.lightingEnvironment.intensity = 1.0
 
@@ -38,7 +37,7 @@ class ViewController: NSViewController {
                 cameraLight.type = .directional
                 cameraLight.intensity = 500
                 cameraLight.color = NSColor.white
-                cameraNode.light = cameraLight
+                sceneView.pointOfView?.light = cameraLight
 
                 if asset.animations.count > 0 {
                     if animationController == nil {
@@ -59,20 +58,27 @@ class ViewController: NSViewController {
 
     private var animations = [GLTFSCNAnimation]()
 
-    private let camera = SCNCamera()
-    private let cameraNode = SCNNode()
+    @IBOutlet weak var focusOnSceneMenuItem: NSMenuItem!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, 0, 3.5)
-        camera.automaticallyAdjustsZRange = true
 
         sceneView.allowsCameraControl = true
         sceneView.autoenablesDefaultLighting = true
         sceneView.backgroundColor = NSColor(named: "BackgroundColor") ?? NSColor.white
-        sceneView.pointOfView = cameraNode
+    }
+
+    @IBAction func focusOnScene(_ sender: Any) {
+        if let (sceneCenter, sceneRadius) = sceneView.scene?.rootNode.boundingSphere,
+            let pointOfView = sceneView.pointOfView
+        {
+            pointOfView.simdPosition = sceneRadius * simd_normalize(SIMD3(1, 0.5, 1))
+            pointOfView.look(at: sceneCenter, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+            if let camera = pointOfView.camera {
+                camera.automaticallyAdjustsZRange = true
+                camera.fieldOfView = 60.0
+            }
+        }
     }
 
     private func showAnimationUI() {
