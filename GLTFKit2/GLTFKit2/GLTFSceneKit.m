@@ -370,6 +370,26 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
         }
     }
 
+    // If a Joints node indices data is Unsigned Short (e.g., from Sketchfab, etc.) convert it to Unsigned Bytes because
+    // although SceneKit/Metal rendering works OK with UInt16, SceneKit hit testing appears to only support UInt8.
+    if ([semanticName isEqualToString:GLTFAttributeSemanticJoints0] && accessor.componentType == GLTFComponentTypeUnsignedShort && accessor.dimension == GLTFValueDimensionVector4) {
+        NSInteger byteElementSize = elementSize / 2;
+        NSInteger bufferLength = accessor.count * byteElementSize;
+        void *bytes = malloc(bufferLength);
+
+        for (int i = 0; i < accessor.count; ++i) {
+            UInt16 *joints = (UInt16 *)(attrData.bytes + (i * elementSize));
+            UInt8 * byteJoints = (UInt8 *)(bytes + (i * byteElementSize));
+            for (int jointIndex = 0; jointIndex < 4; ++jointIndex) {
+                byteJoints[jointIndex] = joints[jointIndex];
+            }
+//            NSLog(@"Joints = %u %u %u %u", joints[0], joints[1], joints[2], joints[3]);
+        }
+        attrData = [NSData dataWithBytesNoCopy:bytes length:bufferLength freeWhenDone:YES];
+        bytesPerComponent = 1;
+        elementSize = byteElementSize;
+    }
+    
     return [SCNGeometrySource geometrySourceWithData:attrData
                                             semantic:GLTFSCNGeometrySourceSemanticForSemantic(semanticName)
                                          vectorCount:accessor.count
