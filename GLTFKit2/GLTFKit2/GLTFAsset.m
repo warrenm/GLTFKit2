@@ -496,6 +496,19 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 @implementation GLTFTransmissionParams
 @end
 
+@implementation GLTFVolumeParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _thicknessFactor = 0.0f;
+        _attenuationDistance = FLT_MAX;
+        _attenuationColor = (simd_float3){ 1.0f, 1.0f, 1.0f };
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFClearcoatParams
 @end
 

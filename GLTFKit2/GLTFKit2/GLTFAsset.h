@@ -351,6 +351,16 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFVolumeParams : GLTFObject
+
+@property (nonatomic, nullable) GLTFTextureParams *thicknessTexture;
+@property (nonatomic, assign) float thicknessFactor;
+@property (nonatomic, assign) float attenuationDistance;
+@property (nonatomic, assign) simd_float3 attenuationColor;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFClearcoatParams : GLTFObject
 
 @property (nonatomic, nullable) GLTFTextureParams *clearcoatTexture;
@@ -379,6 +389,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFSpecularParams *specular;
 @property (nonatomic, nullable) GLTFEmissiveParams *emissive;
 @property (nonatomic, nullable) GLTFTransmissionParams *transmission;
+@property (nonatomic, nullable) GLTFVolumeParams *volume;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFSheenParams *sheen;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;

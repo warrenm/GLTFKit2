@@ -557,6 +557,17 @@ static dispatch_queue_t _loaderQueue;
             }
             material.transmission = transmission;
         }
+        if (m->has_volume) {
+            GLTFVolumeParams *volume = [GLTFVolumeParams new];
+            volume.thicknessFactor = m->volume.thickness_factor;
+            if (m->volume.thickness_texture.texture) {
+                volume.thicknessTexture = [self textureParamsFromTextureView:&m->volume.thickness_texture];
+            }
+            volume.attenuationDistance = m->volume.attenuation_distance;
+            const float *attenuationColor = m->volume.attenuation_color;
+            volume.attenuationColor = (simd_float3){ attenuationColor[0], attenuationColor[1], attenuationColor[2] };
+            material.volume = volume;
+        }
         if (m->has_clearcoat) {
             GLTFClearcoatParams *clearcoat = [GLTFClearcoatParams new];
             clearcoat.clearcoatFactor = m->clearcoat.clearcoat_factor;
