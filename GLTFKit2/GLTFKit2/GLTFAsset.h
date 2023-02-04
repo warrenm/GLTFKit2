@@ -343,6 +343,14 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFTransmissionParams : GLTFObject
+
+@property (nonatomic, nullable, strong) GLTFTextureParams *transmissionTexture;
+@property (nonatomic, assign) float transmissionFactor;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFClearcoatParams : GLTFObject
 
 @property (nonatomic, nullable) GLTFTextureParams *clearcoatTexture;
@@ -370,6 +378,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFPBRSpecularGlossinessParams *specularGlossiness;
 @property (nonatomic, nullable) GLTFSpecularParams *specular;
 @property (nonatomic, nullable) GLTFEmissiveParams *emissive;
+@property (nonatomic, nullable) GLTFTransmissionParams *transmission;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFSheenParams *sheen;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;

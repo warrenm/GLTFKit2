@@ -493,6 +493,9 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 @end
 
+@implementation GLTFTransmissionParams
+@end
+
 @implementation GLTFClearcoatParams
 @end
 

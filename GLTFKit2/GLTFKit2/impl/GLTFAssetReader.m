@@ -549,6 +549,14 @@ static dispatch_queue_t _loaderQueue;
             }
             material.specular = specular;
         }
+        if (m->has_transmission) {
+            GLTFTransmissionParams *transmission = [GLTFTransmissionParams new];
+            transmission.transmissionFactor = m->transmission.transmission_factor;
+            if (transmission.transmissionTexture.texture) {
+                transmission.transmissionTexture = [self textureParamsFromTextureView:&m->transmission.transmission_texture];
+            }
+            material.transmission = transmission;
+        }
         if (m->has_clearcoat) {
             GLTFClearcoatParams *clearcoat = [GLTFClearcoatParams new];
             clearcoat.clearcoatFactor = m->clearcoat.clearcoat_factor;
@@ -908,6 +916,7 @@ static dispatch_queue_t _loaderQueue;
         @"KHR_lights_punctual",
         @"KHR_materials_clearcoat",
         @"KHR_materials_specular",
+        @"KHR_materials_transmission",
         @"KHR_materials_unlit",
         @"KHR_texture_transform",
     ];

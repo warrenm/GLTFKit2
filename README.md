@@ -149,7 +149,7 @@ Below is a checklist of glTF features and their current level of support.
  - [x] KHR_materials_ior
  - [ ] KHR_materials_sheen
  - [x] KHR_materials_specular
- - [ ] KHR_materials_transmission
+ - [x] KHR_materials_transmission
  - [x] KHR_materials_unlit
  - [ ] KHR_materials_variants
  - [ ] KHR_materials_volume
