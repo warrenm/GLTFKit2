@@ -536,6 +536,19 @@ static dispatch_queue_t _loaderQueue;
             }
             material.specularGlossiness = pbr;
         }
+        if (m->has_specular) {
+            GLTFSpecularParams *specular = [GLTFSpecularParams new];
+            specular.specularFactor = m->specular.specular_factor;
+            if (m->specular.specular_texture.texture) {
+                specular.specularTexture = [self textureParamsFromTextureView:&m->specular.specular_texture];
+            }
+            const cgltf_float *specularColorFactor = m->specular.specular_color_factor;
+            specular.specularColorFactor = (simd_float3){ specularColorFactor[0], specularColorFactor[1], specularColorFactor[2] };
+            if (m->specular.specular_color_texture.texture) {
+                specular.specularColorTexture = [self textureParamsFromTextureView:&m->specular.specular_color_texture];
+            }
+            material.specular = specular;
+        }
         if (m->has_clearcoat) {
             GLTFClearcoatParams *clearcoat = [GLTFClearcoatParams new];
             clearcoat.clearcoatFactor = m->clearcoat.clearcoat_factor;
@@ -882,6 +895,7 @@ static dispatch_queue_t _loaderQueue;
         @"KHR_materials_ior",
         @"KHR_lights_punctual",
         @"KHR_materials_clearcoat",
+        @"KHR_materials_specular",
         @"KHR_materials_unlit",
         @"KHR_texture_transform",
     ];

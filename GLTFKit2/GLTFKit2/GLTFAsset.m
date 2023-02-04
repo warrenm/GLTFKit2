@@ -469,6 +469,18 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 @end
 
+@implementation GLTFSpecularParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _specularFactor = 1.0f;
+        _specularColorFactor = (simd_float3){ 1.0f, 1.0f, 1.0f };
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFEmissiveParams
 
 - (instancetype)init {

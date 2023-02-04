@@ -323,6 +323,16 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFSpecularParams : GLTFObject
+
+@property (nonatomic, assign) float specularFactor;
+@property (nonatomic, nullable, strong) GLTFTextureParams *specularTexture;
+@property (nonatomic, assign) simd_float3 specularColorFactor;
+@property (nonatomic, nullable, strong) GLTFTextureParams *specularColorTexture;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFEmissiveParams : GLTFObject
 
 @property (nonatomic, nullable, strong) GLTFTextureParams *emissiveTexture;
@@ -348,6 +358,7 @@ GLTFKIT2_EXPORT
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
 @property (nonatomic, nullable) GLTFPBRSpecularGlossinessParams *specularGlossiness;
+@property (nonatomic, nullable) GLTFSpecularParams *specular;
 @property (nonatomic, nullable) GLTFEmissiveParams *emissive;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
