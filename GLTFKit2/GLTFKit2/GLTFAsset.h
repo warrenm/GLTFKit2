@@ -354,6 +354,16 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFSheenParams : GLTFObject
+
+@property (nonatomic, assign) simd_float3 sheenColorFactor;
+@property (nonatomic, nullable) GLTFTextureParams *sheenColorTexture;
+@property (nonatomic, assign) float sheenRoughnessFactor;
+@property (nonatomic, nullable) GLTFTextureParams *sheenRoughnessTexture;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFMaterial : GLTFObject
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
@@ -361,6 +371,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFSpecularParams *specular;
 @property (nonatomic, nullable) GLTFEmissiveParams *emissive;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
+@property (nonatomic, nullable) GLTFSheenParams *sheen;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
 @property (nonatomic, nullable) GLTFTextureParams *occlusionTexture;
 @property (nonatomic, nullable) NSNumber *indexOfRefraction;

@@ -496,6 +496,18 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 @implementation GLTFClearcoatParams
 @end
 
+@implementation GLTFSheenParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _sheenColorFactor = (simd_float3){ 0.0f, 0.0f, 0.0f };
+        _sheenRoughnessFactor = 0.0f;
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFMaterial
 
 - (instancetype)init {

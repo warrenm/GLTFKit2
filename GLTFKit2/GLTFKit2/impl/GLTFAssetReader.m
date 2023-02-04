@@ -564,10 +564,22 @@ static dispatch_queue_t _loaderQueue;
             }
             material.clearcoat = clearcoat;
         }
+        if (m->has_sheen) {
+            GLTFSheenParams *sheen = [GLTFSheenParams new];
+            const cgltf_float *sheenColorFactor = m->sheen.sheen_color_factor;
+            sheen.sheenColorFactor = (simd_float3){ sheenColorFactor[0], sheenColorFactor[1], sheenColorFactor[2] };
+            if (m->sheen.sheen_color_texture.texture) {
+                sheen.sheenColorTexture = [self textureParamsFromTextureView:&m->sheen.sheen_color_texture];
+            }
+            sheen.sheenRoughnessFactor = m->sheen.sheen_roughness_factor;
+            if (m->sheen.sheen_roughness_texture.texture) {
+                sheen.sheenRoughnessTexture = [self textureParamsFromTextureView:&m->sheen.sheen_roughness_texture];
+            }
+            material.sheen = sheen;
+        }
         if (m->unlit) {
             material.unlit = YES;
         }
-        // TODO: sheen
         material.name = m->name ? [NSString stringWithUTF8String:m->name]
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Material"];
         material.extensions = GLTFConvertExtensions(m->extensions, m->extensions_count, nil);
