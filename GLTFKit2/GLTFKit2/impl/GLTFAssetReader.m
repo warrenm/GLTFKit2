@@ -596,6 +596,20 @@ static dispatch_queue_t _loaderQueue;
             }
             material.sheen = sheen;
         }
+        if (m->has_iridescence) {
+            GLTFIridescence *iridesence = [GLTFIridescence new];
+            iridesence.iridescenceFactor = m->iridescence.iridescence_factor;
+            if (m->iridescence.iridescence_texture.texture) {
+                iridesence.iridescenceTexture = [self textureParamsFromTextureView:&m->iridescence.iridescence_texture];
+            }
+            iridesence.iridescenceIndexOfRefraction = m->iridescence.iridescence_ior;
+            iridesence.iridescenceThicknessMinimum = m->iridescence.iridescence_thickness_min;
+            iridesence.iridescenceThicknessMaximum = m->iridescence.iridescence_thickness_max;
+            if (m->iridescence.iridescence_thickness_texture.texture) {
+                iridesence.iridescenceThicknessTexture = [self textureParamsFromTextureView:&m->iridescence.iridescence_thickness_texture];
+            }
+            material.iridescence = iridesence;
+        }
         if (m->unlit) {
             material.unlit = YES;
         }

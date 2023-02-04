@@ -382,6 +382,18 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFIridescence : NSObject
+
+@property (nonatomic, assign) float iridescenceFactor;
+@property (nonatomic, nullable) GLTFTextureParams *iridescenceTexture;
+@property (nonatomic, assign) float iridescenceIndexOfRefraction;
+@property (nonatomic, assign) float iridescenceThicknessMinimum;
+@property (nonatomic, assign) float iridescenceThicknessMaximum;
+@property (nonatomic, nullable) GLTFTextureParams *iridescenceThicknessTexture;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFMaterial : GLTFObject
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
@@ -392,6 +404,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFVolumeParams *volume;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFSheenParams *sheen;
+@property (nonatomic, nullable) GLTFIridescence *iridescence;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
 @property (nonatomic, nullable) GLTFTextureParams *occlusionTexture;
 @property (nonatomic, nullable) NSNumber *indexOfRefraction;

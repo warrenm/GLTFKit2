@@ -524,6 +524,20 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 @end
 
+@implementation GLTFIridescence
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _iridescenceFactor = 0.0f;
+        _iridescenceIndexOfRefraction = 1.3f;
+        _iridescenceThicknessMinimum = 100.0f;
+        _iridescenceThicknessMaximum = 400.0f;
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFMaterial
 
 - (instancetype)init {

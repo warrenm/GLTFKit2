@@ -147,6 +147,7 @@ Below is a checklist of glTF features and their current level of support.
  - [x] KHR_materials_clearcoat
  - [x] KHR_emissive_strength
  - [x] KHR_materials_ior
+ - [x] KHR_materials_iridescence
  - [x] KHR_materials_sheen
  - [x] KHR_materials_specular
  - [x] KHR_materials_transmission
