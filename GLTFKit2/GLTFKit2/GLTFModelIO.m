@@ -398,6 +398,9 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             func.emission.textureSamplerValue = emissiveSampler;
         }
         // TODO: How to represent base color/emissive factor, normal/occlusion strength, etc.?
+        if (material.indexOfRefraction) {
+            func.interfaceIndexOfRefraction.floatValue = material.indexOfRefraction.floatValue;
+        }
 
         MDLMaterial *mdlMaterial = [[MDLMaterial alloc] initWithName:material.name scatteringFunction:func];
         mdlMaterial.materialFace = material.isDoubleSided ? MDLMaterialFaceDoubleSided : MDLMaterialFaceFront;

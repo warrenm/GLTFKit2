@@ -505,6 +505,9 @@ static dispatch_queue_t _loaderQueue;
         material.alphaMode = GLTFAlphaModeFromMode(m->alpha_mode);
         material.alphaCutoff = m->alpha_cutoff;
         material.doubleSided = (BOOL)m->double_sided;
+        if (m->has_ior) {
+            material.indexOfRefraction = @(m->ior.ior);
+        }
         if (m->has_pbr_metallic_roughness) {
             GLTFPBRMetallicRoughnessParams *pbr = [GLTFPBRMetallicRoughnessParams new];
             float *baseColor = m->pbr_metallic_roughness.base_color_factor;
@@ -876,6 +879,7 @@ static dispatch_queue_t _loaderQueue;
     NSArray *supportedExtensions = @[
         @"KHR_draco_mesh_compression",
         @"KHR_emissive_strength",
+        @"KHR_materials_ior",
         @"KHR_lights_punctual",
         @"KHR_materials_clearcoat",
         @"KHR_materials_unlit",

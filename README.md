@@ -146,7 +146,7 @@ Below is a checklist of glTF features and their current level of support.
  - [x] KHR_lights_punctual
  - [x] KHR_materials_clearcoat
  - [x] KHR_emissive_strength
- - [ ] KHR_materials_ior
+ - [x] KHR_materials_ior
  - [ ] KHR_materials_sheen
  - [ ] KHR_materials_specular
  - [ ] KHR_materials_transmission
@@ -170,7 +170,7 @@ Pull requests are welcome, but will be audited strictly in order to maintain cod
 
 ## License
 
-    Copyright (c) 2021—2022 Warren Moore
+    Copyright (c) 2021—2023 Warren Moore
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
     documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
