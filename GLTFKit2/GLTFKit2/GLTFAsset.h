@@ -322,6 +322,15 @@ GLTFKIT2_EXPORT
 
 @end
 
+GLTFKIT2_EXPORT
+@interface GLTFEmissiveParams : GLTFObject
+
+@property (nonatomic, nullable, strong) GLTFTextureParams *emissiveTexture;
+@property (nonatomic, assign) simd_float3 emissiveFactor;
+// Introduced by the KHR_emissive_strength extension
+@property (nonatomic, assign) float emissiveStrength;
+
+@end
 
 GLTFKIT2_EXPORT
 @interface GLTFClearcoatParams : GLTFObject
@@ -339,11 +348,10 @@ GLTFKIT2_EXPORT
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
 @property (nonatomic, nullable) GLTFPBRSpecularGlossinessParams *specularGlossiness;
+@property (nonatomic, nullable) GLTFEmissiveParams *emissive;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
 @property (nonatomic, nullable) GLTFTextureParams *occlusionTexture;
-@property (nonatomic, nullable) GLTFTextureParams *emissiveTexture;
-@property (nonatomic, assign) simd_float3 emissiveFactor;
 @property (nonatomic, assign) GLTFAlphaMode alphaMode;
 @property (nonatomic, assign) float alphaCutoff;
 @property (nonatomic, assign, getter=isDoubleSided) BOOL doubleSided;

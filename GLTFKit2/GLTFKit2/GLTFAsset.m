@@ -469,6 +469,18 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 @end
 
+@implementation GLTFEmissiveParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _emissiveFactor = (simd_float3){ 0.0f, 0.0f, 0.0f };
+        _emissiveStrength = 1.0f;
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFClearcoatParams
 @end
 
@@ -476,7 +488,6 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 - (instancetype)init {
     if (self = [super init]) {
-        _emissiveFactor = (simd_float3){ 0.0f, 0.0f, 0.0f };
         _alphaMode = GLTFAlphaModeOpaque;
         _alphaCutoff = 0.5f;
         _doubleSided = NO;

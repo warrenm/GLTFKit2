@@ -625,14 +625,16 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             normalProperty.contents = imagesForIdentfiers[normalTexture.texture.source.identifier];
             GLTFConfigureSCNMaterialProperty(normalProperty, normalTexture);
         }
-        if (material.emissiveTexture) {
-            GLTFTextureParams *emissiveTexture = material.emissiveTexture;
+        if (material.emissive.emissiveTexture) {
+            GLTFTextureParams *emissiveTexture = material.emissive.emissiveTexture;
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
             emissiveProperty.contents = imagesForIdentfiers[emissiveTexture.texture.source.identifier];
+            // TODO: How to support emissive.emissiveStrength?
             GLTFConfigureSCNMaterialProperty(emissiveProperty, emissiveTexture);
         } else {
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
-            simd_float3 rgb = material.emissiveFactor;
+            simd_float3 rgb = material.emissive.emissiveFactor;
+            // TODO: Multiply in emissive.emissiveStrength?
             CGFloat rgbad[] = { rgb[0], rgb[1], rgb[2], 1.0 };
             emissiveProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
         }

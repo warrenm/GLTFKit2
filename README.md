@@ -143,8 +143,9 @@ Below is a checklist of glTF features and their current level of support.
 
 #### Extensions
  - [x] KHR_draco_mesh_compression (via plug-in)
- - [ ] KHR_lights_punctual
+ - [x] KHR_lights_punctual
  - [x] KHR_materials_clearcoat
+ - [x] KHR_emissive_strength
  - [ ] KHR_materials_ior
  - [ ] KHR_materials_sheen
  - [ ] KHR_materials_specular

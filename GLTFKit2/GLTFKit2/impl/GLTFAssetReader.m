@@ -493,11 +493,15 @@ static dispatch_queue_t _loaderQueue;
         if (m->occlusion_texture.texture) {
             material.occlusionTexture = [self textureParamsFromTextureView:&m->occlusion_texture];
         }
-        if (m->emissive_texture.texture) {
-            material.emissiveTexture = [self textureParamsFromTextureView:&m->emissive_texture];
-        }
+        material.emissive = [GLTFEmissiveParams new];
         float *emissive = m->emissive_factor;
-        material.emissiveFactor = (simd_float3){ emissive[0], emissive[1], emissive[2] };
+        material.emissive.emissiveFactor = (simd_float3){ emissive[0], emissive[1], emissive[2] };
+        if (m->emissive_texture.texture) {
+            material.emissive.emissiveTexture = [self textureParamsFromTextureView:&m->emissive_texture];
+        }
+        if (m->has_emissive_strength) {
+            material.emissive.emissiveStrength = m->emissive_strength.emissive_strength;
+        }
         material.alphaMode = GLTFAlphaModeFromMode(m->alpha_mode);
         material.alphaCutoff = m->alpha_cutoff;
         material.doubleSided = (BOOL)m->double_sided;
@@ -871,6 +875,7 @@ static dispatch_queue_t _loaderQueue;
 - (BOOL)validateRequiredExtensions:(NSError **)error {
     NSArray *supportedExtensions = @[
         @"KHR_draco_mesh_compression",
+        @"KHR_emissive_strength",
         @"KHR_lights_punctual",
         @"KHR_materials_clearcoat",
         @"KHR_materials_unlit",
