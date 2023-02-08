@@ -409,12 +409,12 @@ public class GLTFRealityKitLoader {
                     material.color.texture = context.texture(for: baseColorTexture, channels: .all, semantic: .color)
                 }
             }
-            material.opacityThreshold = gltfMaterial.alphaCutoff
-            if (gltfMaterial.alphaMode == .blend) {
+            if gltfMaterial.alphaMode == .mask {
+                material.opacityThreshold = gltfMaterial.alphaCutoff
+            } else if gltfMaterial.alphaMode == .blend {
                 // TODO: Convert base color alpha channel into opacity map?
                 material.blending = .transparent(opacity: 1.0)
             }
-
             return material
         } else {
             var material = PhysicallyBasedMaterial()
@@ -425,6 +425,8 @@ public class GLTFRealityKitLoader {
                                                                  channels: .all,
                                                                  semantic: .color)
                 }
+                material.roughness.scale = metallicRoughness.roughnessFactor
+                material.metallic.scale = metallicRoughness.metallicFactor
                 if let metallicRoughnessTexture = metallicRoughness.metallicRoughnessTexture {
                     material.roughness.texture = context.texture(for: metallicRoughnessTexture,
                                                                  channels: .green,
@@ -460,8 +462,9 @@ public class GLTFRealityKitLoader {
                                                                           semantic: .raw)
                 }
             }
-            material.opacityThreshold = gltfMaterial.alphaCutoff
-            if (gltfMaterial.alphaMode == .blend) {
+            if gltfMaterial.alphaMode == .mask {
+                material.opacityThreshold = gltfMaterial.alphaCutoff
+            } else if gltfMaterial.alphaMode == .blend {
                 // TODO: Convert base color alpha channel into opacity map?
                 material.blending = .transparent(opacity: 1.0)
             }
