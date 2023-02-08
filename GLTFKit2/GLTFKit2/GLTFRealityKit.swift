@@ -7,6 +7,8 @@ typealias PlatformColor = NSColor
 typealias PlatformColor = UIColor
 #endif
 
+func degreesFromRadians(_ rad: Float) -> Float { return rad * (180 / .pi) }
+
 func packedStride(for accessor: GLTFAccessor) -> Int {
     var size = 0
     switch accessor.componentType {
@@ -417,8 +419,8 @@ public class GLTFRealityKitLoader {
     func convert(spotLight gltfLight: GLTFLight) -> SpotLightComponent {
         let light = SpotLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                        intensity: gltfLight.intensity,
-                                       innerAngleInDegrees: gltfLight.innerConeAngle,
-                                       outerAngleInDegrees: gltfLight.outerConeAngle,
+                                       innerAngleInDegrees: degreesFromRadians(gltfLight.innerConeAngle),
+                                       outerAngleInDegrees: degreesFromRadians(gltfLight.outerConeAngle),
                                        attenuationRadius: gltfLight.range)
         return light
     }
@@ -441,7 +443,7 @@ public class GLTFRealityKitLoader {
         if let perspectiveParams = camera.perspective {
             let camera = PerspectiveCameraComponent(near: camera.zNear,
                                                     far: camera.zFar,
-                                                    fieldOfViewInDegrees: perspectiveParams.yFOV)
+                                                    fieldOfViewInDegrees: degreesFromRadians(perspectiveParams.yFOV))
             // TODO: Correctly handle infinite far clip distance (camera.zFar == 0)
             return camera
         }
