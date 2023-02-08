@@ -1,5 +1,6 @@
 
 import RealityKit
+import Accelerate
 
 #if os(macOS)
 typealias PlatformColor = NSColor
@@ -177,23 +178,26 @@ extension MTLSamplerDescriptor {
 
 @available(macOS 12.0, iOS 15.0, *)
 class GLTFRealityKitResourceContext {
-    private var textureResourcesForImageIdentifiers = [UUID : RealityKit.TextureResource]()
+    enum ColorMask {
+        case red
+        case green
+        case blue
+        case all
+    }
+
+    private var cgImagesForImageIdentifiers = [UUID : CGImage]()
+    private var textureResourcesForImageIdentifiers = [UUID : [(RealityKit.TextureResource, ColorMask)]]()
 
     var defaultMaterial: Material {
         return RealityKit.SimpleMaterial(color: .init(white: 0.5, alpha: 1.0), isMetallic: false)
     }
 
-    func texture(for gltfTextureParams: GLTFTextureParams,
+    func texture(for gltfTextureParams: GLTFTextureParams, channels: ColorMask,
                  semantic: RealityKit.TextureResource.Semantic) -> RealityKit.PhysicallyBasedMaterial.Texture?
     {
         let gltfTexture = gltfTextureParams.texture
         guard let image = gltfTexture.source else { return nil }
-        let imageID = image.identifier
-        var resource = textureResourcesForImageIdentifiers[imageID]
-        if resource == nil {
-            resource = loadTextureResource(for:image, semantic: semantic)
-        }
-        if let resource = resource {
+        if let resource = textureResource(for:image, channels: channels, semantic: semantic) {
             let descriptor = MTLSamplerDescriptor(from: gltfTexture.sampler ?? GLTFTextureSampler())
             let sampler = MaterialParameters.Texture.Sampler(descriptor)
             return RealityKit.PhysicallyBasedMaterial.Texture(resource, sampler: sampler)
@@ -201,15 +205,58 @@ class GLTFRealityKitResourceContext {
         return nil
     }
 
-    func loadTextureResource(for gltfImage: GLTFImage,
-                             semantic: RealityKit.TextureResource.Semantic) -> RealityKit.TextureResource?
+    func textureResource(for gltfImage: GLTFImage, channels: ColorMask,
+                         semantic: RealityKit.TextureResource.Semantic) -> RealityKit.TextureResource?
     {
-        guard let cgImage = gltfImage.newCGImage() else { return nil }
+        let existingResources = textureResourcesForImageIdentifiers[gltfImage.identifier]
+        if let existingMatch = existingResources?.first(where: { $0.1 == channels })?.0 {
+            return existingMatch
+        }
+        var cgImage = cgImagesForImageIdentifiers[gltfImage.identifier]
+        if cgImage == nil {
+            cgImage = gltfImage.newCGImage()?.takeRetainedValue() // TODO: Leak?
+            if cgImage != nil {
+                cgImagesForImageIdentifiers[gltfImage.identifier] = cgImage
+            }
+        }
+        guard let originalImage = cgImage else { return nil }
+
+        guard let sourceImage = (channels == .all) ? originalImage :
+                singleChannelImage(from: originalImage, channels: channels) else { return nil }
+
         let options = TextureResource.CreateOptions(semantic: semantic)
-        guard let resource = try? TextureResource.generate(from: cgImage.takeUnretainedValue(),
-                                                           options: options) else { return nil }
-        textureResourcesForImageIdentifiers[gltfImage.identifier] = resource
+        guard let resource = try? TextureResource.generate(from: sourceImage, options: options) else { return nil }
+        if textureResourcesForImageIdentifiers[gltfImage.identifier] != nil {
+            textureResourcesForImageIdentifiers[gltfImage.identifier]!.append((resource, channels))
+        } else {
+            textureResourcesForImageIdentifiers[gltfImage.identifier] = [(resource, channels)]
+        }
+
         return resource
+    }
+
+    func singleChannelImage(from cgImage: CGImage, channels: ColorMask) -> CGImage? {
+        guard let inputFormat = vImage_CGImageFormat(cgImage: cgImage) else { return nil }
+        guard var inputBuffer = try? vImage_Buffer(cgImage: cgImage, format: inputFormat) else { return nil }
+        var outputBuffer = vImage_Buffer()
+        vImageBuffer_Init(&outputBuffer, inputBuffer.height, inputBuffer.width, inputFormat.bitsPerPixel, vImage_Flags())
+        defer { outputBuffer.data.deallocate() }
+        let red: Float = (channels == .red) ? 1.0 : 0.0
+        let green: Float = (channels == .green) ? 1.0 : 0.0
+        let blue: Float = (channels == .blue) ? 1.0 : 0.0
+        let divisor: Int32 = 0x1000
+        let fDivisor = Float(divisor)
+        let coefficientMatrix = [ Int16(red * fDivisor), Int16(green * fDivisor), Int16(blue * fDivisor) ]
+        let preBias: [Int16] = [ 0, 0, 0, 0 ]
+        let postBias: Int32 = 0
+        vImageMatrixMultiply_ARGB8888ToPlanar8(&inputBuffer, &outputBuffer, coefficientMatrix, divisor,
+                                               preBias, postBias, vImage_Flags())
+        let outputColorSpace = CGColorSpace(name: CGColorSpace.linearGray)!
+        let outputFormat = vImage_CGImageFormat(bitsPerComponent: 8, bitsPerPixel: 8, colorSpace: outputColorSpace,
+                                                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                                                renderingIntent: .defaultIntent)!
+        let outputImage = try? outputBuffer.createCGImage(format: outputFormat)
+        return outputImage
     }
 }
 
@@ -359,7 +406,7 @@ public class GLTFRealityKitLoader {
             if let metallicRoughness = gltfMaterial.metallicRoughness {
                 material.color.tint = platformColor(for: metallicRoughness.baseColorFactor)
                 if let baseColorTexture = metallicRoughness.baseColorTexture {
-                    material.color.texture = context.texture(for: baseColorTexture, semantic: .color)
+                    material.color.texture = context.texture(for: baseColorTexture, channels: .all, semantic: .color)
                 }
             }
             material.opacityThreshold = gltfMaterial.alphaCutoff
@@ -374,33 +421,42 @@ public class GLTFRealityKitLoader {
             if let metallicRoughness = gltfMaterial.metallicRoughness {
                 material.baseColor.tint = platformColor(for: metallicRoughness.baseColorFactor)
                 if let baseColorTexture = metallicRoughness.baseColorTexture {
-                    material.baseColor.texture = context.texture(for: baseColorTexture, semantic: .color)
+                    material.baseColor.texture = context.texture(for: baseColorTexture,
+                                                                 channels: .all,
+                                                                 semantic: .color)
                 }
                 if let metallicRoughnessTexture = metallicRoughness.metallicRoughnessTexture {
-                    material.metallic.texture = context.texture(for: metallicRoughnessTexture, semantic: .raw)
-                    material.roughness.texture = context.texture(for: metallicRoughnessTexture, semantic: .raw)
+                    material.roughness.texture = context.texture(for: metallicRoughnessTexture,
+                                                                 channels: .green,
+                                                                 semantic: .scalar)
+                    material.metallic.texture = context.texture(for: metallicRoughnessTexture,
+                                                                channels: .blue,
+                                                                semantic: .scalar)
                 }
             }
             if let normal = gltfMaterial.normalTexture {
-                material.normal.texture = context.texture(for: normal, semantic: .normal)
+                material.normal.texture = context.texture(for: normal, channels: .all, semantic: .normal)
             }
             if let emissive = gltfMaterial.emissive {
                 material.emissiveIntensity = emissive.emissiveStrength
                 if let emissiveTexture = emissive.emissiveTexture {
-                    material.emissiveColor.texture = context.texture(for: emissiveTexture, semantic: .color)
+                    material.emissiveColor.texture = context.texture(for: emissiveTexture,
+                                                                     channels: .all,
+                                                                     semantic: .color)
                 }
             }
             if let occlusion = gltfMaterial.occlusionTexture {
-                material.ambientOcclusion.texture = context.texture(for: occlusion, semantic: .raw)
+                material.ambientOcclusion.texture = context.texture(for: occlusion, channels: .red, semantic: .scalar)
             }
             if let clearcoat = gltfMaterial.clearcoat {
                 material.clearcoat.scale = clearcoat.clearcoatFactor
                 if let clearcoatTexture = clearcoat.clearcoatTexture {
-                    material.clearcoat.texture = context.texture(for: clearcoatTexture, semantic: .raw)
+                    material.clearcoat.texture = context.texture(for: clearcoatTexture, channels: .red, semantic: .raw)
                 }
                 material.clearcoatRoughness.scale = clearcoat.clearcoatRoughnessFactor
                 if let clearcoatRoughnessTexture = clearcoat.clearcoatRoughnessTexture {
                     material.clearcoatRoughness.texture = context.texture(for: clearcoatRoughnessTexture,
+                                                                          channels: .green,
                                                                           semantic: .raw)
                 }
             }
