@@ -279,7 +279,9 @@ public class GLTFRealityKitLoader {
     }
 
     func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent {
-        let meshDescriptors = try gltfMesh.primitives.map { try self.convert(primitive: $0, context:context)! }
+        let meshDescriptors = try gltfMesh.primitives.map { try self.convert(primitive: $0, context:context) }
+            .filter({$0 != nil})
+            .map({$0!})
 
         let meshResource = try MeshResource.generate(from: meshDescriptors)
 
