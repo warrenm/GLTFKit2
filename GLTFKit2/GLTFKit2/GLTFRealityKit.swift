@@ -229,7 +229,7 @@ public class GLTFRealityKitLoader {
         let rootEntity = Entity()
 
         do {
-            let rootNodes = try scene.nodes.map { try self.convert(node: $0, context: context) }
+            let rootNodes = try scene.nodes.compactMap { try self.convert(node: $0, context: context) }
 
             for rootNode in rootNodes {
                 rootEntity.addChild(rootNode)
@@ -249,8 +249,8 @@ public class GLTFRealityKitLoader {
 
         nodeEntity.transform = Transform(matrix: gltfNode.matrix) // TODO: Properly compose node's TRS properties
 
-        if let gltfMesh = gltfNode.mesh {
-            let meshComponent = try convert(mesh: gltfMesh, context: context)
+        if let gltfMesh = gltfNode.mesh,
+           let meshComponent = try convert(mesh: gltfMesh, context: context) {
             nodeEntity.components.set(meshComponent)
         }
 
@@ -278,15 +278,25 @@ public class GLTFRealityKitLoader {
         return nodeEntity
     }
 
-    func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent {
-        let meshDescriptors = try gltfMesh.primitives.map { try self.convert(primitive: $0, context:context)! }
+    func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent? {
+        let meshDescriptorAndMaterials = try gltfMesh.primitives.compactMap {
+            if let meshDescriptor = try self.convert(primitive: $0, context:context) {
+                let material = try self.convert(material: $0.material, context: context)
+                return (meshDescriptor, material)
+            }
+            // If we fail to create a mesh descriptor for a primitive, omit it from the list.
+            return nil
+        }
 
-        let meshResource = try MeshResource.generate(from: meshDescriptors)
+        if meshDescriptorAndMaterials.count == 0 {
+            // If we weren't able to successfully build any mesh descriptors for our primitives,
+            // don't bother generating a mesh.
+            return nil
+        }
 
-        let gltfMaterials = gltfMesh.primitives.map { $0.material }
-        let materials = try gltfMaterials.map { return try self.convert(material: $0, context: context) }
+        let meshResource = try MeshResource.generate(from: meshDescriptorAndMaterials.map { $0.0 })
 
-        let model = ModelComponent(mesh: meshResource, materials: materials)
+        let model = ModelComponent(mesh: meshResource, materials: meshDescriptorAndMaterials.map { $0.1} )
 
         return model
     }
