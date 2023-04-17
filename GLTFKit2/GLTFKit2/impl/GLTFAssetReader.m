@@ -949,6 +949,7 @@ static dispatch_queue_t _loaderQueue;
         @"KHR_materials_transmission",
         @"KHR_materials_unlit",
         @"KHR_texture_transform",
+        @"KHR_materials_pbrSpecularGlossiness", // deprecated
     ];
     NSMutableArray *unsupportedExtensions = [NSMutableArray array];
     for (NSString *requiredExtension in self.asset.extensionsRequired) {
