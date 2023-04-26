@@ -71,7 +71,8 @@ typedef void (^GLTFAssetLoadingHandler)(float progress, GLTFAssetStatus status, 
 typedef BOOL (^GLTFFilterPredicate)(GLTFObject *entry, NSString *identifier, BOOL *stop);
 
 @class GLTFAccessor, GLTFAnimation, GLTFBuffer, GLTFBufferView, GLTFCamera, GLTFImage, GLTFLight;
-@class GLTFMaterial, GLTFMesh, GLTFNode, GLTFPrimitive, GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
+@class GLTFMaterial, GLTFMaterialMapping, GLTFMaterialVariant, GLTFMesh, GLTFNode, GLTFPrimitive;
+@class GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
 
 @protocol GLTFDracoMeshDecompressor
 + (GLTFPrimitive *)newPrimitiveForCompressedBufferView:(GLTFBufferView *)bufferView
@@ -114,6 +115,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, copy) NSArray<GLTFLight *> *lights;
 @property (nonatomic, copy) NSArray<GLTFImage *> *images;
 @property (nonatomic, copy) NSArray<GLTFMaterial *> *materials;
+@property (nonatomic, nullable, copy) NSArray<GLTFMaterialVariant *> *materialVariants;
 @property (nonatomic, copy) NSArray<GLTFMesh *> *meshes;
 @property (nonatomic, copy) NSArray<GLTFNode *> *nodes;
 @property (nonatomic, copy) NSArray<GLTFTextureSampler *> *samplers;
@@ -438,6 +440,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFMaterial *material;
 @property (nonatomic, assign) GLTFPrimitiveType primitiveType;
 @property (nonatomic, copy) NSArray<GLTFMorphTarget *> *targets;
+@property (nonatomic, nullable, copy) NSArray<GLTFMaterialMapping *> *materialMappings;
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
                            attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes
@@ -447,6 +450,8 @@ GLTFKIT2_EXPORT
                            attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes;
 
 - (instancetype)init NS_UNAVAILABLE;
+
+- (GLTFMaterial *)effectiveMaterialForVariant:(GLTFMaterialVariant *)variant;
 
 @end
 
@@ -548,6 +553,25 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFImage *source;
 
 - (instancetype)initWithSource:(GLTFImage * _Nullable)source NS_DESIGNATED_INITIALIZER;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFMaterialVariant : GLTFObject
+
+- (instancetype)initWithName:(NSString *)name NS_DESIGNATED_INITIALIZER;
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFMaterialMapping : GLTFObject
+
+@property (nonatomic, strong) GLTFMaterial *material;
+@property (nonatomic, strong) GLTFMaterialVariant *variant;
+
+- (instancetype)initWithMaterial:(GLTFMaterial *)material variant:(GLTFMaterialVariant *)variant NS_DESIGNATED_INITIALIZER;
+- (id)init NS_UNAVAILABLE;
 
 @end
 

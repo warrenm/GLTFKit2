@@ -566,6 +566,10 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 @end
 
+@interface GLTFPrimitive ()
+@property (nonatomic, weak) GLTFMaterialMapping *cachedMapping;
+@end
+
 @implementation GLTFPrimitive
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
@@ -584,6 +588,23 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
         _indices = indices;
     }
     return self;
+}
+
+- (GLTFMaterial *)effectiveMaterialForVariant:(GLTFMaterialVariant *)variant {
+    if (variant == nil) {
+        return nil;
+    }
+    // Avoid a full scan if we've previously found a match (likely)
+    if ([self.cachedMapping.variant isEqual:variant]) {
+        return self.cachedMapping.material;
+    }
+    for (GLTFMaterialMapping *mapping in self.materialMappings) {
+        if ([mapping.variant isEqual:variant]) {
+            self.cachedMapping = mapping;
+            return mapping.material;
+        }
+    }
+    return nil;
 }
 
 @end
@@ -720,6 +741,29 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 - (instancetype)init {
     return [self initWithSource:nil];
+}
+
+@end
+
+@implementation GLTFMaterialVariant
+
+- (instancetype)initWithName:(NSString *)name {
+    if (self = [super init]) {
+        [super setName:name];
+    }
+    return self;
+}
+
+@end
+
+@implementation GLTFMaterialMapping
+
+- (instancetype)initWithMaterial:(GLTFMaterial *)material variant:(GLTFMaterialVariant *)variant {
+    if (self = [super init]) {
+        _material = material;
+        _variant = variant;
+    }
+    return self;
 }
 
 @end

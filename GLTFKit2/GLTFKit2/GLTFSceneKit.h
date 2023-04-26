@@ -38,6 +38,7 @@ extern NSString *const GLTFAssetPropertyKeyExtensionsRequired;
 @property (nonatomic, readonly) NSArray<GLTFSCNAnimation *> *animations;
 
 - (instancetype)initWithAsset:(GLTFAsset *)asset;
+- (instancetype)initWithAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant;
 
 /*!
  @method propertyForKey:

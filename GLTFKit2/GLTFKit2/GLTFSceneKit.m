@@ -479,6 +479,11 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     return source.defaultScene;
 }
 
++ (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant {
+    GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset applyingMaterialVariant:variant];
+    return source.defaultScene;
+}
+
 @end
 
 @interface GLTFSCNSceneSource ()
@@ -494,6 +499,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 @property (nonatomic, copy) NSArray<GLTFSCNAnimation *> *animations;
 @property (nonatomic, strong) SCNScene *defaultScene;
 @property (nonatomic, strong) GLTFAsset *asset;
+@property (nonatomic, nullable, strong) GLTFMaterialVariant *activeMaterialVariant;
 @end
 
 @implementation GLTFSCNSceneSource
@@ -501,6 +507,15 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 - (instancetype)initWithAsset:(GLTFAsset *)asset {
     if (self = [super init]) {
         _asset = asset;
+        [self convertAsset];
+    }
+    return self;
+}
+
+- (instancetype)initWithAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant {
+    if (self = [super init]) {
+        _asset = asset;
+        _activeMaterialVariant = variant;
         [self convertAsset];
     }
     return self;
@@ -694,6 +709,12 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 vertexCount = (int)positionAccessor.count;
             }
             SCNMaterial *material = materialsForIdentifiers[primitive.material.identifier];
+            if (self.activeMaterialVariant != nil) {
+                GLTFMaterial *materialOverride = [primitive effectiveMaterialForVariant:self.activeMaterialVariant];
+                if (materialOverride) {
+                    material = materialsForIdentifiers[materialOverride.identifier];
+                }
+            }
             NSData *indexData = nil;
             int indexSize = 1;
             int indexCount = vertexCount; // If we're not indexed (determined below), our "index" count is our vertex count

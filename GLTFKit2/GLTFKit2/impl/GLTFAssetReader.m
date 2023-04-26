@@ -627,6 +627,21 @@ static dispatch_queue_t _loaderQueue;
     return materials;
 }
 
+- (NSArray *)convertMaterialVariants {
+    if (gltf->variants_count > 0) {
+        NSMutableArray *variants = [NSMutableArray arrayWithCapacity:gltf->variants_count];
+        for (int i = 0; i < gltf->variants_count; ++i) {
+            cgltf_material_variant *v = gltf->variants + i;
+            NSString *name = [NSString stringWithUTF8String:v->name ?: "" ];
+            GLTFMaterialVariant *variant = [[GLTFMaterialVariant alloc] initWithName:name];
+            variant.extras = GLTFObjectFromExtras(gltf->json, v->extras, nil);
+            [variants addObject:variant];
+        }
+        return variants;
+    }
+    return nil;
+}
+
 - (NSArray *)convertMeshes
 {
     NSMutableArray *meshes = [NSMutableArray arrayWithCapacity:gltf->meshes_count];
@@ -685,6 +700,19 @@ static dispatch_queue_t _loaderQueue;
                     target[attrName] = attrAccessor;
                 }
                 [targets addObject:target];
+            }
+            if (p->mappings_count > 0) {
+                NSMutableArray *materialMappings = [NSMutableArray arrayWithCapacity:p->mappings_count];
+                for (int k = 0; k < p->mappings_count; ++k) {
+                    cgltf_material_mapping *mm = p->mappings + k;
+                    size_t materialIndex = mm->material - gltf->materials;
+                    GLTFMaterial *material = self.asset.materials[materialIndex];
+                    GLTFMaterialVariant *variant = self.asset.materialVariants[mm->variant];
+                    GLTFMaterialMapping *mapping = [[GLTFMaterialMapping alloc] initWithMaterial:material variant:variant];
+                    mapping.extras = GLTFObjectFromExtras(gltf->json, mm->extras, nil);
+                    [materialMappings addObject:mapping];
+                }
+                primitive.materialMappings = materialMappings;
             }
             primitive.targets = targets;
             primitive.extras = GLTFObjectFromExtras(gltf->json, p->extras, nil);
@@ -948,6 +976,7 @@ static dispatch_queue_t _loaderQueue;
         @"KHR_materials_specular",
         @"KHR_materials_transmission",
         @"KHR_materials_unlit",
+        @"KHR_materials_variants",
         @"KHR_texture_transform",
         @"KHR_materials_pbrSpecularGlossiness", // deprecated
     ];
@@ -1013,6 +1042,7 @@ static dispatch_queue_t _loaderQueue;
     self.asset.images = [self convertImages];
     self.asset.textures = [self convertTextures];
     self.asset.materials = [self convertMaterials];
+    self.asset.materialVariants = [self convertMaterialVariants];
     self.asset.meshes = [self convertMeshes];
     self.asset.cameras = [self convertCameras];
     self.asset.lights = [self convertLights];
