@@ -906,6 +906,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 
                     SCNMorpher *scnMorpher = [SCNMorpher new];
                     scnMorpher.calculationMode = SCNMorpherCalculationModeAdditive;
+                    scnMorpher.unifiesNormals = YES;
                     scnMorpher.targets = morphGeometries;
                     scnMorpher.weights = node.weights ?: node.mesh.weights;
                     geometryNode.morpher = scnMorpher;
