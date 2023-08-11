@@ -209,12 +209,15 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
     }
 
     if (finalIndexData.bytes == NULL) {
-        // Last resort. If we never had index data to begin with, fix up with an array of all zeros.
+        // Last resort. If we never had index data to begin with, fix up with an array of sequential indices
+        NSLog(@"Index data appears empty; generating sequential index list");
+        bytesPerIndex = 4;
         size_t indexBufferLength = indexCount * bytesPerIndex;
-        finalIndexData = [NSData dataWithBytesNoCopy:calloc(indexCount, bytesPerIndex)
-                                              length:indexBufferLength
-                                        freeWhenDone:YES];
-        NSLog(@"Index data appears empty; generating dummy index list");
+        uint32_t *indexStorage = (uint32_t *)malloc(indexCount * bytesPerIndex);
+        for (int i = 0; i < indexCount; ++i) {
+            indexStorage[i] = i;
+        }
+        finalIndexData = [NSData dataWithBytesNoCopy:indexStorage length:indexBufferLength freeWhenDone:YES];
     }
 
     return [SCNGeometryElement geometryElementWithData:finalIndexData
