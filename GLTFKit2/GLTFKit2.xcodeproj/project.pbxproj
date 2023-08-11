@@ -13,15 +13,15 @@
 		834FF1C925C27938001887C2 /* GLTFKit2.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1C725C27938001887C2 /* GLTFKit2.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		834FF1D225C27A02001887C2 /* GLTFAsset.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1D025C27A02001887C2 /* GLTFAsset.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		834FF1D325C27A02001887C2 /* GLTFAsset.m in Sources */ = {isa = PBXBuildFile; fileRef = 834FF1D125C27A02001887C2 /* GLTFAsset.m */; };
-		834FF1D925C3BE51001887C2 /* GLTFAssetReader.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1D725C3BE51001887C2 /* GLTFAssetReader.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		834FF1D925C3BE51001887C2 /* GLTFAssetReader.h in Headers */ = {isa = PBXBuildFile; fileRef = 834FF1D725C3BE51001887C2 /* GLTFAssetReader.h */; };
 		834FF1DA25C3BE51001887C2 /* GLTFAssetReader.m in Sources */ = {isa = PBXBuildFile; fileRef = 834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */; };
 		836805A5277D3F6C00F3222A /* cgltf_write.h in Headers */ = {isa = PBXBuildFile; fileRef = 836805A0277D3F6C00F3222A /* cgltf_write.h */; };
 		836805A6277D3F6C00F3222A /* cgltf.h in Headers */ = {isa = PBXBuildFile; fileRef = 836805A1277D3F6C00F3222A /* cgltf.h */; };
-		83821E05280CF37600D4A11A /* GLTFWorkflowHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = 83821E03280CF37600D4A11A /* GLTFWorkflowHelper.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		83821E05280CF37600D4A11A /* GLTFWorkflowHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = 83821E03280CF37600D4A11A /* GLTFWorkflowHelper.h */; };
 		83821E06280CF37600D4A11A /* GLTFWorkflowHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 83821E04280CF37600D4A11A /* GLTFWorkflowHelper.m */; };
 		83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */ = {isa = PBXBuildFile; fileRef = 83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		83BEF9D825CF3240005DFE80 /* GLTFModelIO.m in Sources */ = {isa = PBXBuildFile; fileRef = 83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */; };
-		83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 83DA575526DEEAA9007B440E /* GLTFLogging.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 83DA575526DEEAA9007B440E /* GLTFLogging.h */; };
 		83DB5F512992BA9800B0190E /* GLTFRealityKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DB5F502992BA9800B0190E /* GLTFRealityKit.swift */; };
 /* End PBXBuildFile section */
 
