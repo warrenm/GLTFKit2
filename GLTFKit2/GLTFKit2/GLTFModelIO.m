@@ -526,6 +526,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             MDLCamera *camera = camerasForIdentifiers[node.camera.identifier];
             [mdlNode addChild:camera];
         }
+        nodesForIdentifiers[node.identifier] = mdlNode;
     }
     
     // Scene -> MDLAsset
