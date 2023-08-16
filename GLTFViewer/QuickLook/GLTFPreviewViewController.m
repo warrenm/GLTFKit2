@@ -27,7 +27,10 @@
             GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset];
             self.sceneView.scene = source.defaultScene;
             NSArray<GLTFSCNAnimation *> *animations = source.animations;
-            [animations.firstObject play];
+            GLTFSCNAnimation *defaultAnimation = animations.firstObject;
+            if (defaultAnimation) {
+                [self.sceneView.scene.rootNode addAnimationPlayer:defaultAnimation.animationPlayer forKey:nil];
+            }
             self.sceneView.scene.lightingEnvironment.contents = @"studio-ql.hdr";
             self.sceneView.scene.lightingEnvironment.intensity = 1.5;
         }

@@ -10,7 +10,9 @@ class ViewController: UIViewController {
                 let source = GLTFSCNSceneSource(asset: asset)
                 sceneView.scene = source.defaultScene
                 animations = source.animations
-                animations.first?.play()
+                if let defaultAnimation = animations.first {
+                    sceneView.scene?.rootNode.addAnimationPlayer(defaultAnimation.animationPlayer, forKey: nil)
+                }
                 sceneView.scene?.rootNode.addChildNode(cameraNode)
             }
         }

@@ -39,11 +39,11 @@ class AnimationPlaybackViewController : NSViewController {
     @IBOutlet var progressSlider: NSSlider!
     @IBOutlet var durationLabel: NSTextField!
 
+    private var currentAnimation: SCNAnimationPlayer?
     private var currentAnimationDuration: TimeInterval = 0.0
     private var playbackTimer: Timer?
     private var state: AnimationPlaybackState = .stopped
     private var loopMode: AnimationLoopMode = .loopOne
-    private var animatedNodes = Set<SCNNode>()
     private let timeFormatter = NumberFormatter()
 
     override func viewDidLoad() {
@@ -80,32 +80,20 @@ class AnimationPlaybackViewController : NSViewController {
 
     func startAnimation(at index: Int) {
         let animation = animations[index]
-        var maxDuration: TimeInterval = 0
+        let animationPlayer = animation.animationPlayer
 
-        for channel in animation.channels {
-            let channelAnimation = channel.animation
-            channelAnimation.usesSceneTimeBase = true
-            let animationPlayer = SCNAnimationPlayer(animation: channelAnimation)
-            channel.target.addAnimationPlayer(animationPlayer, forKey: nil)
-            animatedNodes.insert(channel.target)
-            if channelAnimation.duration > maxDuration {
-                maxDuration = channelAnimation.duration
-            }
-        }
-
-        currentAnimationDuration = maxDuration
-
-        if maxDuration == 0 {
-            print("WARNING: Did not find animation with duration > 0; loop modes will not behave correctly")
-        }
+        currentAnimationDuration = animationPlayer.animation.duration;
 
         progressSlider.minValue = 0
         progressSlider.maxValue = currentAnimationDuration
         progressSlider.floatValue = 0
         sceneView.sceneTime = 0.0
 
-        schedulePlaybackTimer()
+        sceneView.scene?.rootNode.addAnimationPlayer(animationPlayer, forKey: "Playback")
+        animationPlayer.animation.usesSceneTimeBase = true
+        animationPlayer.play()
 
+        schedulePlaybackTimer()
         state = .playing
     }
 
@@ -135,10 +123,7 @@ class AnimationPlaybackViewController : NSViewController {
     }
 
     func removeAllAnimations() {
-        for obj in animatedNodes {
-            obj.removeAllAnimations()
-        }
-        animatedNodes.removeAll()
+        sceneView.scene?.rootNode.removeAnimation(forKey: "Playback")
     }
 
     func handleAnimationEnd() {
@@ -230,7 +215,7 @@ class AnimationPlaybackViewController : NSViewController {
     func playbackTimerDidFire(_ sender: Any) {
         let time = sceneView.sceneTime + AnimationFrameDuration
         let wouldLoop = time > currentAnimationDuration
-        if wouldLoop && (loopMode == .dontLoop) {
+        if wouldLoop {
             sceneView.sceneTime = 0.0
             handleAnimationEnd()
         } else {

@@ -210,7 +210,6 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
 
     if (finalIndexData.bytes == NULL) {
         // Last resort. If we never had index data to begin with, fix up with an array of sequential indices
-        NSLog(@"Index data appears empty; generating sequential index list");
         bytesPerIndex = 4;
         size_t indexBufferLength = indexCount * bytesPerIndex;
         uint32_t *indexStorage = (uint32_t *)malloc(indexCount * bytesPerIndex);
@@ -462,17 +461,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     return 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2];
 }
 
-@implementation GLTFSCNAnimationChannel
-@end
-
 @implementation GLTFSCNAnimation
-
-- (void)play {
-    for (GLTFSCNAnimationChannel *channel in self.channels) {
-        [channel.target addAnimation:channel.animation forKey:nil];
-    }
-}
-
 @end
 
 @implementation SCNScene (GLTFSceneKit)
@@ -813,6 +802,25 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         lightsForIdentifiers[light.identifier] = scnLight;
     }
 
+    NSMutableSet *legalizedNodeNames = [NSMutableSet set];
+    // Legalize and unique GLTF node names. Node names should not contain periods in SceneKit because
+    // Cocoa key paths are period-separated. Node names should also ideally be unique so that there
+    // is no ambiguity in name-based animation key paths (e.g. "/Node.position")
+    for (GLTFNode *node in self.asset.nodes) {
+        NSString *legalizedName = [node.name stringByReplacingOccurrencesOfString:@"." withString:@"_"];
+        if ([legalizedNodeNames containsObject:legalizedName]) {
+            NSInteger uniqueIndex = 1;
+            NSString *uniquedName = legalizedName;
+            do {
+                uniquedName = [NSString stringWithFormat:@"%@_%d", legalizedName, (int)uniqueIndex];
+                ++uniqueIndex;
+            } while ([legalizedNodeNames containsObject:uniquedName]);
+            legalizedName = uniquedName;
+        }
+        [legalizedNodeNames addObject:legalizedName];
+        node.name = legalizedName;
+    }
+
     NSMutableDictionary<NSUUID *, SCNNode *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFNode *node in self.asset.nodes) {
         SCNNode *scnNode = [SCNNode node];
@@ -851,6 +859,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             } else {
                 for (int i = 0; i < primitives.count; ++i) {
                     SCNNode *geometryNode = [SCNNode node];
+                    geometryNode.name = [NSString stringWithFormat:@"%@_primitive%02d", node.name, i];
                     [scnNode addChildNode:geometryNode];
                     [geometryNodes addObject:geometryNode];
                 }
@@ -954,37 +963,22 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 
     NSMutableDictionary<NSUUID *, GLTFSCNAnimation *> *animationsForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFAnimation *animation in self.asset.animations) {
-        NSMutableArray *scnChannels = [NSMutableArray array];
+        NSMutableArray *caChannels = [NSMutableArray array];
+        NSTimeInterval maxChannelTime = 0.0;
         for (GLTFAnimationChannel *channel in animation.channels) {
             NSTimeInterval channelMaxKeyTime = 0.0;
             if (channel.sampler.input.maxValues.count > 0) {
                 channelMaxKeyTime = channel.sampler.input.maxValues.firstObject.doubleValue;
             }
+            maxChannelTime = MAX(maxChannelTime, channelMaxKeyTime);
             NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, channelMaxKeyTime);
             if ([channel.target.path isEqualToString:GLTFAnimationPathWeights]) {
                 NSUInteger targetCount = channel.target.node.mesh.primitives.firstObject.targets.count;
                 assert(targetCount > 0);
                 NSArray<NSArray<NSNumber *> *> *weightArrays = GLTFWeightsArraysForAccessor(channel.sampler.output, targetCount);
 
-                NSMutableArray *weightAnimations = [NSMutableArray array];
-                for (int t = 0; t < targetCount; ++t) {
-                    NSString *keyPath = [NSString stringWithFormat:@"morpher.weights[%d]", t];
-                    CAKeyframeAnimation *weightAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
-                    weightAnimation.keyTimes = baseKeyTimes;
-                    weightAnimation.values = weightArrays[t];
-                    // TODO: Support non-linear calculation modes?
-                    weightAnimation.calculationMode = kCAAnimationLinear;
-                    weightAnimation.duration = channelMaxKeyTime;
-                    weightAnimation.repeatDuration = FLT_MAX;
-                    [weightAnimations addObject:weightAnimation];
-                }
-                CAAnimationGroup *caAnimation = [CAAnimationGroup animation];
-                caAnimation.animations = weightAnimations;
-                caAnimation.duration = channelMaxKeyTime;
-                caAnimation.repeatDuration = FLT_MAX;
-
                 SCNNode *targetRoot = nodesForIdentifiers[channel.target.node.identifier];
-                NSMutableArray *geometryNodes = [NSMutableArray array];
+                NSMutableArray<SCNNode *> *geometryNodes = [NSMutableArray array];
                 if (targetRoot.geometry != nil) {
                     [geometryNodes addObject:targetRoot];
                 } else {
@@ -995,28 +989,43 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     }
                 }
 
-                for (SCNNode *geometryNode in geometryNodes) {
-                    GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
-                    clipChannel.target = geometryNode;
-                    SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
-                    clipChannel.animation = scnAnimation;
-                    [scnChannels addObject:clipChannel];
+                NSMutableArray *weightAnimations = [NSMutableArray array];
+                for (int t = 0; t < targetCount; ++t) {
+                    for (int n = 0; n < geometryNodes.count; ++n) {
+                        NSString *propertyKeyPath = [NSString stringWithFormat:@"morpher.weights[%d]", t];
+                        NSString *targetRootPath = [NSString stringWithFormat:@"/%@", geometryNodes[n].name];
+                        NSString *keyPath = [@[targetRootPath, propertyKeyPath] componentsJoinedByString:@"."];
+                        CAKeyframeAnimation *weightAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
+                        weightAnimation.keyTimes = baseKeyTimes;
+                        weightAnimation.values = weightArrays[t];
+                        // TODO: Support non-linear calculation modes?
+                        weightAnimation.calculationMode = kCAAnimationLinear;
+                        weightAnimation.duration = channelMaxKeyTime;
+                        weightAnimation.repeatDuration = FLT_MAX;
+                        [weightAnimations addObject:weightAnimation];
+                    }
                 }
+                CAAnimationGroup *caAnimation = [CAAnimationGroup animation];
+                caAnimation.animations = weightAnimations;
+                caAnimation.duration = channelMaxKeyTime;
+                [caChannels addObject:caAnimation];
             } else {
                 CAKeyframeAnimation *caAnimation = nil;
                 if ([channel.target.path isEqualToString:GLTFAnimationPathTranslation]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"position"];
+                    NSString *keyPath = [NSString stringWithFormat:@"/%@.position", channel.target.node.name];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else if ([channel.target.path isEqualToString:GLTFAnimationPathRotation]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"orientation"];
+                    NSString *keyPath = [NSString stringWithFormat:@"/%@.orientation", channel.target.node.name];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector4ArrayForAccessor(channel.sampler.output);
                 } else if ([channel.target.path isEqualToString:GLTFAnimationPathScale]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"scale"];
+                    NSString *keyPath = [NSString stringWithFormat:@"/%@.scale", channel.target.node.name];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else {
                     GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
-                    // TODO: This shouldn't be a hard failure, but not sure what to do here yet
-                    assert(false);
+                    continue;
                 }
                 caAnimation.keyTimes = baseKeyTimes;
                 switch (channel.sampler.interpolationMode) {
@@ -1042,18 +1051,19 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                         break;
                 }
                 caAnimation.duration = channelMaxKeyTime;
-
-                GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
-                clipChannel.target = nodesForIdentifiers[channel.target.node.identifier];
-                SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
-                clipChannel.animation = scnAnimation;
-                [scnChannels addObject:clipChannel];
+                [caChannels addObject:caAnimation];
             }
         }
-        GLTFSCNAnimation *animationClip = [GLTFSCNAnimation new];
-        animationClip.name = animation.name;
-        animationClip.channels = scnChannels;
-        animationsForIdentifiers[animation.identifier] = animationClip;
+        CAAnimationGroup *channelGroup = [CAAnimationGroup animation];
+        channelGroup.animations = caChannels;
+        channelGroup.duration = maxChannelTime;
+        channelGroup.repeatDuration = FLT_MAX;
+        SCNAnimation *scnChannelGroup = [SCNAnimation animationWithCAAnimation:channelGroup];
+        SCNAnimationPlayer *animationPlayer = [SCNAnimationPlayer animationPlayerWithAnimation:scnChannelGroup];
+        GLTFSCNAnimation *gltfSCNAnimation = [GLTFSCNAnimation new];
+        gltfSCNAnimation.name = animation.name;
+        gltfSCNAnimation.animationPlayer = animationPlayer;
+        animationsForIdentifiers[animation.identifier] = gltfSCNAnimation;
     }
 
     NSMutableDictionary *scenesForIdentifiers = [NSMutableDictionary dictionary];
