@@ -802,7 +802,13 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 scnLight.spotOuterAngle = GLTFDegFromRad(light.outerConeAngle);
                 break;
         }
-        // TODO: Range and attenuation.
+        if (light.type != GLTFLightTypeDirectional) {
+            if (light.range > 0.0) {
+                scnLight.attenuationStartDistance = 1e-5;
+                scnLight.attenuationEndDistance = light.range;
+                scnLight.attenuationFalloffExponent = 2.0;
+            }
+        }
         scnLight.castsShadow = YES;
         lightsForIdentifiers[light.identifier] = scnLight;
     }
