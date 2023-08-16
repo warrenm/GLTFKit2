@@ -4,14 +4,6 @@
 #define CGLTF_IMPLEMENTATION
 #import "cgltf.h"
 
-static NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
-
-enum GLTFErrorCode {
-    GLTFErrorCodeNoDataToLoad         = 1010,
-    GLTFErrorCodeFailedToLoad         = 1011,
-    GLTFErrorCodeUnsupportedExtension = 1012,
-};
-
 @interface GLTFUniqueNameGenerator : NSObject
 - (NSString *)nextUniqueNameWithPrefix:(NSString *)prefix;
 @end
@@ -345,15 +337,15 @@ static dispatch_queue_t _loaderQueue;
         size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
         if (a->has_min) {
             NSMutableArray *minArray = [NSMutableArray array];
-            for (int i = 0; i < componentCount; ++i) {
-                [minArray addObject:@(a->min[i])];
+            for (int j = 0; j < componentCount; ++j) {
+                [minArray addObject:@(a->min[j])];
             }
             accessor.minValues = minArray;
         }
         if (a->has_max) {
             NSMutableArray *maxArray = [NSMutableArray array];
-            for (int i = 0; i < componentCount; ++i) {
-                [maxArray addObject:@(a->max[i])];
+            for (int j = 0; j < componentCount; ++j) {
+                [maxArray addObject:@(a->max[j])];
             }
             accessor.maxValues = maxArray;
         }

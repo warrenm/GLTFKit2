@@ -3,9 +3,14 @@
 #import "GLTFAssetReader.h"
 #import <ImageIO/ImageIO.h>
 
+NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
+
 const float LumensPerCandela = 1.0 / (4.0 * M_PI);
 
 static NSString *g_dracoDecompressorClassName = nil;
+
+GLTFAssetLoadingOption const GLTFAssetCreateNormalsIfAbsentKey = @"GLTFAssetCreateNormalsIfAbsentKey";
+GLTFAssetLoadingOption const GLTFAssetAssetDirectoryURLKey = @"GLTFAssetAssetDirectoryURLKey";
 
 GLTFAttributeSemantic GLTFAttributeSemanticPosition = @"POSITION";
 GLTFAttributeSemantic GLTFAttributeSemanticNormal = @"NORMAL";
@@ -115,11 +120,11 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
     [self loadAssetWithURL:url options:options handler:^(float progress,
                                                          GLTFAssetStatus status,
                                                          GLTFAsset *asset,
-                                                         NSError *error,
+                                                         NSError *loadingError,
                                                          BOOL *stop)
     {
         if (status == GLTFAssetStatusError || status == GLTFAssetStatusComplete) {
-            internalError = error;
+            internalError = loadingError;
             maybeAsset = asset;
             dispatch_semaphore_signal(loadSemaphore);
         }
@@ -141,11 +146,11 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
     [self loadAssetWithData:data options:options handler:^(float progress,
                                                          GLTFAssetStatus status,
                                                          GLTFAsset *asset,
-                                                         NSError *error,
+                                                         NSError *loadError,
                                                          BOOL *stop)
     {
         if (status == GLTFAssetStatusError || status == GLTFAssetStatusComplete) {
-            internalError = error;
+            internalError = loadError;
             maybeAsset = asset;
             dispatch_semaphore_signal(loadSemaphore);
         }

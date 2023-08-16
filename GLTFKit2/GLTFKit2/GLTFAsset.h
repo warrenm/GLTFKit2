@@ -6,6 +6,25 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+extern NSString *const GLTFErrorDomain;
+
+enum {
+    GLTFErrorCodeDataTooShort         = 1001,
+    GLTFErrorCodeUnknownFormat        = 1002,
+    GLTFErrorCodeInvalidJSON          = 1003,
+    GLTFErrorCodeInvalidGLTF          = 1004,
+    GLTFErrorCodeInvalidOptions       = 1005,
+    GLTFErrorCodeFileNotFound         = 1006,
+    GLTFErrorCodeIOError              = 1007,
+    GLTFErrorCodeOutOfMemory          = 1008,
+    GLTFErrorCodeLegacyGLTF           = 1009,
+    GLTFErrorCodeNoDataToLoad         = 1010,
+    GLTFErrorCodeFailedToLoad         = 1011,
+    GLTFErrorCodeUnsupportedExtension = 1012,
+};
+
+typedef NSInteger GLTFErrorCode;
+
 extern const float LumensPerCandela;
 
 typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
@@ -49,13 +68,18 @@ GLTFKIT2_EXPORT
 @class GLTFAsset;
 
 typedef NSString * GLTFAssetLoadingOption NS_STRING_ENUM;
+
+/// This option is not currently implemented.
 GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetCreateNormalsIfAbsentKey;
-GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetAssetDirectoryURLsKey;
-GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetOverrideAssetURLsKey;
+
+/// If a suitable asset directory URL is passed in the options dictionary, connected files (binary buffer files, textures, etc.)
+/// will be accessed using security-scoped URLs, as required by the app sandbox model. If an asset directory URL is
+/// not provided, it is assumed that the asset file is self-contained (e.g., a .glb) or that any necessary connected files are
+/// accessible without security-scoped access (e.g. because they are in the app's container).
+GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetAssetDirectoryURLKey;
 
 #define GLTFAssetLoadingOptionCreateNormalsIfAbsent GLTFAssetCreateNormalsIfAbsentKey
-#define GLTFAssetLoadingOptionAssetDirectoryURLs    GLTFAssetAssetDirectoryURLsKey
-#define GLTFAssetLoadingOptionOverrideAssetURLs     GLTFAssetOverrideAssetURLsKey
+#define GLTFAssetLoadingOptionAssetDirectoryURL     GLTFAssetAssetDirectoryURLKey
 
 typedef NS_ENUM(NSInteger, GLTFAssetStatus) {
     GLTFAssetStatusError = -1,
