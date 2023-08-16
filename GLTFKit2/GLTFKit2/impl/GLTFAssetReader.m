@@ -17,6 +17,7 @@
 }
 @property (class, nonatomic, readonly) dispatch_queue_t loaderQueue;
 @property (nonatomic, nullable, strong) NSURL *assetURL;
+@property (nonatomic, nullable, strong) NSURL *assetDirectoryURL;
 @property (nonatomic, nullable, strong) NSString *lastAccessedPath;
 @property (nonatomic, strong) GLTFAsset *asset;
 @property (nonatomic, strong) GLTFUniqueNameGenerator *nameGenerator;
@@ -89,9 +90,146 @@ static GLTFLightType GLTFLightTypeForType(cgltf_light_type type) {
 
 static cgltf_result GLTFReadFile(const struct cgltf_memory_options *memory_options, const struct cgltf_file_options *file_options, const char *path, cgltf_size *size, void **data)
 {
+    void* (*memory_alloc)(void*, cgltf_size) = memory_options->alloc_func ? memory_options->alloc_func : &cgltf_default_alloc;
+    void (*memory_free)(void*, void*) = memory_options->free_func ? memory_options->free_func : &cgltf_default_free;
     GLTFAssetReader *reader = (__bridge GLTFAssetReader *)file_options->user_data;
-    reader.lastAccessedPath = [NSString stringWithUTF8String:path];
-    return cgltf_default_file_read(memory_options, file_options, path, size, data);
+
+    NSString *pathString = [NSString stringWithUTF8String:path];
+    reader.lastAccessedPath = pathString;
+    __block NSURL *fileURL = [NSURL fileURLWithPath:pathString];
+
+    BOOL isAccessingSecurityScoped = [fileURL startAccessingSecurityScopedResource];
+
+    NSInputStream *fileStream = [NSInputStream inputStreamWithURL:fileURL];
+    if (!fileStream) {
+        return cgltf_result_file_not_found;
+    }
+
+    cgltf_size file_size = size ? *size : 0;
+
+    if (file_size == 0) {
+        NSNumber *fileSizeValue = nil;
+        [fileURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
+
+        if (!fileSizeValue) {
+            return cgltf_result_io_error;
+        }
+
+        file_size = fileSizeValue.integerValue;
+    }
+
+    uint8_t *file_data = (uint8_t *)memory_alloc(memory_options->user_data, file_size);
+    if (!file_data)  {
+        return cgltf_result_out_of_memory;
+    }
+
+    [fileStream open];
+    if (fileStream.streamStatus != NSStreamStatusOpen) {
+        memory_free(memory_options->user_data, file_data);
+        return cgltf_result_io_error;
+    }
+
+    NSInteger read_size = [fileStream read:file_data maxLength:file_size];
+    [fileStream close];
+
+    if (read_size != file_size) {
+        memory_free(memory_options->user_data, file_data);
+        return cgltf_result_io_error;
+    }
+
+    if (size) {
+        *size = file_size;
+    }
+    if (data) {
+        *data = file_data;
+    }
+
+    if (isAccessingSecurityScoped) {
+        [fileURL stopAccessingSecurityScopedResource];
+    }
+
+    return cgltf_result_success;
+}
+
+static cgltf_result GLTFReadFileSecurityScoped(const struct cgltf_memory_options *memory_options, const struct cgltf_file_options *file_options, const char *path, cgltf_size *size, void **data)
+{
+    GLTFAssetReader *reader = (__bridge GLTFAssetReader *)file_options->user_data;
+    void* (*memory_alloc)(void*, cgltf_size) = memory_options->alloc_func ? memory_options->alloc_func : &cgltf_default_alloc;
+    void (*memory_free)(void*, void*) = memory_options->free_func ? memory_options->free_func : &cgltf_default_free;
+
+    if (reader.assetDirectoryURL == nil) {
+        NSLog(@"Security-scoped access for asset directory was requested but no directory URL was provided. Falling back to ordinary file reading path...");
+        return GLTFReadFile(memory_options, file_options, path, size, data);
+    }
+
+    NSString *pathString = [NSString stringWithUTF8String:path];
+    reader.lastAccessedPath = pathString;
+
+    NSURL *directoryURL = reader.assetDirectoryURL;
+    BOOL isAccessingDirectorySecurityScoped = [directoryURL startAccessingSecurityScopedResource];
+
+    __block cgltf_size file_size = size ? *size : 0;
+    __block NSInteger read_size = 0;
+    __block uint8_t *file_data = NULL;
+    __block cgltf_result result = cgltf_result_file_not_found;
+
+    NSURL *fileURL = nil;
+    if ([pathString hasPrefix:directoryURL.path]) {
+        NSString *pathSuffix = [pathString substringFromIndex:[[pathString commonPrefixWithString:directoryURL.path options:0] length] + 1];
+        fileURL = [directoryURL URLByAppendingPathComponent:pathSuffix];
+    }
+
+    NSError *coordinationError = nil;
+    NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
+    [coordinator coordinateReadingItemAtURL:fileURL options:0 error:&coordinationError byAccessor:^(NSURL *newURL) {
+        NSInputStream *fileStream = [NSInputStream inputStreamWithURL:fileURL];
+        if (!fileStream) {
+            result = cgltf_result_file_not_found; return;
+        }
+
+        if (file_size == 0) {
+            NSNumber *fileSizeValue = nil;
+            [fileURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
+
+            if (!fileSizeValue) {
+                result = cgltf_result_io_error;
+            }
+
+            file_size = fileSizeValue.integerValue;
+        }
+
+        file_data = (uint8_t *)memory_alloc(memory_options->user_data, file_size);
+        if (!file_data)  {
+            result = cgltf_result_out_of_memory; return;
+        }
+
+        [fileStream open];
+        if (fileStream.streamStatus != NSStreamStatusOpen) {
+            result = cgltf_result_io_error; return;
+        }
+
+        read_size = [fileStream read:file_data maxLength:file_size];
+        [fileStream close];
+    }];
+
+    if (isAccessingDirectorySecurityScoped) {
+        [directoryURL stopAccessingSecurityScopedResource];
+        isAccessingDirectorySecurityScoped = NO;
+    }
+
+    if (read_size != file_size) {
+        memory_free(memory_options->user_data, file_data);
+        return cgltf_result_io_error;
+    }
+
+    if (size) {
+        *size = file_size;
+    }
+    if (data) {
+        *data = file_data;
+    }
+
+    return cgltf_result_success;
 }
 
 static NSError *GLTFErrorForCGLTFStatus(cgltf_result result, NSString *_Nullable failedFilePath) {
@@ -229,6 +367,7 @@ static dispatch_queue_t _loaderQueue;
                      handler:(nullable GLTFAssetLoadingHandler)handler
 {
     self.assetURL = assetURL;
+    self.assetDirectoryURL = options[GLTFAssetAssetDirectoryURLKey];
 
     if (assetURL) {
         self.lastAccessedPath = assetURL.path;
@@ -254,7 +393,7 @@ static dispatch_queue_t _loaderQueue;
     }
 
     cgltf_options parseOptions = {0};
-    parseOptions.file.read = GLTFReadFile;
+    parseOptions.file.read = self.assetDirectoryURL ? GLTFReadFileSecurityScoped : GLTFReadFile;
     parseOptions.file.user_data = (__bridge void *)self;
     cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
 
@@ -425,6 +564,10 @@ static dispatch_queue_t _loaderQueue;
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Image"];
         image.extensions = GLTFConvertExtensions(img->extensions, img->extensions_count, nil);
         image.extras = GLTFObjectFromExtras(gltf->json, img->extras, nil);
+
+        // Setting this allows us to perform security-scoped access later on when lazily loading textures.
+        image.assetDirectoryURL = self.assetDirectoryURL;
+
         [images addObject:image];
     }
     return images;

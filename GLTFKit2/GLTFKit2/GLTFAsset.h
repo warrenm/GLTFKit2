@@ -299,6 +299,11 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFBufferView *bufferView;
 @property (nonatomic, nullable) NSString *mimeType;
 
+/// If provided, this URL will be used to perform security-scoped access to the corresponding image file URL.
+/// Without a security-scoped URL, file access may fail when the image file is not in the app's container, as
+/// may happen when loading .gltf assets with connected files. Not necessary when `uri` is a data URI.
+@property (nonatomic, nullable) NSURL *assetDirectoryURL;
+
 - (instancetype)initWithURI:(NSURL *)uri NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithBufferView:(GLTFBufferView *)bufferView mimeType:(NSString *)mimeType NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithCGImage:(CGImageRef)cgImage NS_DESIGNATED_INITIALIZER; // For internal use.

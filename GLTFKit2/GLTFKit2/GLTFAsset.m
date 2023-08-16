@@ -403,6 +403,8 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
     if (self.cachedImage) {
         return CGImageRetain(_cachedImage);
     }
+    BOOL isAccessingSecurityScoped = NO;
+    CGImageRef image = NULL;
     CGImageSourceRef imageSource = NULL;
     if (self.bufferView) {
         NSData *imageData = self.bufferView.buffer.data;
@@ -415,15 +417,26 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
             NSData *imageData = GLTFCreateImageDataFromDataURI(self.uri.absoluteString);
             imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
         } else {
-            imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)_uri, NULL);
+            isAccessingSecurityScoped = [self.assetDirectoryURL startAccessingSecurityScopedResource];
+            __block NSData *imageData = nil;
+            NSError *coordinationError = nil;
+            NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
+            [coordinator coordinateReadingItemAtURL:_uri options:0 error:&coordinationError byAccessor:^(NSURL *newURL) {
+                imageData = [NSData dataWithContentsOfURL:_uri];
+            }];
+            if (imageData) {
+                imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
+            }
         }
     }
     if (imageSource) {
-        CGImageRef image = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+        image = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
         CFRelease(imageSource);
-        return image;
     }
-    return NULL;
+    if (isAccessingSecurityScoped) {
+        [self.assetDirectoryURL stopAccessingSecurityScopedResource];
+    }
+    return image;
 }
 
 @end
