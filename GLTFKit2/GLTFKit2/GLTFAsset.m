@@ -422,7 +422,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
             NSError *coordinationError = nil;
             NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
             [coordinator coordinateReadingItemAtURL:_uri options:0 error:&coordinationError byAccessor:^(NSURL *newURL) {
-                imageData = [NSData dataWithContentsOfURL:_uri];
+                imageData = [NSData dataWithContentsOfURL:newURL];
             }];
             if (imageData) {
                 imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);

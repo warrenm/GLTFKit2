@@ -182,14 +182,14 @@ static cgltf_result GLTFReadFileSecurityScoped(const struct cgltf_memory_options
     NSError *coordinationError = nil;
     NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
     [coordinator coordinateReadingItemAtURL:fileURL options:0 error:&coordinationError byAccessor:^(NSURL *newURL) {
-        NSInputStream *fileStream = [NSInputStream inputStreamWithURL:fileURL];
+        NSInputStream *fileStream = [NSInputStream inputStreamWithURL:newURL];
         if (!fileStream) {
             result = cgltf_result_file_not_found; return;
         }
 
         if (file_size == 0) {
             NSNumber *fileSizeValue = nil;
-            [fileURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
+            [newURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
 
             if (!fileSizeValue) {
                 result = cgltf_result_io_error;
