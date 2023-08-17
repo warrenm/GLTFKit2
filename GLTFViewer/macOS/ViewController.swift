@@ -74,12 +74,16 @@ class ViewController: NSViewController {
         if let (sceneCenter, sceneRadius) = sceneView.scene?.rootNode.boundingSphere,
             let pointOfView = sceneView.pointOfView
         {
-            pointOfView.simdPosition = sceneRadius * simd_normalize(SIMD3(1, 0.5, 1))
-            pointOfView.look(at: sceneCenter, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+            SCNTransaction.begin()
+            SCNTransaction.animationDuration = 0.750
             if let camera = pointOfView.camera {
                 camera.automaticallyAdjustsZRange = true
                 camera.fieldOfView = 60.0
             }
+            let simdCenter = simd_float3(Float(sceneCenter.x), Float(sceneCenter.y), Float(sceneCenter.z))
+            pointOfView.simdPosition = sceneRadius * SIMD3<Float>(1, 0.5, 1) + simdCenter
+            pointOfView.look(at: sceneCenter, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+            SCNTransaction.commit()
         }
     }
 
