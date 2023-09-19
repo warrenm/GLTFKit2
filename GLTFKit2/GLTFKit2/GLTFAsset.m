@@ -210,7 +210,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 @implementation GLTFAccessor
 
-- (instancetype)initWithBufferView:(GLTFBufferView * _Nullable)bufferView
+- (instancetype)initWithBufferView:(nullable GLTFBufferView *)bufferView
                             offset:(NSInteger)offset
                      componentType:(GLTFComponentType)componentType
                          dimension:(GLTFValueDimension)dimension

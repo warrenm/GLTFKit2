@@ -165,7 +165,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, copy) NSArray<NSNumber *> *maxValues;
 @property (nonatomic, nullable, strong) GLTFSparseStorage *sparse;
 
-- (instancetype)initWithBufferView:(GLTFBufferView * _Nullable)bufferView
+- (instancetype)initWithBufferView:(nullable GLTFBufferView *)bufferView
                             offset:(NSInteger)offset
                      componentType:(GLTFComponentType)componentType
                          dimension:(GLTFValueDimension)dimension
@@ -309,7 +309,7 @@ GLTFKIT2_EXPORT
 - (instancetype)initWithCGImage:(CGImageRef)cgImage NS_DESIGNATED_INITIALIZER; // For internal use.
 - (instancetype)init NS_UNAVAILABLE;
 
-- (CGImageRef _Nullable)newCGImage;
+- (nullable CGImageRef)newCGImage;
 
 @end
 
@@ -473,7 +473,7 @@ GLTFKIT2_EXPORT
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
                            attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes
-                              indices:(GLTFAccessor * _Nullable)indices NS_DESIGNATED_INITIALIZER;
+                              indices:(nullable GLTFAccessor *)indices NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
                            attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes;
@@ -581,7 +581,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFTextureSampler *sampler;
 @property (nonatomic, nullable, strong) GLTFImage *source;
 
-- (instancetype)initWithSource:(GLTFImage * _Nullable)source NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithSource:(nullable GLTFImage *)source NS_DESIGNATED_INITIALIZER;
 
 @end
 

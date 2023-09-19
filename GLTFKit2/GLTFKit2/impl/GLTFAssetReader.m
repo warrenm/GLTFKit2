@@ -361,8 +361,8 @@ static dispatch_queue_t _loaderQueue;
     return self;
 }
 
-- (void)syncLoadAssetWithURL:(NSURL * _Nullable)assetURL
-                        data:(NSData * _Nullable)data
+- (void)syncLoadAssetWithURL:(nullable NSURL *)assetURL
+                        data:(nullable NSData *)data
                      options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                      handler:(nullable GLTFAssetLoadingHandler)handler
 {
