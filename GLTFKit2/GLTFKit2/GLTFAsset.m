@@ -1,7 +1,14 @@
 
 #import "GLTFAsset.h"
 #import "GLTFAssetReader.h"
+#import "GLTFLogging.h"
+#import "GLTFKTX2Support.h"
+
 #import <ImageIO/ImageIO.h>
+
+#if TARGET_OS_IPHONE
+#import <MobileCoreServices/MobileCoreServices.h>
+#endif
 
 NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
 
@@ -76,7 +83,36 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     return 0;
 }
 
-NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
+static NSString * _Nullable GLTFInferredMediaTypeForData(NSData *data) {
+    const uint8_t *bytes = (const uint8_t *)data.bytes;
+
+    uint8_t pngIdentifier[] = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+    if (data.length > 8 && (memcmp(bytes, pngIdentifier, 8) == 0)) {
+        return @"image/png";
+    }
+    uint8_t jpegIdentifier[] = { 0xFF, 0xD8, 0xFF };
+    if (data.length > 3 && (memcmp(bytes, jpegIdentifier, 8) == 0)) {
+        return @"image/jpeg";
+    }
+    uint8_t ktx2Identifier[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
+    if (data.length > 12 && (memcmp(bytes, ktx2Identifier, 12) == 0)) {
+        return GLTFMediaTypeKTX2;
+    }
+
+    return nil;
+}
+
+static NSString *_Nullable GLTFCreateUTIForMediaType(NSString *mediaType) {
+    // Despite a UTI for KTX2 existing in the system, it's not possible to create it from a file extension
+    // or MIME type as of macOS 14.0, even using the newer UTType APIs, so we hack around that here.
+    if ([mediaType isEqualToString:GLTFMediaTypeKTX2]) {
+        return @"org.khronos.ktx2";
+    }
+    CFStringRef uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, (__bridge CFStringRef)mediaType, NULL);
+    return (__bridge_transfer NSString *)uti;
+}
+
+NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaType) {
     NSString *prefix = @"data:";
     if ([uriData hasPrefix:prefix]) {
         NSInteger prefixEnd = prefix.length;
@@ -85,6 +121,9 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
             NSString *mediaTypeAndTokenString = [uriData substringWithRange:NSMakeRange(prefixEnd, firstComma - prefixEnd)];
             NSArray *mediaTypeAndToken = [mediaTypeAndTokenString componentsSeparatedByString:@";"];
             if (mediaTypeAndToken.count > 0) {
+                if (outMediaType) {
+                    *outMediaType = mediaTypeAndToken[0];
+                }
                 NSString *encodedImageData = [uriData substringFromIndex:firstComma + 1];
                 NSData *imageData = [[NSData alloc] initWithBase64EncodedString:encodedImageData
                                                                         options:NSDataBase64DecodingIgnoreUnknownCharacters];
@@ -369,6 +408,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 @interface GLTFImage ()
 @property (nonatomic, nullable) CGImageRef cachedImage;
+@property (nonatomic, nullable) id<MTLTexture> cachedTexture;
 @end
 
 @implementation GLTFImage
@@ -399,44 +439,86 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
     CGImageRelease(_cachedImage);
 }
 
-- (CGImageRef)newCGImage {
-    if (self.cachedImage) {
-        return CGImageRetain(_cachedImage);
-    }
+- (nullable NSData *)newImageDataReturningInferredMediaType:(NSString **)outMediaType {
     BOOL isAccessingSecurityScoped = NO;
-    CGImageRef image = NULL;
-    CGImageSourceRef imageSource = NULL;
+    __block NSData *data = nil;
+    NSString *mediaType = nil;
     if (self.bufferView) {
         NSData *imageData = self.bufferView.buffer.data;
         const UInt8 *imageBytes = imageData.bytes + self.bufferView.offset;
         CFDataRef sourceData = CFDataCreate(NULL, imageBytes, self.bufferView.length);
-        imageSource = CGImageSourceCreateWithData(sourceData, NULL);
-        CFRelease(sourceData);
+        data = (__bridge_transfer NSData *)sourceData;
     } else if (self.uri) {
         if ([self.uri.scheme isEqual:@"data"]) {
-            NSData *imageData = GLTFCreateImageDataFromDataURI(self.uri.absoluteString);
-            imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
+            data = GLTFCreateImageDataFromDataURI(self.uri.absoluteString, &mediaType);
         } else {
             isAccessingSecurityScoped = [self.assetDirectoryURL startAccessingSecurityScopedResource];
-            __block NSData *imageData = nil;
             NSError *coordinationError = nil;
             NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
             [coordinator coordinateReadingItemAtURL:_uri options:0 error:&coordinationError byAccessor:^(NSURL *newURL) {
-                imageData = [NSData dataWithContentsOfURL:newURL];
+                data = [NSData dataWithContentsOfURL:newURL];
             }];
-            if (imageData) {
-                imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
-            }
         }
-    }
-    if (imageSource) {
-        image = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
-        CFRelease(imageSource);
     }
     if (isAccessingSecurityScoped) {
         [self.assetDirectoryURL stopAccessingSecurityScopedResource];
     }
+    if (data) {
+        if (mediaType == nil) {
+            mediaType = GLTFInferredMediaTypeForData(data);
+        }
+        if (outMediaType) {
+            *outMediaType = mediaType;
+        }
+    }
+    return data;
+}
+
+- (nullable CGImageRef)newCGImage {
+    if (self.cachedImage) {
+        return CGImageRetain(_cachedImage);
+    }
+
+    NSString *maybeMediaType = nil;
+    NSData *imageData = [self newImageDataReturningInferredMediaType:&maybeMediaType];
+    CGImageRef image = NULL;
+    if (imageData) {
+        if (maybeMediaType) {
+            NSString *uti = GLTFCreateUTIForMediaType(maybeMediaType);
+            NSArray *supportedUTIs = (__bridge NSArray *)CGImageSourceCopyTypeIdentifiers();
+            // Check for support for this image type. Note that image loading can still fail if, for example,
+            // the image file is a KTX2 container with an unsupported supercompression scheme like BasisU.
+            if (![supportedUTIs containsObject:uti]) {
+                GLTFLogWarning(@"[GLTFKit2] Unrecognized type identifier for image media type %@", maybeMediaType);
+            }
+        }
+        CGImageSourceRef imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
+        if (imageSource) {
+            image = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+            CFRelease(imageSource);
+        }
+    }
     return image;
+}
+
+- (nullable id<MTLTexture>)newTextureWithDevice:(id<MTLDevice>)device {
+    if (self.cachedTexture) {
+        return self.cachedTexture;
+    }
+
+#ifdef GLTF_BUILD_WITH_KTX2
+    NSString *maybeMediaType = nil;
+    NSData *imageData = [self newImageDataReturningInferredMediaType:&maybeMediaType];
+
+    if (imageData && [maybeMediaType isEqualToString:GLTFMediaTypeKTX2]) {
+        id<MTLTexture> texture = GLTFCreateTextureFromKTX2Data(imageData, device);
+        return texture;
+    }
+#else
+    GLTFLogError(@"[GLTFKit2] Texture was requested from a GLTFImage, but GLTFKit2 was compiled without KTX2 support");
+#endif
+    
+    return nil;
 }
 
 @end
@@ -750,11 +832,16 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData) {
 
 @implementation GLTFTexture
 
-- (instancetype)initWithSource:(GLTFImage *)source {
+- (instancetype)initWithSource:(nullable GLTFImage *)source basisUSource:(GLTFImage *)basisUSource {
     if (self = [super init]) {
         _source = source;
+        _basisUSource = basisUSource;
     }
     return self;
+}
+
+- (instancetype)initWithSource:(nullable GLTFImage *)source {
+    return [self initWithSource:source basisUSource:nil];
 }
 
 - (instancetype)init {

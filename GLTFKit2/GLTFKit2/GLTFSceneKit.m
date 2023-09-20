@@ -478,7 +478,9 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 
 @end
 
-@interface GLTFSCNSceneSource ()
+@interface GLTFSCNSceneSource () {
+    NSMutableDictionary<NSUUID *, id> *_materialPropertyContentsCache;
+}
 @property (nonatomic, copy) NSDictionary *properties;
 @property (nonatomic, copy) NSArray<SCNMaterial *> *materials;
 @property (nonatomic, copy) NSArray<SCNLight *> *lights;
@@ -517,6 +519,22 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     return _properties[key];
 }
 
+- (nullable id)materialPropertyContentsForTexture:(GLTFTexture *)texture {
+    if (_materialPropertyContentsCache[texture.identifier] != nil) {
+        return _materialPropertyContentsCache[texture.identifier];
+    }
+#ifdef GLTF_BUILD_WITH_KTX2
+    if (texture.basisUSource) {
+        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:MTLCreateSystemDefaultDevice()];
+        _materialPropertyContentsCache[texture.identifier] = metalTexture;
+        return metalTexture;
+    }
+#endif
+    CGImageRef cgImage = [texture.source newCGImage];
+    _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
+    return (__bridge id)cgImage;
+}
+
 - (void)convertAsset {
     NSMutableDictionary *properties = [NSMutableDictionary dictionary];
     properties[GLTFAssetPropertyKeyCopyright] = self.asset.copyright;
@@ -527,11 +545,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     properties[GLTFAssetPropertyKeyExtensionsRequired] = self.asset.extensionsRequired;
     _properties = properties;
 
-    NSMutableDictionary<NSUUID *, id> *imagesForIdentfiers = [NSMutableDictionary dictionary];
-    for (GLTFImage *image in self.asset.images) {
-        CGImageRef cgImage = [image newCGImage];
-        imagesForIdentfiers[image.identifier] = (__bridge_transfer id)cgImage;
-    }
+    _materialPropertyContentsCache = [NSMutableDictionary dictionary];
 
     CGColorSpaceRef colorSpaceLinearSRGB = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
 
@@ -559,7 +573,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             if (material.metallicRoughness.baseColorTexture) {
                 GLTFTextureParams *baseColorTexture = material.metallicRoughness.baseColorTexture;
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
-                baseColorProperty.contents = imagesForIdentfiers[baseColorTexture.texture.source.identifier];
+                baseColorProperty.contents = [self materialPropertyContentsForTexture:baseColorTexture.texture];
                 GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
                 // This is a lossy transformation because we only have a scalar intensity,
@@ -573,7 +587,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             }
             if (material.metallicRoughness.metallicRoughnessTexture) {
                 GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
-                id metallicRoughnessImage = imagesForIdentfiers[metallicRoughnessTexture.texture.source.identifier];
+                id metallicRoughnessImage = [self materialPropertyContentsForTexture:metallicRoughnessTexture.texture];
 
                 SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
                 metallicProperty.contents = metallicRoughnessImage;
@@ -629,13 +643,13 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         if (material.normalTexture) {
             GLTFTextureParams *normalTexture = material.normalTexture;
             SCNMaterialProperty *normalProperty = scnMaterial.normal;
-            normalProperty.contents = imagesForIdentfiers[normalTexture.texture.source.identifier];
+            normalProperty.contents = [self materialPropertyContentsForTexture:normalTexture.texture];
             GLTFConfigureSCNMaterialProperty(normalProperty, normalTexture);
         }
         if (material.emissive.emissiveTexture) {
             GLTFTextureParams *emissiveTexture = material.emissive.emissiveTexture;
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
-            emissiveProperty.contents = imagesForIdentfiers[emissiveTexture.texture.source.identifier];
+            emissiveProperty.contents = [self materialPropertyContentsForTexture:emissiveTexture.texture];
             // TODO: How to support emissive.emissiveStrength?
             GLTFConfigureSCNMaterialProperty(emissiveProperty, emissiveTexture);
         } else {
@@ -648,7 +662,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         if (material.occlusionTexture) {
             GLTFTextureParams *occlusionTexture = material.occlusionTexture;
             SCNMaterialProperty *occlusionProperty = scnMaterial.ambientOcclusion;
-            occlusionProperty.contents = imagesForIdentfiers[occlusionTexture.texture.source.identifier];
+            occlusionProperty.contents = [self materialPropertyContentsForTexture:occlusionTexture.texture];
             GLTFConfigureSCNMaterialProperty(occlusionProperty, occlusionTexture);
         }
         if (material.clearcoat) {
@@ -656,7 +670,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 if (material.clearcoat.clearcoatTexture) {
                     GLTFTextureParams *clearcoatTexture = material.clearcoat.clearcoatTexture;
                     SCNMaterialProperty *clearcoatProperty = scnMaterial.clearCoat;
-                    clearcoatProperty.contents = imagesForIdentfiers[clearcoatTexture.texture.source.identifier];
+                    clearcoatProperty.contents = [self materialPropertyContentsForTexture:clearcoatTexture.texture];
                     GLTFConfigureSCNMaterialProperty(clearcoatProperty, material.clearcoat.clearcoatTexture);
                 } else {
                     scnMaterial.clearCoat.contents = @(material.clearcoat.clearcoatFactor);
@@ -664,7 +678,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 if (material.clearcoat.clearcoatRoughnessTexture) {
                     GLTFTextureParams *clearcoatRoughnessTexture = material.clearcoat.clearcoatRoughnessTexture;
                     SCNMaterialProperty *clearcoatRoughnessProperty = scnMaterial.clearCoatRoughness;
-                    clearcoatRoughnessProperty.contents = imagesForIdentfiers[clearcoatRoughnessTexture.texture.source.identifier];
+                    clearcoatRoughnessProperty.contents = [self materialPropertyContentsForTexture:clearcoatRoughnessTexture.texture];
                     GLTFConfigureSCNMaterialProperty(clearcoatRoughnessProperty, material.clearcoat.clearcoatRoughnessTexture);
                 } else {
                     scnMaterial.clearCoatRoughness.contents = @(material.clearcoat.clearcoatRoughnessFactor);
@@ -672,7 +686,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 if (material.clearcoat.clearcoatNormalTexture) {
                     GLTFTextureParams *clearcoatNormalTexture = material.clearcoat.clearcoatNormalTexture;
                     SCNMaterialProperty *clearcoatNormalProperty = scnMaterial.clearCoatNormal;
-                    clearcoatNormalProperty.contents = imagesForIdentfiers[clearcoatNormalTexture.texture.source.identifier];
+                    clearcoatNormalProperty.contents = [self materialPropertyContentsForTexture:clearcoatNormalTexture.texture];
                     GLTFConfigureSCNMaterialProperty(clearcoatNormalProperty, material.clearcoat.clearcoatNormalTexture);
                 }
             }
@@ -1094,6 +1108,8 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         // Last resort. The asset doesn't contain any scenes but we're contractually obligated to return something.
         _defaultScene = [SCNScene scene];
     }
+
+    [_materialPropertyContentsCache removeAllObjects];
 }
 
 @end

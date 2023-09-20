@@ -578,17 +578,21 @@ static dispatch_queue_t _loaderQueue;
     NSMutableArray *textures = [NSMutableArray arrayWithCapacity:gltf->textures_count];
     for (int i = 0; i < gltf->textures_count; ++i) {
         cgltf_texture *t = gltf->textures + i;
-        GLTFImage *image = nil;
+        GLTFImage *image = nil, *basisUImage = nil;
         GLTFTextureSampler *sampler = nil;
         if (t->image) {
             size_t imageIndex = t->image - gltf->images;
             image = self.asset.images[imageIndex];
         }
+        if (t->has_basisu) {
+            size_t imageIndex = t->basisu_image - gltf->images;
+            basisUImage = self.asset.images[imageIndex];
+        }
         if (t->sampler) {
             size_t samplerIndex = t->sampler - gltf->samplers;
             sampler = self.asset.samplers[samplerIndex];
         }
-        GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image];
+        GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image basisUSource:basisUImage];
         texture.sampler = sampler;
         texture.name = t->name ? GLTFUnescapeJSONString(t->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Texture"];
@@ -1102,8 +1106,7 @@ static dispatch_queue_t _loaderQueue;
 }
 
 - (BOOL)validateRequiredExtensions:(NSError **)error {
-    NSArray *supportedExtensions = @[
-        @"KHR_draco_mesh_compression",
+    NSMutableArray *supportedExtensions = [NSMutableArray arrayWithObjects:
         @"KHR_emissive_strength",
         @"KHR_materials_ior",
         @"KHR_lights_punctual",
@@ -1114,7 +1117,14 @@ static dispatch_queue_t _loaderQueue;
         @"KHR_materials_variants",
         @"KHR_texture_transform",
         @"KHR_materials_pbrSpecularGlossiness", // deprecated
+        nil
     ];
+    if ([GLTFAsset dracoDecompressorClassName] != nil) {
+        [supportedExtensions addObject:@"KHR_draco_mesh_compression"];
+    }
+#if defined(GLTF_BUILD_WITH_KTX2)
+    [supportedExtensions addObject:@"KHR_texture_basisu"];
+#endif
     NSMutableArray *unsupportedExtensions = [NSMutableArray array];
     for (NSString *requiredExtension in self.asset.extensionsRequired) {
         if (![supportedExtensions containsObject:requiredExtension]) {

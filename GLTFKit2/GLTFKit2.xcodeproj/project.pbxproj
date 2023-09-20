@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		83244B6B2ABA517F00ECA381 /* GLTFKTX2Support.h in Headers */ = {isa = PBXBuildFile; fileRef = 83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */; };
+		83244B6C2ABA517F00ECA381 /* GLTFKTX2Support.m in Sources */ = {isa = PBXBuildFile; fileRef = 83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */; };
 		834AD60A25E1A3960010608A /* GLTFSceneKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 834AD60825E1A3960010608A /* GLTFSceneKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		834AD60B25E1A3960010608A /* GLTFSceneKit.m in Sources */ = {isa = PBXBuildFile; fileRef = 834AD60925E1A3960010608A /* GLTFSceneKit.m */; };
 		834AD61025E1BD850010608A /* GLTFTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 834AD60F25E1BD500010608A /* GLTFTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -26,6 +28,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFKTX2Support.h; sourceTree = "<group>"; };
+		83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFKTX2Support.m; sourceTree = "<group>"; };
 		834AD60825E1A3960010608A /* GLTFSceneKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFSceneKit.h; sourceTree = "<group>"; };
 		834AD60925E1A3960010608A /* GLTFSceneKit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFSceneKit.m; sourceTree = "<group>"; };
 		834AD60F25E1BD500010608A /* GLTFTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFTypes.h; sourceTree = "<group>"; };
@@ -59,6 +63,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		83244B6E2ABA8C0E00ECA381 /* libktx */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = libktx;
+			sourceTree = "<group>";
+		};
 		834FF1BA25C27938001887C2 = {
 			isa = PBXGroup;
 			children = (
@@ -104,6 +115,8 @@
 				83821E03280CF37600D4A11A /* GLTFWorkflowHelper.h */,
 				83821E04280CF37600D4A11A /* GLTFWorkflowHelper.m */,
 				83821E07280D01FA00D4A11A /* WorkflowShaders.txt */,
+				83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */,
+				83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */,
 			);
 			path = impl;
 			sourceTree = "<group>";
@@ -111,6 +124,7 @@
 		8368059C277D3F6C00F3222A /* deps */ = {
 			isa = PBXGroup;
 			children = (
+				83244B6E2ABA8C0E00ECA381 /* libktx */,
 				8368059D277D3F6C00F3222A /* cgltf */,
 			);
 			path = deps;
@@ -139,6 +153,7 @@
 				834FF1C925C27938001887C2 /* GLTFKit2.h in Headers */,
 				83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */,
 				836805A5277D3F6C00F3222A /* cgltf_write.h in Headers */,
+				83244B6B2ABA517F00ECA381 /* GLTFKTX2Support.h in Headers */,
 				834FF1D925C3BE51001887C2 /* GLTFAssetReader.h in Headers */,
 				83821E05280CF37600D4A11A /* GLTFWorkflowHelper.h in Headers */,
 				834AD60A25E1A3960010608A /* GLTFSceneKit.h in Headers */,
@@ -214,6 +229,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83244B6C2ABA517F00ECA381 /* GLTFKTX2Support.m in Sources */,
 				834AD60B25E1A3960010608A /* GLTFSceneKit.m in Sources */,
 				83821E06280CF37600D4A11A /* GLTFWorkflowHelper.m in Sources */,
 				834FF1DA25C3BE51001887C2 /* GLTFAssetReader.m in Sources */,
@@ -281,7 +297,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -340,7 +356,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -355,6 +371,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
@@ -390,6 +407,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;

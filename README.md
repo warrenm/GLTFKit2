@@ -52,7 +52,11 @@ First, load the asset as shown above. Then, to get the default scene of a glTF a
 
 ### Using Draco Mesh Decompression
 
-GLTFKit2 supports meshes compressed with the [Draco geometry compression library](https://github.com/google/draco) through a plugin system. To activate Draco decompression support, implement the `GLTFDracoMeshDecompressor` protocol in your target, then set the `dracoDecompressorClassName` property on `GLTFAsset` to the name of the conforming class. The framework will then use the supplied class to convert compressed mesh data into glTF primitives which are suitable for rendering. A sample Draco decompressor class is provided in the macOS GLTFViewer target. You are responsible for compiling and linking to the Draco library itself in your own target.
+GLTFKit2 supports meshes compressed with the [Draco geometry compression library](https://github.com/google/draco) through a plugin system. To activate Draco decompression support, implement the `GLTFDracoMeshDecompressor` protocol in your target, then set the `dracoDecompressorClassName` property on `GLTFAsset` to the name of the conforming class. The framework will then use the supplied class to convert compressed mesh data into glTF primitives which are suitable for rendering. A sample Draco decompressor class is provided in the macOS GLTFViewer target. You are responsible for compiling and linking to the Draco library itself in your own target. If you would prefer not to compile the library yourself, consider using [DracoSwift](https://github.com/warrenm/DracoSwift).
+
+### Using KTX2 with Basis Universal
+
+GLTFKit2 optionally supports the [KHR_texture_basisu](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_texture_basisu) extension for loading KTX2 with Basis Universal textures via [libktx](https://github.com/KhronosGroup/KTX-Software). This repository contains a pre-built XCFramework with Universal binaries for macOS and iOS. If you wish to use KTX2 textures in your target, simply add `GLTFKit2/deps/libktx/ktx.xcframework` to the GLTFKit2 **framework** target, and it will automatically be detected and used to load KTX2 textures, whether embedded or stored externally in ktx2 files.
 
 ## Status and Conformance
 
@@ -155,7 +159,7 @@ Below is a checklist of glTF features and their current level of support.
  - [ ] KHR_materials_variants
  - [x] KHR_materials_volume
  - [ ] KHR_mesh_quantization
- - [ ] KHR_texture_basisu
+ - [x] KHR_texture_basisu
  - [x] KHR_texture_transform
  - [ ] KHR_xmp_json_ld
 

@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <simd/simd.h>
 #import <CoreGraphics/CoreGraphics.h>
+#import <Metal/Metal.h>
 
 #import <GLTFKit2/GLTFTypes.h>
 
@@ -310,6 +311,7 @@ GLTFKIT2_EXPORT
 - (instancetype)init NS_UNAVAILABLE;
 
 - (nullable CGImageRef)newCGImage;
+- (nullable id<MTLTexture>)newTextureWithDevice:(id<MTLDevice>)device;
 
 @end
 
@@ -580,8 +582,10 @@ GLTFKIT2_EXPORT
 
 @property (nonatomic, nullable, strong) GLTFTextureSampler *sampler;
 @property (nonatomic, nullable, strong) GLTFImage *source;
+@property (nonatomic, nullable, strong) GLTFImage *basisUSource;
 
-- (instancetype)initWithSource:(nullable GLTFImage *)source NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithSource:(nullable GLTFImage *)source;
+- (instancetype)initWithSource:(nullable GLTFImage *)source basisUSource:(nullable GLTFImage *)basisUSource NS_DESIGNATED_INITIALIZER;
 
 @end
 
