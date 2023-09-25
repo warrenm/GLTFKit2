@@ -336,9 +336,9 @@ public class GLTFRealityKitLoader {
     }
 
     func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent? {
-        let meshDescriptorAndMaterials = try gltfMesh.primitives.compactMap {
-            if let meshDescriptor = try self.convert(primitive: $0, context:context) {
-                let material = try self.convert(material: $0.material, context: context)
+        let meshDescriptorAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (RealityKit.MeshDescriptor, RealityKit.Material)? in
+            if let meshDescriptor = try self.convert(primitive: primitive, context:context) {
+                let material = try self.convert(material: primitive.material, context: context)
                 return (meshDescriptor, material)
             }
             // If we fail to create a mesh descriptor for a primitive, omit it from the list.

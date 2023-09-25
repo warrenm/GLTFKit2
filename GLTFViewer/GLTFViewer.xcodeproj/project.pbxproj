@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 53;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -557,6 +557,7 @@
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -613,6 +614,7 @@
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
@@ -633,7 +635,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-macos";
 				PRODUCT_NAME = "glTF Viewer";
-				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -654,7 +655,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-macos";
 				PRODUCT_NAME = "glTF Viewer";
-				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
@@ -674,7 +674,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-ios";
 				PRODUCT_NAME = "glTF Viewer";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -695,7 +694,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-ios";
 				PRODUCT_NAME = "glTF Viewer";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
