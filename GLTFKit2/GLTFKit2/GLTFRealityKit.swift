@@ -10,6 +10,14 @@ typealias PlatformColor = UIColor
 
 func degreesFromRadians(_ rad: Float) -> Float { return rad * (180 / .pi) }
 
+// Omit support for RealityKit entirely on platforms (such as macOS 11 Big Sur)
+// that don't have the required API features from RealityKit 2. We would, of course,
+// prefer to use a check that actually corresponds to the minimum supported SDKs
+// (macOS 12 Monterey, iOS 15, etc.), but we lack the tools necessary to do so,
+// so we fall back on language version.
+// https://forums.swift.org/t/do-we-need-something-like-if-available/40349/34
+#if swift(>=5.5)
+
 func packedStride(for accessor: GLTFAccessor) -> Int {
     var size = 0
     switch accessor.componentType {
@@ -522,3 +530,5 @@ public class GLTFRealityKitLoader {
 #endif
     }
 }
+
+#endif
