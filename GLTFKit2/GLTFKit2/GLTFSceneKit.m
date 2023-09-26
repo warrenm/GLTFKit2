@@ -975,7 +975,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         }
     }
 
-    NSMutableDictionary<NSUUID *, GLTFSCNAnimation *> *animationsForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray<GLTFSCNAnimation *> *animationPlayers = [NSMutableArray arrayWithCapacity:self.asset.animations.count];
     for (GLTFAnimation *animation in self.asset.animations) {
         NSMutableArray *caChannels = [NSMutableArray array];
         NSTimeInterval maxChannelTime = 0.0;
@@ -1077,7 +1077,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         GLTFSCNAnimation *gltfSCNAnimation = [GLTFSCNAnimation new];
         gltfSCNAnimation.name = animation.name;
         gltfSCNAnimation.animationPlayer = animationPlayer;
-        animationsForIdentifiers[animation.identifier] = gltfSCNAnimation;
+        [animationPlayers addObject:gltfSCNAnimation];
     }
 
     NSMutableDictionary *scenesForIdentifiers = [NSMutableDictionary dictionary];
@@ -1098,7 +1098,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     _nodes = [nodesForIdentifiers allValues];
     _geometries = [geometryForIdentifiers allValues];
     _scenes = [scenesForIdentifiers allValues];
-    _animations = [animationsForIdentifiers allValues];
+    _animations = [animationPlayers copy];
 
     if (self.asset.defaultScene) {
         _defaultScene = scenesForIdentifiers[self.asset.defaultScene.identifier];
