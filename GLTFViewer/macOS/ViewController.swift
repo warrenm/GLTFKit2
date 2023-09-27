@@ -10,9 +10,6 @@ class ViewController: NSViewController {
                 let source = GLTFSCNSceneSource(asset: asset)
                 sceneView.scene = source.defaultScene
                 animations = source.animations
-                if let defaultAnimation = animations.first {
-                    sceneView.scene?.rootNode.addAnimationPlayer(defaultAnimation.animationPlayer, forKey: nil)
-                }
                 sceneView.scene?.lightingEnvironment.contents = "studio.hdr"
                 sceneView.scene?.lightingEnvironment.intensity = 1.0
 
