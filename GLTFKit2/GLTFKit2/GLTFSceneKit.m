@@ -560,6 +560,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     NSMutableArray<SCNMaterial *> *materials = [NSMutableArray array];
     for (GLTFMaterial *material in self.asset.materials) {
         SCNMaterial *scnMaterial = [SCNMaterial new];
+        BOOL hasNonUnityBaseColorFactor = NO;
         scnMaterial.locksAmbientWithDiffuse = YES;
         if (material.isUnlit) {
             scnMaterial.lightingModelName = SCNLightingModelConstant;
@@ -576,9 +577,11 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 baseColorProperty.contents = [self materialPropertyContentsForTexture:baseColorTexture.texture];
                 GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
-                // This is a lossy transformation because we only have a scalar intensity,
-                // instead of proper support for color factors.
-                baseColorProperty.intensity = GLTFLuminanceFromRGBA(rgba);
+                if (rgba[0] != 1.0 || rgba[1] != 1.0 || rgba[2] != 1.0 || rgba[3] != 1.0) {
+                    // SceneKit only supports scalar factors for material property intensities,
+                    // so we need to use a shader modifier to modulate properly.
+                    hasNonUnityBaseColorFactor = YES;
+                }
             } else {
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
@@ -693,15 +696,39 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         }
         scnMaterial.doubleSided = material.isDoubleSided;
         scnMaterial.blendMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNBlendModeAlpha : SCNBlendModeReplace;
-        scnMaterial.transparencyMode = SCNTransparencyModeDefault;
-        NSString *unpremulSurfaceDiffuse = [NSString stringWithFormat:@"if (_surface.diffuse.a > 0.0f) {\n\t_surface.diffuse.rgb /= _surface.diffuse.a;\n}"];
-        if (material.alphaMode == GLTFAlphaModeMask) {
-            NSString *alphaTestFragment = [NSString stringWithFormat:@"if (_output.color.a < %f) {\n\tdiscard_fragment();\n}", material.alphaCutoff];
-            scnMaterial.shaderModifiers = @{ SCNShaderModifierEntryPointSurface : unpremulSurfaceDiffuse,
-                                             SCNShaderModifierEntryPointFragment : alphaTestFragment };
-        } else if (material.alphaMode == GLTFAlphaModeOpaque) {
-            scnMaterial.shaderModifiers = @{ SCNShaderModifierEntryPointSurface : unpremulSurfaceDiffuse };
+        scnMaterial.transparencyMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNTransparencyModeDualLayer : SCNTransparencyModeDefault;
+
+        NSMutableString *surfaceModifier = [NSMutableString stringWithString:@""];
+        NSMutableString *fragmentModifier = [NSMutableString stringWithString:@""];
+        NSString *unpremulSurfaceDiffuse = @"if (_surface.diffuse.a > 0.0f) {\n\t_surface.diffuse.rgb /= _surface.diffuse.a;\n}";
+
+        switch (material.alphaMode) {
+            case GLTFAlphaModeOpaque:
+                [surfaceModifier appendString:unpremulSurfaceDiffuse];
+                break;
+            case GLTFAlphaModeMask:
+                [surfaceModifier appendString:unpremulSurfaceDiffuse];
+                [fragmentModifier appendFormat:@"if (_output.color.a < %f) {\n\tdiscard_fragment();\n}", material.alphaCutoff];
+                break;
+            case GLTFAlphaModeBlend:
+                // TODO: Should alpha-blended materials get unpremultiplied?
+                break;
         }
+
+        if (hasNonUnityBaseColorFactor) {
+            simd_float4 f = material.metallicRoughness.baseColorFactor;
+            [surfaceModifier appendFormat:@"_surface.diffuse *= float4(%ff, %ff, %ff, %ff);\n", f[0], f[1], f[2], f[3]];
+        }
+
+        NSMutableDictionary *shaderModifiers = [NSMutableDictionary dictionary];
+        if (surfaceModifier.length > 0) {
+            shaderModifiers[SCNShaderModifierEntryPointSurface] = surfaceModifier;
+        }
+        if (fragmentModifier.length > 0) {
+            shaderModifiers[SCNShaderModifierEntryPointFragment] = fragmentModifier;
+        }
+        scnMaterial.shaderModifiers = [shaderModifiers copy];
+
         [materials addObject:scnMaterial];
     }
 
@@ -1082,6 +1109,14 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         gltfSCNAnimation.name = animation.name;
         gltfSCNAnimation.animationPlayer = animationPlayer;
         [animationPlayers addObject:gltfSCNAnimation];
+    }
+
+    for (SCNNode *node in nodesForIdentifiers.allValues) {
+        if (node.geometry.firstMaterial.blendMode == SCNBlendModeAlpha) {
+            // Force SceneKit to actually draw with blending enabled regardless of
+            // whether the base color texture is totally opaque...
+            node.opacity = node.opacity * 0.999999;
+        }
     }
 
     NSMutableArray *scenes = [NSMutableArray array];
