@@ -557,7 +557,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     defaultMaterial.metalness.contents = @(1.0);
     defaultMaterial.roughness.contents = @(1.0);
 
-    NSMutableDictionary <NSUUID *, SCNMaterial *> *materialsForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray<SCNMaterial *> *materials = [NSMutableArray array];
     for (GLTFMaterial *material in self.asset.materials) {
         SCNMaterial *scnMaterial = [SCNMaterial new];
         scnMaterial.locksAmbientWithDiffuse = YES;
@@ -702,7 +702,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         } else if (material.alphaMode == GLTFAlphaModeOpaque) {
             scnMaterial.shaderModifiers = @{ SCNShaderModifierEntryPointSurface : unpremulSurfaceDiffuse };
         }
-        materialsForIdentifiers[material.identifier] = scnMaterial;
+        [materials addObject:scnMaterial];
     }
 
     NSMutableDictionary <NSUUID *, SCNGeometry *> *geometryForIdentifiers = [NSMutableDictionary dictionary];
@@ -714,11 +714,13 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             if (positionAccessor != nil) {
                 vertexCount = (int)positionAccessor.count;
             }
-            SCNMaterial *material = materialsForIdentifiers[primitive.material.identifier];
+            NSInteger materialIndex = [self.asset.materials indexOfObject:primitive.material];
+            SCNMaterial *material = materials[materialIndex];
             if (self.activeMaterialVariant != nil) {
                 GLTFMaterial *materialOverride = [primitive effectiveMaterialForVariant:self.activeMaterialVariant];
                 if (materialOverride) {
-                    material = materialsForIdentifiers[materialOverride.identifier];
+                    NSInteger overrideMaterialIndex = [self.asset.materials indexOfObject:materialOverride];
+                    material = materials[overrideMaterialIndex];
                 }
             }
             NSData *indexData = nil;
@@ -767,7 +769,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         }
     }
 
-    NSMutableDictionary<NSUUID *, SCNCamera *> *camerasForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray<SCNCamera *> *cameras = [NSMutableArray array];
     for (GLTFCamera *camera in self.asset.cameras) {
         SCNCamera *scnCamera = [SCNCamera camera];
         scnCamera.name = camera.name;
@@ -783,10 +785,10 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         }
         scnCamera.zNear = camera.zNear;
         scnCamera.zFar = camera.zFar;
-        camerasForIdentifiers[camera.identifier] = scnCamera;
+        [cameras addObject:scnCamera];
     }
 
-    NSMutableDictionary<NSUUID *, SCNLight *> *lightsForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray *lights = [NSMutableArray array];
     for (GLTFLight *light in self.asset.lights) {
         SCNLight *scnLight = [SCNLight light];
         scnLight.name = light.name;
@@ -813,7 +815,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             }
         }
         scnLight.castsShadow = YES;
-        lightsForIdentifiers[light.identifier] = scnLight;
+        [lights addObject:scnLight];
     }
 
     NSMutableSet *legalizedNodeNames = [NSMutableSet set];
@@ -855,10 +857,12 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
 
         if (node.camera) {
-            scnNode.camera = camerasForIdentifiers[node.camera.identifier];
+            NSInteger cameraIndex = [self.asset.cameras indexOfObject:node.camera];
+            scnNode.camera = cameras[cameraIndex];
         }
         if (node.light) {
-            scnNode.light = lightsForIdentifiers[node.light.identifier];
+            NSInteger lightIndex = [self.asset.lights indexOfObject:node.light];
+            scnNode.light = lights[lightIndex];
         }
 
         // This collection holds the nodes to which any skin on this node should be applied,
@@ -1080,30 +1084,33 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         [animationPlayers addObject:gltfSCNAnimation];
     }
 
-    NSMutableDictionary *scenesForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray *scenes = [NSMutableArray array];
     for (GLTFScene *scene in self.asset.scenes) {
         SCNScene *scnScene = [SCNScene scene];
         for (GLTFNode *rootNode in scene.nodes) {
             SCNNode *scnChildNode = nodesForIdentifiers[rootNode.identifier];
             [scnScene.rootNode addChildNode:scnChildNode];
         }
-        scenesForIdentifiers[scene.identifier] = scnScene;
+        [scenes addObject:scnScene];
     }
 
     CGColorSpaceRelease(colorSpaceLinearSRGB);
 
-    _materials = [materialsForIdentifiers allValues];
-    _lights = [lightsForIdentifiers allValues];
-    _cameras = [camerasForIdentifiers allValues];
+    _materials = [materials copy];
+    _lights = [lights copy];
+    _cameras = [cameras copy];
     _nodes = [nodesForIdentifiers allValues];
     _geometries = [geometryForIdentifiers allValues];
-    _scenes = [scenesForIdentifiers allValues];
+    _scenes = [scenes copy];
     _animations = [animationPlayers copy];
 
     if (self.asset.defaultScene) {
-        _defaultScene = scenesForIdentifiers[self.asset.defaultScene.identifier];
-    } else if (self.asset.scenes.count > 0) {
-        _defaultScene = scenesForIdentifiers[self.asset.scenes.firstObject.identifier];
+        NSInteger defaultSceneIndex = [self.asset.scenes indexOfObject:self.asset.defaultScene];
+        if (defaultSceneIndex != NSNotFound) {
+            _defaultScene = self.scenes[defaultSceneIndex];
+        }
+    } else if (self.scenes.count > 0) {
+        _defaultScene = [self.scenes firstObject];
     } else {
         // Last resort. The asset doesn't contain any scenes but we're contractually obligated to return something.
         _defaultScene = [SCNScene scene];
