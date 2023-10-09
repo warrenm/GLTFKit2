@@ -219,10 +219,16 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
         finalIndexData = [NSData dataWithBytesNoCopy:indexStorage length:indexBufferLength freeWhenDone:YES];
     }
 
-    return [SCNGeometryElement geometryElementWithData:finalIndexData
-                                         primitiveType:primitiveType
-                                        primitiveCount:primitiveCount
-                                         bytesPerIndex:bytesPerIndex];
+    SCNGeometryElement *element = [SCNGeometryElement geometryElementWithData:finalIndexData
+                                                                primitiveType:primitiveType
+                                                               primitiveCount:primitiveCount
+                                                                bytesPerIndex:bytesPerIndex];
+    if (primitiveType == SCNGeometryPrimitiveTypePoint) {
+        // 3.9.7. Point and Line Materials: "Points and Lines SHOULD have widths of 1px in viewport space."
+        element.minimumPointScreenSpaceRadius = 1.0;
+        element.maximumPointScreenSpaceRadius = 1.0;
+    }
+    return element;
 }
 
 static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
