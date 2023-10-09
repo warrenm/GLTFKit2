@@ -717,6 +717,11 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 
         if (hasNonUnityBaseColorFactor) {
             simd_float4 f = material.metallicRoughness.baseColorFactor;
+            if (f[3] < 1.0f) {
+                // SceneKit needs to be informed that this modifier can produce transparent fragments,
+                // even if we expressly set the blend mode to alpha.
+                surfaceModifier = [NSMutableString stringWithFormat:@"#pragma transparent\n#pragma body\n%@", surfaceModifier];
+            }
             [surfaceModifier appendFormat:@"_surface.diffuse *= float4(%ff, %ff, %ff, %ff);\n", f[0], f[1], f[2], f[3]];
         }
 
@@ -1109,14 +1114,6 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         gltfSCNAnimation.name = animation.name;
         gltfSCNAnimation.animationPlayer = animationPlayer;
         [animationPlayers addObject:gltfSCNAnimation];
-    }
-
-    for (SCNNode *node in nodesForIdentifiers.allValues) {
-        if (node.geometry.firstMaterial.blendMode == SCNBlendModeAlpha) {
-            // Force SceneKit to actually draw with blending enabled regardless of
-            // whether the base color texture is totally opaque...
-            node.opacity = node.opacity * 0.999999;
-        }
     }
 
     NSMutableArray *scenes = [NSMutableArray array];
