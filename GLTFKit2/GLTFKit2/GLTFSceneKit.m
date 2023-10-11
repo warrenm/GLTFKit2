@@ -752,8 +752,13 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             if (positionAccessor != nil) {
                 vertexCount = (int)positionAccessor.count;
             }
-            NSInteger materialIndex = [self.asset.materials indexOfObject:primitive.material];
-            SCNMaterial *material = materials[materialIndex];
+            SCNMaterial *material = nil;
+            if (primitive.material) {
+                NSInteger materialIndex = [self.asset.materials indexOfObject:primitive.material];
+                if (materialIndex != NSNotFound) {
+                    material = materials[materialIndex];
+                }
+            }
             if (self.activeMaterialVariant != nil) {
                 GLTFMaterial *materialOverride = [primitive effectiveMaterialForVariant:self.activeMaterialVariant];
                 if (materialOverride) {
