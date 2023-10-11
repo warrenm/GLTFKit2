@@ -65,6 +65,7 @@ class ViewController: NSViewController {
         sceneView.allowsCameraControl = true
         sceneView.autoenablesDefaultLighting = true
         sceneView.backgroundColor = NSColor(named: "BackgroundColor") ?? NSColor.white
+        sceneView.antialiasingMode = .multisampling4X
     }
 
     @IBAction func focusOnScene(_ sender: Any) {

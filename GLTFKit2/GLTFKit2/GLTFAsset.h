@@ -30,11 +30,6 @@ extern const float LumensPerCandela;
 
 extern NSString *const GLTFErrorDomain;
 
-typedef NS_ENUM(NSUInteger, GLTFErrorCode) {
-    GLTFErrorCodeNoDataToLoad = 1010,
-    GLTFErrorCodeFailedToLoad = 1011,
-};
-
 typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
 extern GLTFAttributeSemantic GLTFAttributeSemanticPosition;
 extern GLTFAttributeSemantic GLTFAttributeSemanticNormal;
@@ -100,6 +95,17 @@ typedef NS_ENUM(NSInteger, GLTFAssetStatus) {
 typedef void (^GLTFAssetLoadingHandler)(float progress, GLTFAssetStatus status, GLTFAsset * _Nullable asset,
                                         NSError * _Nullable error, BOOL *stop);
 
+typedef NSString * GLTFAssetExportOption NS_STRING_ENUM;
+GLTFKIT2_EXPORT GLTFAssetExportOption const GLTFAssetExportAsBinary;  // BOOL-valued NSNumber
+
+#define GLTFAssetExportOptionExportAsBinary GLTFAssetExportAsBinary
+
+typedef void (^GLTFAssetURLExportProgressHandler)(float progress, GLTFAssetStatus status,
+                                                  NSError * _Nullable error, BOOL *stop);
+
+typedef void (^GLTFAssetDataExportProgressHandler)(float progress, GLTFAssetStatus status,
+                                                   NSData * _Nullable data, NSError * _Nullable error, BOOL *stop);
+
 typedef BOOL (^GLTFFilterPredicate)(GLTFObject *entry, NSString *identifier, BOOL *stop);
 
 @class GLTFAccessor, GLTFAnimation, GLTFBuffer, GLTFBufferView, GLTFCamera, GLTFImage, GLTFLight;
@@ -129,6 +135,13 @@ GLTFKIT2_EXPORT
 + (void)loadAssetWithData:(NSData *)data
                   options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                   handler:(nullable GLTFAssetLoadingHandler)handler;
+
+- (void)writeToURL:(NSURL *)url
+           options:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
+   progressHandler:(nullable GLTFAssetURLExportProgressHandler)progressHandler;
+
+- (void)serializeWithOptions:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
+             progressHandler:(nullable GLTFAssetDataExportProgressHandler)progressHandler;
 
 @property (class, nonatomic, copy) NSString *dracoDecompressorClassName;
 @property (nonatomic, nullable) NSURL *url;

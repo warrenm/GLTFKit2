@@ -513,20 +513,20 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
     }
     
     // Node -> MDLNode
-    //NSMutableDictionary<NSUUID *, MDLObject *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
-    //for (GLTFNode *node in asset.nodes) {
-    //    MDLObject *mdlNode = [MDLObject new];
-    //    if (node.mesh) {
-    //    }
-    //    if (node.light) {
-    //        MDLLight *light = lightsForIdentifiers[node.light.identifier];
-    //        [mdlNode addChild:light];
-    //    }
-    //    if (node.camera) {
-    //        MDLCamera *camera = camerasForIdentifiers[node.camera.identifier];
-    //        [mdlNode addChild:camera];
-    //    }
-    //}
+    NSMutableDictionary<NSUUID *, MDLObject *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
+    for (GLTFNode *node in asset.nodes) {
+        MDLObject *mdlNode = [MDLObject new];
+        if (node.mesh) {
+        }
+        if (node.light) {
+            MDLLight *light = lightsForIdentifiers[node.light.identifier];
+            [mdlNode addChild:light];
+        }
+        if (node.camera) {
+            MDLCamera *camera = camerasForIdentifiers[node.camera.identifier];
+            [mdlNode addChild:camera];
+        }
+    }
     
     // Scene -> MDLAsset
     

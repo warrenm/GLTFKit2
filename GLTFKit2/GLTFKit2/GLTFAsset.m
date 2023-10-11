@@ -1,6 +1,7 @@
 
 #import "GLTFAsset.h"
 #import "GLTFAssetReader.h"
+#import "GLTFAssetWriter.h"
 #import "GLTFLogging.h"
 #import "GLTFKTX2Support.h"
 
@@ -215,6 +216,19 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
                   handler:(nullable GLTFAssetLoadingHandler)handler
 {
     [GLTFAssetReader loadAssetWithData:data options:options handler:handler];
+}
+
+- (void)writeToURL:(NSURL *)url
+           options:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
+   progressHandler:(nullable GLTFAssetURLExportProgressHandler)progressHandler
+{
+    [GLTFAssetWriter writeAsset:self toURL:url options:options progressHandler:progressHandler];
+}
+
+- (void)serializeWithOptions:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
+             progressHandler:(nullable GLTFAssetDataExportProgressHandler)progressHandler
+{
+    [GLTFAssetWriter serializeAsset:self options:options progressHandler:progressHandler];
 }
 
 + (NSString *)dracoDecompressorClassName {

@@ -17,7 +17,7 @@ class DocumentController : NSDocumentController {
 
 class GLTFDocument: NSDocument {
     
-    var asset: GLTFAsset? {
+    var asset: GLTFAsset? = GLTFAsset() {
         didSet {
             if let asset = asset {
                 if let contentViewController = self.windowControllers.first?.contentViewController as? ViewController {
@@ -47,5 +47,28 @@ class GLTFDocument: NSDocument {
                 }
             }
         }
+    }
+
+    enum GLTFDocumentSaveError : Error {
+        case noAssetToWrite
+    }
+
+    override func data(ofType typeName: String) throws -> Data {
+        guard let asset = asset else {
+            throw GLTFDocumentSaveError.noAssetToWrite
+        }
+
+        var data: Data? = nil
+        let group = DispatchGroup()
+        group.enter()
+
+        asset.serialize(options: [.asBinary : false]) { progress, status, maybeData, maybeError, shouldStop in
+            data = maybeData
+            group.leave()
+        }
+
+        _ = group.wait(timeout: DispatchTime.now().advanced(by: .seconds(30)))
+
+        return data ?? Data()
     }
 }
