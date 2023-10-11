@@ -346,6 +346,65 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
     return [NSData dataWithBytesNoCopy:bytes length:bufferLength freeWhenDone:YES];
 }
 
+NSData *GLTFSCNNormalizePackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceAccessor) {
+    if (!sourceAccessor.isNormalized) {
+        return sourceData; // Nothing to do.
+    }
+    if ((sourceAccessor.componentType != GLTFComponentTypeByte) &&
+        (sourceAccessor.componentType != GLTFComponentTypeUnsignedByte) &&
+        (sourceAccessor.componentType != GLTFComponentTypeShort) &&
+        (sourceAccessor.componentType != GLTFComponentTypeUnsignedShort))
+    {
+        NSLog(@"[GLTFKit2] Warning: Failed to convert unsupported normalized data. Returning source data.");
+        return sourceData;
+    }
+
+    size_t vectorCount = sourceAccessor.count;
+    size_t componentCount = sourceAccessor.dimension;
+    size_t elementCount = vectorCount * componentCount;
+
+    size_t outBufferSize = vectorCount * componentCount * sizeof(float);
+    float *dstBase = malloc(outBufferSize);
+    NSData *outData = [NSData dataWithBytesNoCopy:dstBase length:outBufferSize freeWhenDone:YES];
+
+    // "Implementations MUST use following equations to decode real floating-point value f from a normalized integer c"
+    // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations
+    switch (sourceAccessor.componentType) {
+        case GLTFComponentTypeByte: {
+            const int8_t *srcBase = sourceData.bytes;
+            for (size_t i = 0; i < elementCount; ++i) {
+                dstBase[i] = MAX(srcBase[i] / 127.0f, -1.0f); // max(c / 127.0, -1.0)
+            }
+            break;
+        }
+        case GLTFComponentTypeUnsignedByte: {
+            const uint8_t *srcBase = sourceData.bytes;
+            for (size_t i = 0; i < elementCount; ++i) {
+                dstBase[i] = srcBase[i] / 255.0f; // f = c / 255.0
+            }
+            break;
+        }
+        case GLTFComponentTypeShort: {
+            const int16_t *srcBase = sourceData.bytes;
+            for (size_t i = 0; i < elementCount; ++i) {
+                dstBase[i] = MAX(srcBase[i] / 32767.0f, -1.0f); // f = max(c / 32767.0, -1.0)
+            }
+            break;
+        }
+        case GLTFComponentTypeUnsignedShort: {
+            const uint16_t *srcBase = sourceData.bytes;
+            for (size_t i = 0; i < elementCount; ++i) {
+                dstBase[i] = srcBase[i] / 65535.0f; // f = c / 65535.0
+            }
+            break;
+        }
+        default:
+            break; // Impossible.
+    }
+
+    return outData;
+}
+
 static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, NSTimeInterval maxKeyTime) {
     // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
     assert(accessor.componentType == GLTFComponentTypeFloat);
@@ -365,14 +424,23 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
     size_t bytesPerComponent = GLTFBytesPerComponentForComponentType(accessor.componentType);
     size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
     size_t elementSize = bytesPerComponent * componentCount;
+    BOOL floatComponents = (accessor.componentType == GLTFComponentTypeFloat);
     NSData *attrData = GLTFSCNPackedDataForAccessor(accessor);
+
+    // SceneKit doesn't support normalized integer geometry sources, so repack the data as float if needed.
+    if (accessor.isNormalized && (accessor.componentType != GLTFComponentTypeUnsignedInt)) {
+        attrData = GLTFSCNNormalizePackedDataToFloat(attrData, accessor);
+        bytesPerComponent = sizeof(float);
+        elementSize = bytesPerComponent * componentCount;
+        floatComponents = YES;
+    }
 
     // Ensure linear sum of weights is equal to 1; this is required by the spec,
     // and SceneKit relies on this invariant as of iOS 12 and macOS Mojave.
     // TODO: Support multiple sets of weights, assuring that sum of weights across
     // all weight sets is 1.
     if ([semanticName isEqualToString:@"WEIGHTS_0"]) {
-        assert(accessor.componentType == GLTFComponentTypeFloat && accessor.dimension == GLTFValueDimensionVector4 &&
+        assert(floatComponents && (componentCount == 4) &&
                  "Accessor for joint weights must be of float4 type; other data types are not currently supported");
         for (int i = 0; i < accessor.count; ++i) {
             float *weights = (float *)(attrData.bytes + i * elementSize);
@@ -389,7 +457,7 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
     return [SCNGeometrySource geometrySourceWithData:attrData
                                             semantic:GLTFSCNGeometrySourceSemanticForSemantic(semanticName)
                                          vectorCount:accessor.count
-                                     floatComponents:(accessor.componentType == GLTFComponentTypeFloat)
+                                     floatComponents:floatComponents
                                  componentsPerVector:componentCount
                                    bytesPerComponent:bytesPerComponent
                                           dataOffset:0
