@@ -393,7 +393,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
 - (instancetype)init {
     if (self = [super init]) {
         _yFOV = M_PI_2;
-        _aspectRatio = 1.0f;
+        _aspectRatio = 0.0f;
     }
     return self;
 }
@@ -406,7 +406,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
     if (self = [super init]) {
         _orthographic = orthographic;
         _zNear = 1.0f;
-        _zFar = 100.0f;
+        _zFar = 0.0f;
     }
     return self;
 }
@@ -415,7 +415,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
     if (self = [super init]) {
         _perspective = perspective;
         _zNear = 1.0f;
-        _zFar = 100.0f; //  TODO: Handle infinite far projection
+        _zFar = 0.0f; // Default to infinitely distant far plane
     }
     return self;
 }

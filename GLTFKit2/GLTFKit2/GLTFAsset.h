@@ -295,7 +295,12 @@ GLTFKIT2_EXPORT
 GLTFKIT2_EXPORT
 @interface GLTFPerspectiveProjectionParams : GLTFObject
 
+// If positive, the aspect ratio that should be used when rendering the scene.
+// If <= 0, an aspect ratio was not present in the asset and the aspect ratio
+// of the viewport should be used when rendering. Defaults to 0.
 @property (nonatomic, assign) float aspectRatio;
+
+// The camera's vertical field of view, expressed in radians. Defaults to pi/2.
 @property (nonatomic, assign) float yFOV;
 
 @end
@@ -306,6 +311,9 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFOrthographicProjectionParams *orthographic;
 @property (nonatomic, nullable, strong) GLTFPerspectiveProjectionParams *perspective;
 @property (nonatomic, assign) float zNear;
+
+// If positive, the distance from the camera to the far depth culling plane.
+// If <= 0, an infinite-distance projection matrix should be used. Defaults to 0.
 @property (nonatomic, assign) float zFar;
 
 - (instancetype)initWithOrthographicProjection:(GLTFOrthographicProjectionParams *)orthographic;

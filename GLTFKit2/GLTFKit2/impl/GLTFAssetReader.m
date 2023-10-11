@@ -899,10 +899,14 @@ static dispatch_queue_t _loaderQueue;
         } else if (c->type == cgltf_camera_type_perspective) {
             GLTFPerspectiveProjectionParams *params = [GLTFPerspectiveProjectionParams new];
             params.yFOV = c->data.perspective.yfov;
-            params.aspectRatio = c->data.perspective.aspect_ratio;
+            if (c->data.perspective.has_aspect_ratio) {
+                params.aspectRatio = c->data.perspective.aspect_ratio;
+            }
             camera = [[GLTFCamera alloc] initWithPerspectiveProjection:params];
             camera.zNear = c->data.perspective.znear;
-            camera.zFar = c->data.perspective.zfar;
+            if (c->data.perspective.has_zfar) {
+                camera.zFar = c->data.perspective.zfar;
+            }
         } else {
             camera = [GLTFCamera new]; // Got an invalid camera, so just make a dummy to occupy the slot
         }

@@ -895,7 +895,9 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             // No property for aspect ratio, so we drop it here.
         }
         scnCamera.zNear = camera.zNear;
-        scnCamera.zFar = camera.zFar;
+        if (camera.zFar > 0.0) {
+            scnCamera.zFar = camera.zFar;
+        }
         [cameras addObject:scnCamera];
     }
 

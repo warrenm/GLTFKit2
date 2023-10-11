@@ -509,9 +509,8 @@ public class GLTFRealityKitLoader {
     func convert(camera: GLTFCamera) -> PerspectiveCameraComponent? {
         if let perspectiveParams = camera.perspective {
             let camera = PerspectiveCameraComponent(near: camera.zNear,
-                                                    far: camera.zFar,
+                                                    far: (camera.zFar > 0.0) ? camera.zFar : .infinity,
                                                     fieldOfViewInDegrees: degreesFromRadians(perspectiveParams.yFOV))
-            // TODO: Correctly handle infinite far clip distance (camera.zFar == 0)
             return camera
         }
         return nil
