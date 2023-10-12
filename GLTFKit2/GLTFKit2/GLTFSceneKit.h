@@ -11,15 +11,9 @@ extern NSString *const GLTFAssetPropertyKeyMinVersion;
 extern NSString *const GLTFAssetPropertyKeyExtensionsUsed;
 extern NSString *const GLTFAssetPropertyKeyExtensionsRequired;
 
-@interface GLTFSCNAnimationChannel : NSObject
-@property (nonatomic, strong) SCNNode *target;
-@property (nonatomic, strong) SCNAnimation *animation;
-@end
-
 @interface GLTFSCNAnimation : NSObject
 @property (nonatomic, copy) NSString *name;
-@property (nonatomic, copy) NSArray<GLTFSCNAnimationChannel *> *channels;
-- (void)play;
+@property (nonatomic, copy) SCNAnimationPlayer *animationPlayer;
 @end
 
 @interface SCNScene (GLTFSceneKit)
@@ -38,6 +32,7 @@ extern NSString *const GLTFAssetPropertyKeyExtensionsRequired;
 @property (nonatomic, readonly) NSArray<GLTFSCNAnimation *> *animations;
 
 - (instancetype)initWithAsset:(GLTFAsset *)asset;
+- (instancetype)initWithAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant;
 
 /*!
  @method propertyForKey:

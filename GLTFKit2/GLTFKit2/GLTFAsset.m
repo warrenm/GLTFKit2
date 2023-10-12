@@ -1,9 +1,23 @@
 
 #import "GLTFAsset.h"
 #import "GLTFAssetReader.h"
+#import "GLTFLogging.h"
+#import "GLTFKTX2Support.h"
+
 #import <ImageIO/ImageIO.h>
 
+#if TARGET_OS_IPHONE
+#import <MobileCoreServices/MobileCoreServices.h>
+#endif
+
+NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
+
 const float LumensPerCandela = 1.0 / (4.0 * M_PI);
+
+static NSString *g_dracoDecompressorClassName = nil;
+
+GLTFAssetLoadingOption const GLTFAssetCreateNormalsIfAbsentKey = @"GLTFAssetCreateNormalsIfAbsentKey";
+GLTFAssetLoadingOption const GLTFAssetAssetDirectoryURLKey = @"GLTFAssetAssetDirectoryURLKey";
 
 NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
 
@@ -71,6 +85,57 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     return 0;
 }
 
+static NSString * _Nullable GLTFInferredMediaTypeForData(NSData *data) {
+    const uint8_t *bytes = (const uint8_t *)data.bytes;
+
+    uint8_t pngIdentifier[] = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+    if (data.length > 8 && (memcmp(bytes, pngIdentifier, 8) == 0)) {
+        return @"image/png";
+    }
+    uint8_t jpegIdentifier[] = { 0xFF, 0xD8, 0xFF };
+    if (data.length > 3 && (memcmp(bytes, jpegIdentifier, 8) == 0)) {
+        return @"image/jpeg";
+    }
+    uint8_t ktx2Identifier[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
+    if (data.length > 12 && (memcmp(bytes, ktx2Identifier, 12) == 0)) {
+        return GLTFMediaTypeKTX2;
+    }
+
+    return nil;
+}
+
+static NSString *_Nullable GLTFCreateUTIForMediaType(NSString *mediaType) {
+    // Despite a UTI for KTX2 existing in the system, it's not possible to create it from a file extension
+    // or MIME type as of macOS 14.0, even using the newer UTType APIs, so we hack around that here.
+    if ([mediaType isEqualToString:GLTFMediaTypeKTX2]) {
+        return @"org.khronos.ktx2";
+    }
+    CFStringRef uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, (__bridge CFStringRef)mediaType, NULL);
+    return (__bridge_transfer NSString *)uti;
+}
+
+NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaType) {
+    NSString *prefix = @"data:";
+    if ([uriData hasPrefix:prefix]) {
+        NSInteger prefixEnd = prefix.length;
+        NSInteger firstComma = [uriData rangeOfString:@","].location;
+        if (firstComma != NSNotFound) {
+            NSString *mediaTypeAndTokenString = [uriData substringWithRange:NSMakeRange(prefixEnd, firstComma - prefixEnd)];
+            NSArray *mediaTypeAndToken = [mediaTypeAndTokenString componentsSeparatedByString:@";"];
+            if (mediaTypeAndToken.count > 0) {
+                if (outMediaType) {
+                    *outMediaType = mediaTypeAndToken[0];
+                }
+                NSString *encodedImageData = [uriData substringFromIndex:firstComma + 1];
+                NSData *imageData = [[NSData alloc] initWithBase64EncodedString:encodedImageData
+                                                                        options:NSDataBase64DecodingIgnoreUnknownCharacters];
+                return imageData;
+            }
+        }
+    }
+    return nil;
+}
+
 @implementation GLTFObject
 
 - (instancetype)init {
@@ -96,11 +161,11 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     [self loadAssetWithURL:url options:options handler:^(float progress,
                                                          GLTFAssetStatus status,
                                                          GLTFAsset *asset,
-                                                         NSError *error,
+                                                         NSError *loadingError,
                                                          BOOL *stop)
     {
         if (status == GLTFAssetStatusError || status == GLTFAssetStatusComplete) {
-            internalError = error;
+            internalError = loadingError;
             maybeAsset = asset;
             dispatch_semaphore_signal(loadSemaphore);
         }
@@ -122,11 +187,11 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     [self loadAssetWithData:data options:options handler:^(float progress,
                                                          GLTFAssetStatus status,
                                                          GLTFAsset *asset,
-                                                         NSError *error,
+                                                         NSError *loadError,
                                                          BOOL *stop)
     {
         if (status == GLTFAssetStatusError || status == GLTFAssetStatusComplete) {
-            internalError = error;
+            internalError = loadError;
             maybeAsset = asset;
             dispatch_semaphore_signal(loadSemaphore);
         }
@@ -150,6 +215,14 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
                   handler:(nullable GLTFAssetLoadingHandler)handler
 {
     [GLTFAssetReader loadAssetWithData:data options:options handler:handler];
+}
+
++ (NSString *)dracoDecompressorClassName {
+    return g_dracoDecompressorClassName;
+}
+
++ (void)setDracoDecompressorClassName:(NSString *)dracoDecompressorClassName {
+    g_dracoDecompressorClassName = dracoDecompressorClassName;
 }
 
 - (instancetype)init {
@@ -178,7 +251,7 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @implementation GLTFAccessor
 
-- (instancetype)initWithBufferView:(GLTFBufferView * _Nullable)bufferView
+- (instancetype)initWithBufferView:(nullable GLTFBufferView *)bufferView
                             offset:(NSInteger)offset
                      componentType:(GLTFComponentType)componentType
                          dimension:(GLTFValueDimension)dimension
@@ -335,6 +408,11 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @end
 
+@interface GLTFImage ()
+@property (nonatomic, nullable) CGImageRef cachedImage;
+@property (nonatomic, nullable) id<MTLTexture> cachedTexture;
+@end
+
 @implementation GLTFImage
 
 - (instancetype)initWithURI:(NSURL *)uri {
@@ -352,23 +430,97 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     return self;
 }
 
-- (CGImageRef)newCGImage {
-    CGImageSourceRef imageSource = NULL;
+- (instancetype)initWithCGImage:(CGImageRef)cgImage {
+    if (self = [super init]) {
+        _cachedImage = CGImageRetain(cgImage);
+    }
+    return self;
+}
+
+- (void)dealloc {
+    CGImageRelease(_cachedImage);
+}
+
+- (nullable NSData *)newImageDataReturningInferredMediaType:(NSString **)outMediaType {
+    BOOL isAccessingSecurityScoped = NO;
+    __block NSData *data = nil;
+    NSString *mediaType = nil;
     if (self.bufferView) {
         NSData *imageData = self.bufferView.buffer.data;
         const UInt8 *imageBytes = imageData.bytes + self.bufferView.offset;
         CFDataRef sourceData = CFDataCreate(NULL, imageBytes, self.bufferView.length);
-        imageSource = CGImageSourceCreateWithData(sourceData, NULL);
-        CFRelease(sourceData);
+        data = (__bridge_transfer NSData *)sourceData;
     } else if (self.uri) {
-        imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)_uri, NULL);
+        if ([self.uri.scheme isEqual:@"data"]) {
+            data = GLTFCreateImageDataFromDataURI(self.uri.absoluteString, &mediaType);
+        } else {
+            isAccessingSecurityScoped = [self.assetDirectoryURL startAccessingSecurityScopedResource];
+            NSError *coordinationError = nil;
+            NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
+            [coordinator coordinateReadingItemAtURL:_uri options:0 error:&coordinationError byAccessor:^(NSURL *newURL) {
+                data = [NSData dataWithContentsOfURL:newURL];
+            }];
+        }
     }
-    if (imageSource) {
-        CGImageRef image = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
-        CFRelease(imageSource);
-        return image;
+    if (isAccessingSecurityScoped) {
+        [self.assetDirectoryURL stopAccessingSecurityScopedResource];
     }
-    return NULL;
+    if (data) {
+        if (mediaType == nil) {
+            mediaType = GLTFInferredMediaTypeForData(data);
+        }
+        if (outMediaType) {
+            *outMediaType = mediaType;
+        }
+    }
+    return data;
+}
+
+- (nullable CGImageRef)newCGImage {
+    if (self.cachedImage) {
+        return CGImageRetain(_cachedImage);
+    }
+
+    NSString *maybeMediaType = nil;
+    NSData *imageData = [self newImageDataReturningInferredMediaType:&maybeMediaType];
+    CGImageRef image = NULL;
+    if (imageData) {
+        if (maybeMediaType) {
+            NSString *uti = GLTFCreateUTIForMediaType(maybeMediaType);
+            NSArray *supportedUTIs = (__bridge NSArray *)CGImageSourceCopyTypeIdentifiers();
+            // Check for support for this image type. Note that image loading can still fail if, for example,
+            // the image file is a KTX2 container with an unsupported supercompression scheme like BasisU.
+            if (![supportedUTIs containsObject:uti]) {
+                GLTFLogWarning(@"[GLTFKit2] Unrecognized type identifier for image media type %@", maybeMediaType);
+            }
+        }
+        CGImageSourceRef imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
+        if (imageSource) {
+            image = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+            CFRelease(imageSource);
+        }
+    }
+    return image;
+}
+
+- (nullable id<MTLTexture>)newTextureWithDevice:(id<MTLDevice>)device {
+    if (self.cachedTexture) {
+        return self.cachedTexture;
+    }
+
+#ifdef GLTF_BUILD_WITH_KTX2
+    NSString *maybeMediaType = nil;
+    NSData *imageData = [self newImageDataReturningInferredMediaType:&maybeMediaType];
+
+    if (imageData && [maybeMediaType isEqualToString:GLTFMediaTypeKTX2]) {
+        id<MTLTexture> texture = GLTFCreateTextureFromKTX2Data(imageData, device);
+        return texture;
+    }
+#else
+    GLTFLogError(@"[GLTFKit2] Texture was requested from a GLTFImage, but GLTFKit2 was compiled without KTX2 support");
+#endif
+    
+    return nil;
 }
 
 @end
@@ -419,14 +571,79 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @end
 
+@implementation GLTFSpecularParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _specularFactor = 1.0f;
+        _specularColorFactor = (simd_float3){ 1.0f, 1.0f, 1.0f };
+    }
+    return self;
+}
+
+@end
+
+@implementation GLTFEmissiveParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _emissiveFactor = (simd_float3){ 0.0f, 0.0f, 0.0f };
+        _emissiveStrength = 1.0f;
+    }
+    return self;
+}
+
+@end
+
+@implementation GLTFTransmissionParams
+@end
+
+@implementation GLTFVolumeParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _thicknessFactor = 0.0f;
+        _attenuationDistance = FLT_MAX;
+        _attenuationColor = (simd_float3){ 1.0f, 1.0f, 1.0f };
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFClearcoatParams
+@end
+
+@implementation GLTFSheenParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _sheenColorFactor = (simd_float3){ 0.0f, 0.0f, 0.0f };
+        _sheenRoughnessFactor = 0.0f;
+    }
+    return self;
+}
+
+@end
+
+@implementation GLTFIridescence
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _iridescenceFactor = 0.0f;
+        _iridescenceIndexOfRefraction = 1.3f;
+        _iridescenceThicknessMinimum = 100.0f;
+        _iridescenceThicknessMaximum = 400.0f;
+    }
+    return self;
+}
+
 @end
 
 @implementation GLTFMaterial
 
 - (instancetype)init {
     if (self = [super init]) {
-        _emissiveFactor = (simd_float3){ 0.0f, 0.0f, 0.0f };
         _alphaMode = GLTFAlphaModeOpaque;
         _alphaCutoff = 0.5f;
         _doubleSided = NO;
@@ -451,6 +668,10 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @end
 
+@interface GLTFPrimitive ()
+@property (nonatomic, weak) GLTFMaterialMapping *cachedMapping;
+@end
+
 @implementation GLTFPrimitive
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
@@ -469,6 +690,23 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
         _indices = indices;
     }
     return self;
+}
+
+- (GLTFMaterial *)effectiveMaterialForVariant:(GLTFMaterialVariant *)variant {
+    if (variant == nil) {
+        return nil;
+    }
+    // Avoid a full scan if we've previously found a match (likely)
+    if ([self.cachedMapping.variant isEqual:variant]) {
+        return self.cachedMapping.material;
+    }
+    for (GLTFMaterialMapping *mapping in self.materialMappings) {
+        if ([mapping.variant isEqual:variant]) {
+            self.cachedMapping = mapping;
+            return mapping.material;
+        }
+    }
+    return nil;
 }
 
 @end
@@ -596,15 +834,43 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
 
 @implementation GLTFTexture
 
-- (instancetype)initWithSource:(GLTFImage *)source {
+- (instancetype)initWithSource:(nullable GLTFImage *)source basisUSource:(GLTFImage *)basisUSource {
     if (self = [super init]) {
         _source = source;
+        _basisUSource = basisUSource;
     }
     return self;
 }
 
+- (instancetype)initWithSource:(nullable GLTFImage *)source {
+    return [self initWithSource:source basisUSource:nil];
+}
+
 - (instancetype)init {
     return [self initWithSource:nil];
+}
+
+@end
+
+@implementation GLTFMaterialVariant
+
+- (instancetype)initWithName:(NSString *)name {
+    if (self = [super init]) {
+        [super setName:name];
+    }
+    return self;
+}
+
+@end
+
+@implementation GLTFMaterialMapping
+
+- (instancetype)initWithMaterial:(GLTFMaterial *)material variant:(GLTFMaterialVariant *)variant {
+    if (self = [super init]) {
+        _material = material;
+        _variant = variant;
+    }
+    return self;
 }
 
 @end

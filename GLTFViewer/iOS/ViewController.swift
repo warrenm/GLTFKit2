@@ -10,7 +10,12 @@ class ViewController: UIViewController {
                 let source = GLTFSCNSceneSource(asset: asset)
                 sceneView.scene = source.defaultScene
                 animations = source.animations
-                animations.first?.play()
+                if let defaultAnimation = animations.first {
+                    defaultAnimation.animationPlayer.animation.usesSceneTimeBase = false
+                    defaultAnimation.animationPlayer.animation.repeatCount = .greatestFiniteMagnitude
+                    sceneView.scene?.rootNode.addAnimationPlayer(defaultAnimation.animationPlayer, forKey: nil)
+                    defaultAnimation.animationPlayer.play()
+                }
                 sceneView.scene?.rootNode.addChildNode(cameraNode)
             }
         }
@@ -28,13 +33,8 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, 0, 3.5)
-        camera.automaticallyAdjustsZRange = true
-
         sceneView.allowsCameraControl = true
         sceneView.autoenablesDefaultLighting = true
-        sceneView.pointOfView = cameraNode
 
         loadAsset()
     }

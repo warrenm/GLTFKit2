@@ -1,8 +1,10 @@
 
 #import "GLTFSceneKit.h"
 #import "GLTFLogging.h"
+#import "GLTFWorkflowHelper.h"
 
 #import <SceneKit/ModelIO.h>
+#import <simd/simd.h>
 
 NSString *const GLTFAssetPropertyKeyCopyright = @"GLTFAssetPropertyKeyCopyright";
 NSString *const GLTFAssetPropertyKeyGenerator = @"GLTFAssetPropertyKeyGenerator";
@@ -206,10 +208,27 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
             break;
     }
 
-    return [SCNGeometryElement geometryElementWithData:finalIndexData
-                                         primitiveType:primitiveType
-                                        primitiveCount:primitiveCount
-                                         bytesPerIndex:bytesPerIndex];
+    if (finalIndexData.bytes == NULL) {
+        // Last resort. If we never had index data to begin with, fix up with an array of sequential indices
+        bytesPerIndex = 4;
+        size_t indexBufferLength = indexCount * bytesPerIndex;
+        uint32_t *indexStorage = (uint32_t *)malloc(indexCount * bytesPerIndex);
+        for (int i = 0; i < indexCount; ++i) {
+            indexStorage[i] = i;
+        }
+        finalIndexData = [NSData dataWithBytesNoCopy:indexStorage length:indexBufferLength freeWhenDone:YES];
+    }
+
+    SCNGeometryElement *element = [SCNGeometryElement geometryElementWithData:finalIndexData
+                                                                primitiveType:primitiveType
+                                                               primitiveCount:primitiveCount
+                                                                bytesPerIndex:bytesPerIndex];
+    if (primitiveType == SCNGeometryPrimitiveTypePoint) {
+        // 3.9.7. Point and Line Materials: "Points and Lines SHOULD have widths of 1px in viewport space."
+        element.minimumPointScreenSpaceRadius = 1.0;
+        element.maximumPointScreenSpaceRadius = 1.0;
+    }
+    return element;
 }
 
 static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
@@ -327,6 +346,65 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
     return [NSData dataWithBytesNoCopy:bytes length:bufferLength freeWhenDone:YES];
 }
 
+NSData *GLTFSCNNormalizePackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceAccessor) {
+    if (!sourceAccessor.isNormalized) {
+        return sourceData; // Nothing to do.
+    }
+    if ((sourceAccessor.componentType != GLTFComponentTypeByte) &&
+        (sourceAccessor.componentType != GLTFComponentTypeUnsignedByte) &&
+        (sourceAccessor.componentType != GLTFComponentTypeShort) &&
+        (sourceAccessor.componentType != GLTFComponentTypeUnsignedShort))
+    {
+        NSLog(@"[GLTFKit2] Warning: Failed to convert unsupported normalized data. Returning source data.");
+        return sourceData;
+    }
+
+    size_t vectorCount = sourceAccessor.count;
+    size_t componentCount = sourceAccessor.dimension;
+    size_t elementCount = vectorCount * componentCount;
+
+    size_t outBufferSize = vectorCount * componentCount * sizeof(float);
+    float *dstBase = malloc(outBufferSize);
+    NSData *outData = [NSData dataWithBytesNoCopy:dstBase length:outBufferSize freeWhenDone:YES];
+
+    // "Implementations MUST use following equations to decode real floating-point value f from a normalized integer c"
+    // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations
+    switch (sourceAccessor.componentType) {
+        case GLTFComponentTypeByte: {
+            const int8_t *srcBase = sourceData.bytes;
+            for (size_t i = 0; i < elementCount; ++i) {
+                dstBase[i] = MAX(srcBase[i] / 127.0f, -1.0f); // max(c / 127.0, -1.0)
+            }
+            break;
+        }
+        case GLTFComponentTypeUnsignedByte: {
+            const uint8_t *srcBase = sourceData.bytes;
+            for (size_t i = 0; i < elementCount; ++i) {
+                dstBase[i] = srcBase[i] / 255.0f; // f = c / 255.0
+            }
+            break;
+        }
+        case GLTFComponentTypeShort: {
+            const int16_t *srcBase = sourceData.bytes;
+            for (size_t i = 0; i < elementCount; ++i) {
+                dstBase[i] = MAX(srcBase[i] / 32767.0f, -1.0f); // f = max(c / 32767.0, -1.0)
+            }
+            break;
+        }
+        case GLTFComponentTypeUnsignedShort: {
+            const uint16_t *srcBase = sourceData.bytes;
+            for (size_t i = 0; i < elementCount; ++i) {
+                dstBase[i] = srcBase[i] / 65535.0f; // f = c / 65535.0
+            }
+            break;
+        }
+        default:
+            break; // Impossible.
+    }
+
+    return outData;
+}
+
 static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, NSTimeInterval maxKeyTime) {
     // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
     assert(accessor.componentType == GLTFComponentTypeFloat);
@@ -346,14 +424,23 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
     size_t bytesPerComponent = GLTFBytesPerComponentForComponentType(accessor.componentType);
     size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
     size_t elementSize = bytesPerComponent * componentCount;
+    BOOL floatComponents = (accessor.componentType == GLTFComponentTypeFloat);
     NSData *attrData = GLTFSCNPackedDataForAccessor(accessor);
+
+    // SceneKit doesn't support normalized integer geometry sources, so repack the data as float if needed.
+    if (accessor.isNormalized && (accessor.componentType != GLTFComponentTypeUnsignedInt)) {
+        attrData = GLTFSCNNormalizePackedDataToFloat(attrData, accessor);
+        bytesPerComponent = sizeof(float);
+        elementSize = bytesPerComponent * componentCount;
+        floatComponents = YES;
+    }
 
     // Ensure linear sum of weights is equal to 1; this is required by the spec,
     // and SceneKit relies on this invariant as of iOS 12 and macOS Mojave.
     // TODO: Support multiple sets of weights, assuring that sum of weights across
     // all weight sets is 1.
     if ([semanticName isEqualToString:@"WEIGHTS_0"]) {
-        assert(accessor.componentType == GLTFComponentTypeFloat && accessor.dimension == GLTFValueDimensionVector4 &&
+        assert(floatComponents && (componentCount == 4) &&
                  "Accessor for joint weights must be of float4 type; other data types are not currently supported");
         for (int i = 0; i < accessor.count; ++i) {
             float *weights = (float *)(attrData.bytes + i * elementSize);
@@ -370,7 +457,7 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
     return [SCNGeometrySource geometrySourceWithData:attrData
                                             semantic:GLTFSCNGeometrySourceSemanticForSemantic(semanticName)
                                          vectorCount:accessor.count
-                                     floatComponents:(accessor.componentType == GLTFComponentTypeFloat)
+                                     floatComponents:floatComponents
                                  componentsPerVector:componentCount
                                    bytesPerComponent:bytesPerComponent
                                           dataOffset:0
@@ -444,21 +531,11 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     return values;
 }
 
-static float GLTFLuminanceFromRGB(simd_float4 rgba) {
+static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     return 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2];
 }
 
-@implementation GLTFSCNAnimationChannel
-@end
-
 @implementation GLTFSCNAnimation
-
-- (void)play {
-    for (GLTFSCNAnimationChannel *channel in self.channels) {
-        [channel.target addAnimation:channel.animation forKey:nil];
-    }
-}
-
 @end
 
 @implementation SCNScene (GLTFSceneKit)
@@ -468,9 +545,16 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
     return source.defaultScene;
 }
 
++ (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant {
+    GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset applyingMaterialVariant:variant];
+    return source.defaultScene;
+}
+
 @end
 
-@interface GLTFSCNSceneSource ()
+@interface GLTFSCNSceneSource () {
+    NSMutableDictionary<NSUUID *, id> *_materialPropertyContentsCache;
+}
 @property (nonatomic, copy) NSDictionary *properties;
 @property (nonatomic, copy) NSArray<SCNMaterial *> *materials;
 @property (nonatomic, copy) NSArray<SCNLight *> *lights;
@@ -483,6 +567,7 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
 @property (nonatomic, copy) NSArray<GLTFSCNAnimation *> *animations;
 @property (nonatomic, strong) SCNScene *defaultScene;
 @property (nonatomic, strong) GLTFAsset *asset;
+@property (nonatomic, nullable, strong) GLTFMaterialVariant *activeMaterialVariant;
 @end
 
 @implementation GLTFSCNSceneSource
@@ -495,8 +580,33 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
     return self;
 }
 
+- (instancetype)initWithAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant {
+    if (self = [super init]) {
+        _asset = asset;
+        _activeMaterialVariant = variant;
+        [self convertAsset];
+    }
+    return self;
+}
+
 - (nullable id)propertyForKey:(NSString *)key {
     return _properties[key];
+}
+
+- (nullable id)materialPropertyContentsForTexture:(GLTFTexture *)texture {
+    if (_materialPropertyContentsCache[texture.identifier] != nil) {
+        return _materialPropertyContentsCache[texture.identifier];
+    }
+#ifdef GLTF_BUILD_WITH_KTX2
+    if (texture.basisUSource) {
+        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:MTLCreateSystemDefaultDevice()];
+        _materialPropertyContentsCache[texture.identifier] = metalTexture;
+        return metalTexture;
+    }
+#endif
+    CGImageRef cgImage = [texture.source newCGImage];
+    _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
+    return (__bridge id)cgImage;
 }
 
 - (void)convertAsset {
@@ -509,11 +619,7 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
     properties[GLTFAssetPropertyKeyExtensionsRequired] = self.asset.extensionsRequired;
     _properties = properties;
 
-    NSMutableDictionary<NSUUID *, id> *imagesForIdentfiers = [NSMutableDictionary dictionary];
-    for (GLTFImage *image in self.asset.images) {
-        CGImageRef cgImage = [image newCGImage];
-        imagesForIdentfiers[image.identifier] = (__bridge_transfer id)cgImage;
-    }
+    _materialPropertyContentsCache = [NSMutableDictionary dictionary];
 
     CGColorSpaceRef colorSpaceLinearSRGB = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
 
@@ -525,9 +631,10 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
     defaultMaterial.metalness.contents = @(1.0);
     defaultMaterial.roughness.contents = @(1.0);
 
-    NSMutableDictionary <NSUUID *, SCNMaterial *> *materialsForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray<SCNMaterial *> *materials = [NSMutableArray array];
     for (GLTFMaterial *material in self.asset.materials) {
         SCNMaterial *scnMaterial = [SCNMaterial new];
+        BOOL hasNonUnityBaseColorFactor = NO;
         scnMaterial.locksAmbientWithDiffuse = YES;
         if (material.isUnlit) {
             scnMaterial.lightingModelName = SCNLightingModelConstant;
@@ -541,12 +648,14 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
             if (material.metallicRoughness.baseColorTexture) {
                 GLTFTextureParams *baseColorTexture = material.metallicRoughness.baseColorTexture;
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
-                baseColorProperty.contents = imagesForIdentfiers[baseColorTexture.texture.source.identifier];
+                baseColorProperty.contents = [self materialPropertyContentsForTexture:baseColorTexture.texture];
                 GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
-                // This is a lossy transformation because we only have a scalar intensity,
-                // instead of proper support for color factors.
-                baseColorProperty.intensity = GLTFLuminanceFromRGB(rgba);
+                if (rgba[0] != 1.0 || rgba[1] != 1.0 || rgba[2] != 1.0 || rgba[3] != 1.0) {
+                    // SceneKit only supports scalar factors for material property intensities,
+                    // so we need to use a shader modifier to modulate properly.
+                    hasNonUnityBaseColorFactor = YES;
+                }
             } else {
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 simd_float4 rgba = material.metallicRoughness.baseColorFactor;
@@ -555,7 +664,42 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
             }
             if (material.metallicRoughness.metallicRoughnessTexture) {
                 GLTFTextureParams *metallicRoughnessTexture = material.metallicRoughness.metallicRoughnessTexture;
-                id metallicRoughnessImage = imagesForIdentfiers[metallicRoughnessTexture.texture.source.identifier];
+                id metallicRoughnessImage = [self materialPropertyContentsForTexture:metallicRoughnessTexture.texture];
+
+                SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
+                metallicProperty.contents = metallicRoughnessImage;
+                GLTFConfigureSCNMaterialProperty(metallicProperty, metallicRoughnessTexture);
+                metallicProperty.textureComponents = SCNColorMaskBlue;
+                metallicProperty.intensity = material.metallicRoughness.metallicFactor;
+
+                SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
+                roughnessProperty.contents = metallicRoughnessImage;
+                GLTFConfigureSCNMaterialProperty(roughnessProperty, metallicRoughnessTexture);
+                roughnessProperty.textureComponents = SCNColorMaskGreen;
+                roughnessProperty.intensity = material.metallicRoughness.roughnessFactor;
+            } else {
+                SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
+                metallicProperty.contents = @(material.metallicRoughness.metallicFactor);
+                SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
+                roughnessProperty.contents = @(material.metallicRoughness.roughnessFactor);
+            }
+        } else if (material.specularGlossiness) {
+            GLTFWorkflowHelper *workflowConverter = [[GLTFWorkflowHelper alloc] initWithSpecularGlossiness:material.specularGlossiness];
+            if (workflowConverter.baseColorTexture) {
+                GLTFTextureParams *baseColorTexture = workflowConverter.baseColorTexture;
+                SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
+                baseColorProperty.contents = (__bridge_transfer id)[workflowConverter.baseColorTexture.texture.source newCGImage];
+                GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
+                baseColorProperty.intensity = GLTFLuminanceFromRGBA(workflowConverter.baseColorFactor);
+            } else {
+                SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
+                simd_float4 rgba = workflowConverter.baseColorFactor;
+                CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
+                baseColorProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
+            }
+            if (workflowConverter.metallicRoughnessTexture) {
+                GLTFTextureParams *metallicRoughnessTexture = workflowConverter.metallicRoughnessTexture;
+                id metallicRoughnessImage = (__bridge_transfer id)[workflowConverter.metallicRoughnessTexture.texture.source newCGImage];
 
                 SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
                 metallicProperty.contents = metallicRoughnessImage;
@@ -568,49 +712,34 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 roughnessProperty.textureComponents = SCNColorMaskGreen;
             } else {
                 SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
-                metallicProperty.contents = @(material.metallicRoughness.metallicFactor);
+                metallicProperty.contents = @(workflowConverter.metallicFactor);
                 SCNMaterialProperty *roughnessProperty = scnMaterial.roughness;
-                roughnessProperty.contents = @(material.metallicRoughness.roughnessFactor);
+                roughnessProperty.contents = @(workflowConverter.roughnessFactor);
             }
-        } else if (material.specularGlossiness) {
-            if (material.specularGlossiness.diffuseTexture) {
-                GLTFTextureParams *diffuseTexture = material.specularGlossiness.diffuseTexture;
-                SCNMaterialProperty *diffuseProperty = scnMaterial.diffuse;
-                diffuseProperty.contents = imagesForIdentfiers[diffuseTexture.texture.source.identifier];
-                GLTFConfigureSCNMaterialProperty(diffuseProperty, diffuseTexture);
-                simd_float4 rgba = material.specularGlossiness.diffuseFactor;
-                // This is a lossy transformation because we only have a scalar intensity,
-                // instead of proper support for color factors.
-                diffuseProperty.intensity = GLTFLuminanceFromRGB(rgba);
-            } else {
-                SCNMaterialProperty *diffuseProperty = scnMaterial.diffuse;
-                simd_float4 rgba = material.specularGlossiness.diffuseFactor;
-                CGFloat rgbad[] = { rgba[0], rgba[1], rgba[2], rgba[3] };
-                diffuseProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, rgbad);
-            }
-            // TODO: Remainder of specular-glossiness model
         }
         if (material.normalTexture) {
             GLTFTextureParams *normalTexture = material.normalTexture;
             SCNMaterialProperty *normalProperty = scnMaterial.normal;
-            normalProperty.contents = imagesForIdentfiers[normalTexture.texture.source.identifier];
+            normalProperty.contents = [self materialPropertyContentsForTexture:normalTexture.texture];
             GLTFConfigureSCNMaterialProperty(normalProperty, normalTexture);
         }
-        if (material.emissiveTexture) {
-            GLTFTextureParams *emissiveTexture = material.emissiveTexture;
+        if (material.emissive.emissiveTexture) {
+            GLTFTextureParams *emissiveTexture = material.emissive.emissiveTexture;
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
-            emissiveProperty.contents = imagesForIdentfiers[emissiveTexture.texture.source.identifier];
+            emissiveProperty.contents = [self materialPropertyContentsForTexture:emissiveTexture.texture];
+            // TODO: How to support emissive.emissiveStrength?
             GLTFConfigureSCNMaterialProperty(emissiveProperty, emissiveTexture);
         } else {
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
-            simd_float3 rgb = material.emissiveFactor;
+            simd_float3 rgb = material.emissive.emissiveFactor;
+            // TODO: Multiply in emissive.emissiveStrength?
             CGFloat rgbad[] = { rgb[0], rgb[1], rgb[2], 1.0 };
             emissiveProperty.contents = (__bridge_transfer id)CGColorCreate(colorSpaceLinearSRGB, &rgbad[0]);
         }
         if (material.occlusionTexture) {
             GLTFTextureParams *occlusionTexture = material.occlusionTexture;
             SCNMaterialProperty *occlusionProperty = scnMaterial.ambientOcclusion;
-            occlusionProperty.contents = imagesForIdentfiers[occlusionTexture.texture.source.identifier];
+            occlusionProperty.contents = [self materialPropertyContentsForTexture:occlusionTexture.texture];
             GLTFConfigureSCNMaterialProperty(occlusionProperty, occlusionTexture);
         }
         if (material.clearcoat) {
@@ -618,7 +747,7 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 if (material.clearcoat.clearcoatTexture) {
                     GLTFTextureParams *clearcoatTexture = material.clearcoat.clearcoatTexture;
                     SCNMaterialProperty *clearcoatProperty = scnMaterial.clearCoat;
-                    clearcoatProperty.contents = imagesForIdentfiers[clearcoatTexture.texture.source.identifier];
+                    clearcoatProperty.contents = [self materialPropertyContentsForTexture:clearcoatTexture.texture];
                     GLTFConfigureSCNMaterialProperty(clearcoatProperty, material.clearcoat.clearcoatTexture);
                 } else {
                     scnMaterial.clearCoat.contents = @(material.clearcoat.clearcoatFactor);
@@ -626,7 +755,7 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 if (material.clearcoat.clearcoatRoughnessTexture) {
                     GLTFTextureParams *clearcoatRoughnessTexture = material.clearcoat.clearcoatRoughnessTexture;
                     SCNMaterialProperty *clearcoatRoughnessProperty = scnMaterial.clearCoatRoughness;
-                    clearcoatRoughnessProperty.contents = imagesForIdentfiers[clearcoatRoughnessTexture.texture.source.identifier];
+                    clearcoatRoughnessProperty.contents = [self materialPropertyContentsForTexture:clearcoatRoughnessTexture.texture];
                     GLTFConfigureSCNMaterialProperty(clearcoatRoughnessProperty, material.clearcoat.clearcoatRoughnessTexture);
                 } else {
                     scnMaterial.clearCoatRoughness.contents = @(material.clearcoat.clearcoatRoughnessFactor);
@@ -634,23 +763,52 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 if (material.clearcoat.clearcoatNormalTexture) {
                     GLTFTextureParams *clearcoatNormalTexture = material.clearcoat.clearcoatNormalTexture;
                     SCNMaterialProperty *clearcoatNormalProperty = scnMaterial.clearCoatNormal;
-                    clearcoatNormalProperty.contents = imagesForIdentfiers[clearcoatNormalTexture.texture.source.identifier];
+                    clearcoatNormalProperty.contents = [self materialPropertyContentsForTexture:clearcoatNormalTexture.texture];
                     GLTFConfigureSCNMaterialProperty(clearcoatNormalProperty, material.clearcoat.clearcoatNormalTexture);
                 }
             }
         }
         scnMaterial.doubleSided = material.isDoubleSided;
         scnMaterial.blendMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNBlendModeAlpha : SCNBlendModeReplace;
-        scnMaterial.transparencyMode = SCNTransparencyModeDefault;
-        NSString *unpremulSurfaceDiffuse = [NSString stringWithFormat:@"if (_surface.diffuse.a > 0.0f) {\n\t_surface.diffuse.rgb /= _surface.diffuse.a;\n}"];
-        if (material.alphaMode == GLTFAlphaModeMask) {
-            NSString *alphaTestFragment = [NSString stringWithFormat:@"if (_output.color.a < %f) {\n\tdiscard_fragment();\n}", material.alphaCutoff];
-            scnMaterial.shaderModifiers = @{ SCNShaderModifierEntryPointSurface : unpremulSurfaceDiffuse,
-                                             SCNShaderModifierEntryPointFragment : alphaTestFragment };
-        } else if (material.alphaMode == GLTFAlphaModeOpaque) {
-            scnMaterial.shaderModifiers = @{ SCNShaderModifierEntryPointSurface : unpremulSurfaceDiffuse };
+        scnMaterial.transparencyMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNTransparencyModeDualLayer : SCNTransparencyModeDefault;
+
+        NSMutableString *surfaceModifier = [NSMutableString stringWithString:@""];
+        NSMutableString *fragmentModifier = [NSMutableString stringWithString:@""];
+        NSString *unpremulSurfaceDiffuse = @"if (_surface.diffuse.a > 0.0f) {\n\t_surface.diffuse.rgb /= _surface.diffuse.a;\n}";
+
+        switch (material.alphaMode) {
+            case GLTFAlphaModeOpaque:
+                [surfaceModifier appendString:unpremulSurfaceDiffuse];
+                break;
+            case GLTFAlphaModeMask:
+                [surfaceModifier appendString:unpremulSurfaceDiffuse];
+                [fragmentModifier appendFormat:@"if (_output.color.a < %f) {\n\tdiscard_fragment();\n}", material.alphaCutoff];
+                break;
+            case GLTFAlphaModeBlend:
+                // TODO: Should alpha-blended materials get unpremultiplied?
+                break;
         }
-        materialsForIdentifiers[material.identifier] = scnMaterial;
+
+        if (hasNonUnityBaseColorFactor) {
+            simd_float4 f = material.metallicRoughness.baseColorFactor;
+            if (f[3] < 1.0f) {
+                // SceneKit needs to be informed that this modifier can produce transparent fragments,
+                // even if we expressly set the blend mode to alpha.
+                surfaceModifier = [NSMutableString stringWithFormat:@"#pragma transparent\n#pragma body\n%@", surfaceModifier];
+            }
+            [surfaceModifier appendFormat:@"_surface.diffuse *= float4(%ff, %ff, %ff, %ff);\n", f[0], f[1], f[2], f[3]];
+        }
+
+        NSMutableDictionary *shaderModifiers = [NSMutableDictionary dictionary];
+        if (surfaceModifier.length > 0) {
+            shaderModifiers[SCNShaderModifierEntryPointSurface] = surfaceModifier;
+        }
+        if (fragmentModifier.length > 0) {
+            shaderModifiers[SCNShaderModifierEntryPointFragment] = fragmentModifier;
+        }
+        scnMaterial.shaderModifiers = [shaderModifiers copy];
+
+        [materials addObject:scnMaterial];
     }
 
     NSMutableDictionary <NSUUID *, SCNGeometry *> *geometryForIdentifiers = [NSMutableDictionary dictionary];
@@ -662,7 +820,20 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
             if (positionAccessor != nil) {
                 vertexCount = (int)positionAccessor.count;
             }
-            SCNMaterial *material = materialsForIdentifiers[primitive.material.identifier];
+            SCNMaterial *material = nil;
+            if (primitive.material) {
+                NSInteger materialIndex = [self.asset.materials indexOfObject:primitive.material];
+                if (materialIndex != NSNotFound) {
+                    material = materials[materialIndex];
+                }
+            }
+            if (self.activeMaterialVariant != nil) {
+                GLTFMaterial *materialOverride = [primitive effectiveMaterialForVariant:self.activeMaterialVariant];
+                if (materialOverride) {
+                    NSInteger overrideMaterialIndex = [self.asset.materials indexOfObject:materialOverride];
+                    material = materials[overrideMaterialIndex];
+                }
+            }
             NSData *indexData = nil;
             int indexSize = 1;
             int indexCount = vertexCount; // If we're not indexed (determined below), our "index" count is our vertex count
@@ -709,7 +880,7 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
         }
     }
 
-    NSMutableDictionary<NSUUID *, SCNCamera *> *camerasForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray<SCNCamera *> *cameras = [NSMutableArray array];
     for (GLTFCamera *camera in self.asset.cameras) {
         SCNCamera *scnCamera = [SCNCamera camera];
         scnCamera.name = camera.name;
@@ -725,10 +896,10 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
         }
         scnCamera.zNear = camera.zNear;
         scnCamera.zFar = camera.zFar;
-        camerasForIdentifiers[camera.identifier] = scnCamera;
+        [cameras addObject:scnCamera];
     }
 
-    NSMutableDictionary<NSUUID *, SCNLight *> *lightsForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray *lights = [NSMutableArray array];
     for (GLTFLight *light in self.asset.lights) {
         SCNLight *scnLight = [SCNLight light];
         scnLight.name = light.name;
@@ -747,9 +918,34 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                 scnLight.spotOuterAngle = GLTFDegFromRad(light.outerConeAngle);
                 break;
         }
-        // TODO: Range and attenuation.
+        if (light.type != GLTFLightTypeDirectional) {
+            if (light.range > 0.0) {
+                scnLight.attenuationStartDistance = 1e-5;
+                scnLight.attenuationEndDistance = light.range;
+                scnLight.attenuationFalloffExponent = 2.0;
+            }
+        }
         scnLight.castsShadow = YES;
-        lightsForIdentifiers[light.identifier] = scnLight;
+        [lights addObject:scnLight];
+    }
+
+    NSMutableSet *legalizedNodeNames = [NSMutableSet set];
+    // Legalize and unique GLTF node names. Node names should not contain periods in SceneKit because
+    // Cocoa key paths are period-separated. Node names should also ideally be unique so that there
+    // is no ambiguity in name-based animation key paths (e.g. "/Node.position")
+    for (GLTFNode *node in self.asset.nodes) {
+        NSString *legalizedName = [node.name stringByReplacingOccurrencesOfString:@"." withString:@"_"];
+        if ([legalizedNodeNames containsObject:legalizedName]) {
+            NSInteger uniqueIndex = 1;
+            NSString *uniquedName = legalizedName;
+            do {
+                uniquedName = [NSString stringWithFormat:@"%@_%d", legalizedName, (int)uniqueIndex];
+                ++uniqueIndex;
+            } while ([legalizedNodeNames containsObject:uniquedName]);
+            legalizedName = uniquedName;
+        }
+        [legalizedNodeNames addObject:legalizedName];
+        node.name = legalizedName;
     }
 
     NSMutableDictionary<NSUUID *, SCNNode *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
@@ -772,10 +968,12 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
         SCNNode *scnNode = nodesForIdentifiers[node.identifier];
 
         if (node.camera) {
-            scnNode.camera = camerasForIdentifiers[node.camera.identifier];
+            NSInteger cameraIndex = [self.asset.cameras indexOfObject:node.camera];
+            scnNode.camera = cameras[cameraIndex];
         }
         if (node.light) {
-            scnNode.light = lightsForIdentifiers[node.light.identifier];
+            NSInteger lightIndex = [self.asset.lights indexOfObject:node.light];
+            scnNode.light = lights[lightIndex];
         }
 
         // This collection holds the nodes to which any skin on this node should be applied,
@@ -790,6 +988,7 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
             } else {
                 for (int i = 0; i < primitives.count; ++i) {
                     SCNNode *geometryNode = [SCNNode node];
+                    geometryNode.name = [NSString stringWithFormat:@"%@_primitive%02d", node.name, i];
                     [scnNode addChildNode:geometryNode];
                     [geometryNodes addObject:geometryNode];
                 }
@@ -854,6 +1053,7 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
 
                     SCNMorpher *scnMorpher = [SCNMorpher new];
                     scnMorpher.calculationMode = SCNMorpherCalculationModeAdditive;
+                    scnMorpher.unifiesNormals = YES;
                     scnMorpher.targets = morphGeometries;
                     scnMorpher.weights = node.weights ?: node.mesh.weights;
                     geometryNode.morpher = scnMorpher;
@@ -890,45 +1090,24 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
         }
     }
 
-    NSMutableDictionary<NSUUID *, GLTFSCNAnimation *> *animationsForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray<GLTFSCNAnimation *> *animationPlayers = [NSMutableArray arrayWithCapacity:self.asset.animations.count];
     for (GLTFAnimation *animation in self.asset.animations) {
-        NSMutableArray *scnChannels = [NSMutableArray array];
-        NSTimeInterval maxChannelKeyTime = 0.0;
+        NSMutableArray *caChannels = [NSMutableArray array];
+        NSTimeInterval maxChannelTime = 0.0;
         for (GLTFAnimationChannel *channel in animation.channels) {
+            NSTimeInterval channelMaxKeyTime = 0.0;
             if (channel.sampler.input.maxValues.count > 0) {
-                NSTimeInterval channelMaxTime = channel.sampler.input.maxValues.firstObject.doubleValue;
-                if (channelMaxTime > maxChannelKeyTime) {
-                    maxChannelKeyTime = channelMaxTime;
-                }
+                channelMaxKeyTime = channel.sampler.input.maxValues.firstObject.doubleValue;
             }
-        }
-        for (GLTFAnimationChannel *channel in animation.channels) {
-            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, maxChannelKeyTime);
+            maxChannelTime = MAX(maxChannelTime, channelMaxKeyTime);
+            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, channelMaxKeyTime);
             if ([channel.target.path isEqualToString:GLTFAnimationPathWeights]) {
                 NSUInteger targetCount = channel.target.node.mesh.primitives.firstObject.targets.count;
                 assert(targetCount > 0);
                 NSArray<NSArray<NSNumber *> *> *weightArrays = GLTFWeightsArraysForAccessor(channel.sampler.output, targetCount);
 
-                NSMutableArray *weightAnimations = [NSMutableArray array];
-                for (int t = 0; t < targetCount; ++t) {
-                    NSString *keyPath = [NSString stringWithFormat:@"morpher.weights[%d]", t];
-                    CAKeyframeAnimation *weightAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
-                    weightAnimation.keyTimes = baseKeyTimes;
-                    weightAnimation.values = weightArrays[t];
-                    // TODO: Support non-linear calculation modes?
-                    weightAnimation.calculationMode = kCAAnimationLinear;
-                    weightAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
-                    weightAnimation.duration = maxChannelKeyTime;
-                    weightAnimation.repeatDuration = FLT_MAX;
-                    [weightAnimations addObject:weightAnimation];
-                }
-                CAAnimationGroup *caAnimation = [CAAnimationGroup animation];
-                caAnimation.animations = weightAnimations;
-                caAnimation.duration = maxChannelKeyTime;
-                caAnimation.repeatDuration = FLT_MAX;
-
                 SCNNode *targetRoot = nodesForIdentifiers[channel.target.node.identifier];
-                NSMutableArray *geometryNodes = [NSMutableArray array];
+                NSMutableArray<SCNNode *> *geometryNodes = [NSMutableArray array];
                 if (targetRoot.geometry != nil) {
                     [geometryNodes addObject:targetRoot];
                 } else {
@@ -939,28 +1118,43 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                     }
                 }
 
-                for (SCNNode *geometryNode in geometryNodes) {
-                    GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
-                    clipChannel.target = geometryNode;
-                    SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
-                    clipChannel.animation = scnAnimation;
-                    [scnChannels addObject:clipChannel];
+                NSMutableArray *weightAnimations = [NSMutableArray array];
+                for (int t = 0; t < targetCount; ++t) {
+                    for (int n = 0; n < geometryNodes.count; ++n) {
+                        NSString *propertyKeyPath = [NSString stringWithFormat:@"morpher.weights[%d]", t];
+                        NSString *targetRootPath = [NSString stringWithFormat:@"/%@", geometryNodes[n].name];
+                        NSString *keyPath = [@[targetRootPath, propertyKeyPath] componentsJoinedByString:@"."];
+                        CAKeyframeAnimation *weightAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
+                        weightAnimation.keyTimes = baseKeyTimes;
+                        weightAnimation.values = weightArrays[t];
+                        // TODO: Support non-linear calculation modes?
+                        weightAnimation.calculationMode = kCAAnimationLinear;
+                        weightAnimation.duration = channelMaxKeyTime;
+                        weightAnimation.repeatDuration = FLT_MAX;
+                        [weightAnimations addObject:weightAnimation];
+                    }
                 }
+                CAAnimationGroup *caAnimation = [CAAnimationGroup animation];
+                caAnimation.animations = weightAnimations;
+                caAnimation.duration = channelMaxKeyTime;
+                [caChannels addObject:caAnimation];
             } else {
                 CAKeyframeAnimation *caAnimation = nil;
                 if ([channel.target.path isEqualToString:GLTFAnimationPathTranslation]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"position"];
+                    NSString *keyPath = [NSString stringWithFormat:@"/%@.position", channel.target.node.name];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else if ([channel.target.path isEqualToString:GLTFAnimationPathRotation]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"orientation"];
+                    NSString *keyPath = [NSString stringWithFormat:@"/%@.orientation", channel.target.node.name];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector4ArrayForAccessor(channel.sampler.output);
                 } else if ([channel.target.path isEqualToString:GLTFAnimationPathScale]) {
-                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:@"scale"];
+                    NSString *keyPath = [NSString stringWithFormat:@"/%@.scale", channel.target.node.name];
+                    caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else {
                     GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
-                    // TODO: This shouldn't be a hard failure, but not sure what to do here yet
-                    assert(false);
+                    continue;
                 }
                 caAnimation.keyTimes = baseKeyTimes;
                 switch (channel.sampler.interpolationMode) {
@@ -985,51 +1179,55 @@ static float GLTFLuminanceFromRGB(simd_float4 rgba) {
                         caAnimation.values = knots;
                         break;
                 }
-                caAnimation.beginTime = baseKeyTimes.firstObject.doubleValue;
-                caAnimation.duration = maxChannelKeyTime;
-                caAnimation.repeatDuration = FLT_MAX;
-
-                GLTFSCNAnimationChannel *clipChannel = [GLTFSCNAnimationChannel new];
-                clipChannel.target = nodesForIdentifiers[channel.target.node.identifier];
-                SCNAnimation *scnAnimation = [SCNAnimation animationWithCAAnimation:caAnimation];
-                clipChannel.animation = scnAnimation;
-                [scnChannels addObject:clipChannel];
+                caAnimation.duration = channelMaxKeyTime;
+                [caChannels addObject:caAnimation];
             }
         }
-        GLTFSCNAnimation *animationClip = [GLTFSCNAnimation new];
-        animationClip.name = animation.name;
-        animationClip.channels = scnChannels;
-        animationsForIdentifiers[animation.identifier] = animationClip;
+        CAAnimationGroup *channelGroup = [CAAnimationGroup animation];
+        channelGroup.animations = caChannels;
+        channelGroup.duration = maxChannelTime;
+        channelGroup.repeatDuration = FLT_MAX;
+        SCNAnimation *scnChannelGroup = [SCNAnimation animationWithCAAnimation:channelGroup];
+        SCNAnimationPlayer *animationPlayer = [SCNAnimationPlayer animationPlayerWithAnimation:scnChannelGroup];
+        GLTFSCNAnimation *gltfSCNAnimation = [GLTFSCNAnimation new];
+        gltfSCNAnimation.name = animation.name;
+        gltfSCNAnimation.animationPlayer = animationPlayer;
+        [animationPlayers addObject:gltfSCNAnimation];
     }
 
-    NSMutableDictionary *scenesForIdentifiers = [NSMutableDictionary dictionary];
+    NSMutableArray *scenes = [NSMutableArray array];
     for (GLTFScene *scene in self.asset.scenes) {
         SCNScene *scnScene = [SCNScene scene];
         for (GLTFNode *rootNode in scene.nodes) {
             SCNNode *scnChildNode = nodesForIdentifiers[rootNode.identifier];
             [scnScene.rootNode addChildNode:scnChildNode];
         }
-        scenesForIdentifiers[scene.identifier] = scnScene;
+        [scenes addObject:scnScene];
     }
 
     CGColorSpaceRelease(colorSpaceLinearSRGB);
 
-    _materials = [materialsForIdentifiers allValues];
-    _lights = [lightsForIdentifiers allValues];
-    _cameras = [camerasForIdentifiers allValues];
+    _materials = [materials copy];
+    _lights = [lights copy];
+    _cameras = [cameras copy];
     _nodes = [nodesForIdentifiers allValues];
     _geometries = [geometryForIdentifiers allValues];
-    _scenes = [scenesForIdentifiers allValues];
-    _animations = [animationsForIdentifiers allValues];
+    _scenes = [scenes copy];
+    _animations = [animationPlayers copy];
 
     if (self.asset.defaultScene) {
-        _defaultScene = scenesForIdentifiers[self.asset.defaultScene.identifier];
-    } else if (self.asset.scenes.count > 0) {
-        _defaultScene = scenesForIdentifiers[self.asset.scenes.firstObject.identifier];
+        NSInteger defaultSceneIndex = [self.asset.scenes indexOfObject:self.asset.defaultScene];
+        if (defaultSceneIndex != NSNotFound) {
+            _defaultScene = self.scenes[defaultSceneIndex];
+        }
+    } else if (self.scenes.count > 0) {
+        _defaultScene = [self.scenes firstObject];
     } else {
         // Last resort. The asset doesn't contain any scenes but we're contractually obligated to return something.
         _defaultScene = [SCNScene scene];
     }
+
+    [_materialPropertyContentsCache removeAllObjects];
 }
 
 @end

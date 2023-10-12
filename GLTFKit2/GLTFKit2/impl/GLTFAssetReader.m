@@ -17,6 +17,7 @@
 }
 @property (class, nonatomic, readonly) dispatch_queue_t loaderQueue;
 @property (nonatomic, nullable, strong) NSURL *assetURL;
+@property (nonatomic, nullable, strong) NSURL *assetDirectoryURL;
 @property (nonatomic, nullable, strong) NSString *lastAccessedPath;
 @property (nonatomic, strong) GLTFAsset *asset;
 @property (nonatomic, strong) GLTFUniqueNameGenerator *nameGenerator;
@@ -42,6 +43,11 @@
 }
 
 @end
+
+static NSString *_Nullable GLTFUnescapeJSONString(char *str) {
+    cgltf_decode_string(str); // This function operates in-place.
+    return [NSString stringWithUTF8String:str];
+}
 
 static GLTFComponentType GLTFComponentTypeForType(cgltf_component_type type) {
     return (GLTFComponentType)type;
@@ -84,9 +90,146 @@ static GLTFLightType GLTFLightTypeForType(cgltf_light_type type) {
 
 static cgltf_result GLTFReadFile(const struct cgltf_memory_options *memory_options, const struct cgltf_file_options *file_options, const char *path, cgltf_size *size, void **data)
 {
+    void* (*memory_alloc)(void*, cgltf_size) = memory_options->alloc_func ? memory_options->alloc_func : &cgltf_default_alloc;
+    void (*memory_free)(void*, void*) = memory_options->free_func ? memory_options->free_func : &cgltf_default_free;
     GLTFAssetReader *reader = (__bridge GLTFAssetReader *)file_options->user_data;
-    reader.lastAccessedPath = [NSString stringWithUTF8String:path];
-    return cgltf_default_file_read(memory_options, file_options, path, size, data);
+
+    NSString *pathString = [NSString stringWithUTF8String:path];
+    reader.lastAccessedPath = pathString;
+    __block NSURL *fileURL = [NSURL fileURLWithPath:pathString];
+
+    BOOL isAccessingSecurityScoped = [fileURL startAccessingSecurityScopedResource];
+
+    NSInputStream *fileStream = [NSInputStream inputStreamWithURL:fileURL];
+    if (!fileStream) {
+        return cgltf_result_file_not_found;
+    }
+
+    cgltf_size file_size = size ? *size : 0;
+
+    if (file_size == 0) {
+        NSNumber *fileSizeValue = nil;
+        [fileURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
+
+        if (!fileSizeValue) {
+            return cgltf_result_io_error;
+        }
+
+        file_size = fileSizeValue.integerValue;
+    }
+
+    uint8_t *file_data = (uint8_t *)memory_alloc(memory_options->user_data, file_size);
+    if (!file_data)  {
+        return cgltf_result_out_of_memory;
+    }
+
+    [fileStream open];
+    if (fileStream.streamStatus != NSStreamStatusOpen) {
+        memory_free(memory_options->user_data, file_data);
+        return cgltf_result_io_error;
+    }
+
+    NSInteger read_size = [fileStream read:file_data maxLength:file_size];
+    [fileStream close];
+
+    if (read_size != file_size) {
+        memory_free(memory_options->user_data, file_data);
+        return cgltf_result_io_error;
+    }
+
+    if (size) {
+        *size = file_size;
+    }
+    if (data) {
+        *data = file_data;
+    }
+
+    if (isAccessingSecurityScoped) {
+        [fileURL stopAccessingSecurityScopedResource];
+    }
+
+    return cgltf_result_success;
+}
+
+static cgltf_result GLTFReadFileSecurityScoped(const struct cgltf_memory_options *memory_options, const struct cgltf_file_options *file_options, const char *path, cgltf_size *size, void **data)
+{
+    GLTFAssetReader *reader = (__bridge GLTFAssetReader *)file_options->user_data;
+    void* (*memory_alloc)(void*, cgltf_size) = memory_options->alloc_func ? memory_options->alloc_func : &cgltf_default_alloc;
+    void (*memory_free)(void*, void*) = memory_options->free_func ? memory_options->free_func : &cgltf_default_free;
+
+    if (reader.assetDirectoryURL == nil) {
+        NSLog(@"Security-scoped access for asset directory was requested but no directory URL was provided. Falling back to ordinary file reading path...");
+        return GLTFReadFile(memory_options, file_options, path, size, data);
+    }
+
+    NSString *pathString = [NSString stringWithUTF8String:path];
+    reader.lastAccessedPath = pathString;
+
+    NSURL *directoryURL = reader.assetDirectoryURL;
+    BOOL isAccessingDirectorySecurityScoped = [directoryURL startAccessingSecurityScopedResource];
+
+    __block cgltf_size file_size = size ? *size : 0;
+    __block NSInteger read_size = 0;
+    __block uint8_t *file_data = NULL;
+    __block cgltf_result result = cgltf_result_file_not_found;
+
+    NSURL *fileURL = nil;
+    if ([pathString hasPrefix:directoryURL.path]) {
+        NSString *pathSuffix = [pathString substringFromIndex:[[pathString commonPrefixWithString:directoryURL.path options:0] length] + 1];
+        fileURL = [directoryURL URLByAppendingPathComponent:pathSuffix];
+    }
+
+    NSError *coordinationError = nil;
+    NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
+    [coordinator coordinateReadingItemAtURL:fileURL options:0 error:&coordinationError byAccessor:^(NSURL *newURL) {
+        NSInputStream *fileStream = [NSInputStream inputStreamWithURL:newURL];
+        if (!fileStream) {
+            result = cgltf_result_file_not_found; return;
+        }
+
+        if (file_size == 0) {
+            NSNumber *fileSizeValue = nil;
+            [newURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
+
+            if (!fileSizeValue) {
+                result = cgltf_result_io_error;
+            }
+
+            file_size = fileSizeValue.integerValue;
+        }
+
+        file_data = (uint8_t *)memory_alloc(memory_options->user_data, file_size);
+        if (!file_data)  {
+            result = cgltf_result_out_of_memory; return;
+        }
+
+        [fileStream open];
+        if (fileStream.streamStatus != NSStreamStatusOpen) {
+            result = cgltf_result_io_error; return;
+        }
+
+        read_size = [fileStream read:file_data maxLength:file_size];
+        [fileStream close];
+    }];
+
+    if (isAccessingDirectorySecurityScoped) {
+        [directoryURL stopAccessingSecurityScopedResource];
+        isAccessingDirectorySecurityScoped = NO;
+    }
+
+    if (read_size != file_size) {
+        memory_free(memory_options->user_data, file_data);
+        return cgltf_result_io_error;
+    }
+
+    if (size) {
+        *size = file_size;
+    }
+    if (data) {
+        *data = file_data;
+    }
+
+    return cgltf_result_success;
 }
 
 static NSError *GLTFErrorForCGLTFStatus(cgltf_result result, NSString *_Nullable failedFilePath) {
@@ -218,12 +361,13 @@ static dispatch_queue_t _loaderQueue;
     return self;
 }
 
-- (void)syncLoadAssetWithURL:(NSURL * _Nullable)assetURL
-                        data:(NSData * _Nullable)data
+- (void)syncLoadAssetWithURL:(nullable NSURL *)assetURL
+                        data:(nullable NSData *)data
                      options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                      handler:(nullable GLTFAssetLoadingHandler)handler
 {
     self.assetURL = assetURL;
+    self.assetDirectoryURL = options[GLTFAssetAssetDirectoryURLKey];
 
     if (assetURL) {
         self.lastAccessedPath = assetURL.path;
@@ -249,7 +393,7 @@ static dispatch_queue_t _loaderQueue;
     }
 
     cgltf_options parseOptions = {0};
-    parseOptions.file.read = GLTFReadFile;
+    parseOptions.file.read = self.assetDirectoryURL ? GLTFReadFileSecurityScoped : GLTFReadFile;
     parseOptions.file.user_data = (__bridge void *)self;
     cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
 
@@ -262,8 +406,13 @@ static dispatch_queue_t _loaderQueue;
             NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
             handler(1.0, GLTFAssetStatusError, nil, error, &stop);
         } else {
-            [self convertAsset];
-            handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
+            NSError *error = nil;
+            [self convertAsset:&error];
+            if (error == nil) {
+                handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
+            } else {
+                handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+            }
         }
     }
 
@@ -280,7 +429,7 @@ static dispatch_queue_t _loaderQueue;
         } else {
             buffer = [[GLTFBuffer alloc] initWithLength:b->size];
         }
-        buffer.name = b->name ? [NSString stringWithUTF8String:b->name]
+        buffer.name = b->name ? GLTFUnescapeJSONString(b->name)
                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Buffer"];
         buffer.extensions = GLTFConvertExtensions(b->extensions, b->extensions_count, nil);
         buffer.extras = GLTFObjectFromExtras(gltf->json, b->extras, nil);
@@ -298,7 +447,7 @@ static dispatch_queue_t _loaderQueue;
                                                                      length:bv->size
                                                                      offset:bv->offset
                                                                      stride:bv->stride];
-        bufferView.name = bv->name ? [NSString stringWithUTF8String:bv->name]
+        bufferView.name = bv->name ? GLTFUnescapeJSONString(bv->name)
                                    : [self.nameGenerator nextUniqueNameWithPrefix:@"BufferView"];
         bufferView.extensions = GLTFConvertExtensions(bv->extensions, bv->extensions_count, nil);
         bufferView.extras = GLTFObjectFromExtras(gltf->json, bv->extras, nil);
@@ -327,15 +476,15 @@ static dispatch_queue_t _loaderQueue;
         size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
         if (a->has_min) {
             NSMutableArray *minArray = [NSMutableArray array];
-            for (int i = 0; i < componentCount; ++i) {
-                [minArray addObject:@(a->min[i])];
+            for (int j = 0; j < componentCount; ++j) {
+                [minArray addObject:@(a->min[j])];
             }
             accessor.minValues = minArray;
         }
         if (a->has_max) {
             NSMutableArray *maxArray = [NSMutableArray array];
-            for (int i = 0; i < componentCount; ++i) {
-                [maxArray addObject:@(a->max[i])];
+            for (int j = 0; j < componentCount; ++j) {
+                [maxArray addObject:@(a->max[j])];
             }
             accessor.maxValues = maxArray;
         }
@@ -362,7 +511,7 @@ static dispatch_queue_t _loaderQueue;
             }
         }
 
-        accessor.name = a->name ? [NSString stringWithUTF8String:a->name]
+        accessor.name = a->name ? GLTFUnescapeJSONString(a->name)
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Accessor"];
         accessor.extensions = GLTFConvertExtensions(a->extensions, a->extensions_count, nil);
         accessor.extras = GLTFObjectFromExtras(gltf->json, a->extras, nil);
@@ -381,7 +530,7 @@ static dispatch_queue_t _loaderQueue;
         sampler.minMipFilter = s->min_filter;
         sampler.wrapS = s->wrap_s;
         sampler.wrapT = s->wrap_t;
-        sampler.name = s->name ? [NSString stringWithUTF8String:s->name]
+        sampler.name = s->name ? GLTFUnescapeJSONString(s->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Sampler"];
         sampler.extensions = GLTFConvertExtensions(s->extensions, s->extensions_count, nil);
         sampler.extras = GLTFObjectFromExtras(gltf->json, s->extras, nil);
@@ -403,14 +552,22 @@ static dispatch_queue_t _loaderQueue;
             image = [[GLTFImage alloc] initWithBufferView:bufferView mimeType:mime];
         } else {
             assert(img->uri);
-            NSURL *baseURI = [self.asset.url URLByDeletingLastPathComponent];
-            NSURL *imageURI = [baseURI URLByAppendingPathComponent:[NSString stringWithUTF8String:img->uri]];
-            image = [[GLTFImage alloc] initWithURI:imageURI];
+            if (strncmp(img->uri, "data:", 5) == 0) {
+                image = [[GLTFImage alloc] initWithURI:[NSURL URLWithString:[NSString stringWithUTF8String:img->uri]]];
+            } else {
+                NSURL *baseURI = [self.asset.url URLByDeletingLastPathComponent];
+                NSURL *imageURI = [baseURI URLByAppendingPathComponent:GLTFUnescapeJSONString(img->uri)];
+                image = [[GLTFImage alloc] initWithURI:imageURI];
+            }
         }
-        image.name = img->name ? [NSString stringWithUTF8String:img->name]
+        image.name = img->name ? GLTFUnescapeJSONString(img->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Image"];
         image.extensions = GLTFConvertExtensions(img->extensions, img->extensions_count, nil);
         image.extras = GLTFObjectFromExtras(gltf->json, img->extras, nil);
+
+        // Setting this allows us to perform security-scoped access later on when lazily loading textures.
+        image.assetDirectoryURL = self.assetDirectoryURL;
+
         [images addObject:image];
     }
     return images;
@@ -421,19 +578,23 @@ static dispatch_queue_t _loaderQueue;
     NSMutableArray *textures = [NSMutableArray arrayWithCapacity:gltf->textures_count];
     for (int i = 0; i < gltf->textures_count; ++i) {
         cgltf_texture *t = gltf->textures + i;
-        GLTFImage *image = nil;
+        GLTFImage *image = nil, *basisUImage = nil;
         GLTFTextureSampler *sampler = nil;
         if (t->image) {
             size_t imageIndex = t->image - gltf->images;
             image = self.asset.images[imageIndex];
         }
+        if (t->has_basisu) {
+            size_t imageIndex = t->basisu_image - gltf->images;
+            basisUImage = self.asset.images[imageIndex];
+        }
         if (t->sampler) {
             size_t samplerIndex = t->sampler - gltf->samplers;
             sampler = self.asset.samplers[samplerIndex];
         }
-        GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image];
+        GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image basisUSource:basisUImage];
         texture.sampler = sampler;
-        texture.name = t->name ? [NSString stringWithUTF8String:t->name]
+        texture.name = t->name ? GLTFUnescapeJSONString(t->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Texture"];
         texture.extensions = GLTFConvertExtensions(t->extensions, t->extensions_count, nil);
         texture.extras = GLTFObjectFromExtras(gltf->json, t->extras, nil);
@@ -476,14 +637,21 @@ static dispatch_queue_t _loaderQueue;
         if (m->occlusion_texture.texture) {
             material.occlusionTexture = [self textureParamsFromTextureView:&m->occlusion_texture];
         }
-        if (m->emissive_texture.texture) {
-            material.emissiveTexture = [self textureParamsFromTextureView:&m->emissive_texture];
-        }
+        material.emissive = [GLTFEmissiveParams new];
         float *emissive = m->emissive_factor;
-        material.emissiveFactor = (simd_float3){ emissive[0], emissive[1], emissive[2] };
+        material.emissive.emissiveFactor = (simd_float3){ emissive[0], emissive[1], emissive[2] };
+        if (m->emissive_texture.texture) {
+            material.emissive.emissiveTexture = [self textureParamsFromTextureView:&m->emissive_texture];
+        }
+        if (m->has_emissive_strength) {
+            material.emissive.emissiveStrength = m->emissive_strength.emissive_strength;
+        }
         material.alphaMode = GLTFAlphaModeFromMode(m->alpha_mode);
         material.alphaCutoff = m->alpha_cutoff;
         material.doubleSided = (BOOL)m->double_sided;
+        if (m->has_ior) {
+            material.indexOfRefraction = @(m->ior.ior);
+        }
         if (m->has_pbr_metallic_roughness) {
             GLTFPBRMetallicRoughnessParams *pbr = [GLTFPBRMetallicRoughnessParams new];
             float *baseColor = m->pbr_metallic_roughness.base_color_factor;
@@ -512,6 +680,38 @@ static dispatch_queue_t _loaderQueue;
             }
             material.specularGlossiness = pbr;
         }
+        if (m->has_specular) {
+            GLTFSpecularParams *specular = [GLTFSpecularParams new];
+            specular.specularFactor = m->specular.specular_factor;
+            if (m->specular.specular_texture.texture) {
+                specular.specularTexture = [self textureParamsFromTextureView:&m->specular.specular_texture];
+            }
+            const cgltf_float *specularColorFactor = m->specular.specular_color_factor;
+            specular.specularColorFactor = (simd_float3){ specularColorFactor[0], specularColorFactor[1], specularColorFactor[2] };
+            if (m->specular.specular_color_texture.texture) {
+                specular.specularColorTexture = [self textureParamsFromTextureView:&m->specular.specular_color_texture];
+            }
+            material.specular = specular;
+        }
+        if (m->has_transmission) {
+            GLTFTransmissionParams *transmission = [GLTFTransmissionParams new];
+            transmission.transmissionFactor = m->transmission.transmission_factor;
+            if (transmission.transmissionTexture.texture) {
+                transmission.transmissionTexture = [self textureParamsFromTextureView:&m->transmission.transmission_texture];
+            }
+            material.transmission = transmission;
+        }
+        if (m->has_volume) {
+            GLTFVolumeParams *volume = [GLTFVolumeParams new];
+            volume.thicknessFactor = m->volume.thickness_factor;
+            if (m->volume.thickness_texture.texture) {
+                volume.thicknessTexture = [self textureParamsFromTextureView:&m->volume.thickness_texture];
+            }
+            volume.attenuationDistance = m->volume.attenuation_distance;
+            const float *attenuationColor = m->volume.attenuation_color;
+            volume.attenuationColor = (simd_float3){ attenuationColor[0], attenuationColor[1], attenuationColor[2] };
+            material.volume = volume;
+        }
         if (m->has_clearcoat) {
             GLTFClearcoatParams *clearcoat = [GLTFClearcoatParams new];
             clearcoat.clearcoatFactor = m->clearcoat.clearcoat_factor;
@@ -527,17 +727,58 @@ static dispatch_queue_t _loaderQueue;
             }
             material.clearcoat = clearcoat;
         }
+        if (m->has_sheen) {
+            GLTFSheenParams *sheen = [GLTFSheenParams new];
+            const cgltf_float *sheenColorFactor = m->sheen.sheen_color_factor;
+            sheen.sheenColorFactor = (simd_float3){ sheenColorFactor[0], sheenColorFactor[1], sheenColorFactor[2] };
+            if (m->sheen.sheen_color_texture.texture) {
+                sheen.sheenColorTexture = [self textureParamsFromTextureView:&m->sheen.sheen_color_texture];
+            }
+            sheen.sheenRoughnessFactor = m->sheen.sheen_roughness_factor;
+            if (m->sheen.sheen_roughness_texture.texture) {
+                sheen.sheenRoughnessTexture = [self textureParamsFromTextureView:&m->sheen.sheen_roughness_texture];
+            }
+            material.sheen = sheen;
+        }
+        if (m->has_iridescence) {
+            GLTFIridescence *iridesence = [GLTFIridescence new];
+            iridesence.iridescenceFactor = m->iridescence.iridescence_factor;
+            if (m->iridescence.iridescence_texture.texture) {
+                iridesence.iridescenceTexture = [self textureParamsFromTextureView:&m->iridescence.iridescence_texture];
+            }
+            iridesence.iridescenceIndexOfRefraction = m->iridescence.iridescence_ior;
+            iridesence.iridescenceThicknessMinimum = m->iridescence.iridescence_thickness_min;
+            iridesence.iridescenceThicknessMaximum = m->iridescence.iridescence_thickness_max;
+            if (m->iridescence.iridescence_thickness_texture.texture) {
+                iridesence.iridescenceThicknessTexture = [self textureParamsFromTextureView:&m->iridescence.iridescence_thickness_texture];
+            }
+            material.iridescence = iridesence;
+        }
         if (m->unlit) {
             material.unlit = YES;
         }
-        // TODO: sheen
-        material.name = m->name ? [NSString stringWithUTF8String:m->name]
+        material.name = m->name ? GLTFUnescapeJSONString(m->name)
                                 : [self.nameGenerator nextUniqueNameWithPrefix:@"Material"];
         material.extensions = GLTFConvertExtensions(m->extensions, m->extensions_count, nil);
         material.extras = GLTFObjectFromExtras(gltf->json, m->extras, nil);
         [materials addObject:material];
     }
     return materials;
+}
+
+- (NSArray *)convertMaterialVariants {
+    if (gltf->variants_count > 0) {
+        NSMutableArray *variants = [NSMutableArray arrayWithCapacity:gltf->variants_count];
+        for (int i = 0; i < gltf->variants_count; ++i) {
+            cgltf_material_variant *v = gltf->variants + i;
+            NSString *name = [NSString stringWithUTF8String:v->name ?: "" ];
+            GLTFMaterialVariant *variant = [[GLTFMaterialVariant alloc] initWithName:name];
+            variant.extras = GLTFObjectFromExtras(gltf->json, v->extras, nil);
+            [variants addObject:variant];
+        }
+        return variants;
+    }
+    return nil;
 }
 
 - (NSArray *)convertMeshes
@@ -550,18 +791,34 @@ static dispatch_queue_t _loaderQueue;
         for (int j = 0; j < m->primitives_count; ++j) {
             cgltf_primitive *p = m->primitives + j;
             GLTFPrimitiveType type = GLTFPrimitiveTypeFromType(p->type);
+            GLTFPrimitive *dracoPrimitive = nil;
+            if (p->has_draco_mesh_compression && GLTFAsset.dracoDecompressorClassName != nil) {
+                Class DecompressorClass = NSClassFromString(GLTFAsset.dracoDecompressorClassName);
+                cgltf_draco_mesh_compression *draco = &p->draco_mesh_compression;
+                size_t bufferViewIndex = draco->buffer_view - gltf->buffer_views;
+                GLTFBufferView *bufferView = self.asset.bufferViews[bufferViewIndex];
+                NSMutableDictionary *dracoAttributes = [NSMutableDictionary dictionary];
+                for (int k = 0; k < draco->attributes_count; ++k) {
+                    cgltf_attribute *a = draco->attributes + k;
+                    NSString *attrName = [NSString stringWithUTF8String:a->name];
+                    NSInteger attrIndex = a->data - gltf->accessors;
+                    dracoAttributes[attrName] = @(attrIndex);
+                }
+                dracoPrimitive = [DecompressorClass newPrimitiveForCompressedBufferView:bufferView
+                                                                           attributeMap:dracoAttributes];
+            }
             NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
             for (int k = 0; k < p->attributes_count; ++k) {
                 cgltf_attribute *a = p->attributes + k;
                 NSString *attrName = [NSString stringWithUTF8String:a->name];
                 size_t attrIndex = a->data - gltf->accessors;
                 GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
-                attributes[attrName] = attrAccessor;
+                attributes[attrName] = dracoPrimitive.attributes[attrName] ?: attrAccessor;
             }
             GLTFPrimitive *primitive = nil;
             if (p->indices) {
                 size_t accessorIndex = p->indices - gltf->accessors;
-                GLTFAccessor *indices = self.asset.accessors[accessorIndex];
+                GLTFAccessor *indices = dracoPrimitive.indices ?: self.asset.accessors[accessorIndex];
                 primitive = [[GLTFPrimitive alloc] initWithPrimitiveType:type attributes:attributes indices:indices];
             } else {
                 primitive = [[GLTFPrimitive alloc] initWithPrimitiveType:type attributes:attributes];
@@ -582,6 +839,19 @@ static dispatch_queue_t _loaderQueue;
                     target[attrName] = attrAccessor;
                 }
                 [targets addObject:target];
+            }
+            if (p->mappings_count > 0) {
+                NSMutableArray *materialMappings = [NSMutableArray arrayWithCapacity:p->mappings_count];
+                for (int k = 0; k < p->mappings_count; ++k) {
+                    cgltf_material_mapping *mm = p->mappings + k;
+                    size_t materialIndex = mm->material - gltf->materials;
+                    GLTFMaterial *material = self.asset.materials[materialIndex];
+                    GLTFMaterialVariant *variant = self.asset.materialVariants[mm->variant];
+                    GLTFMaterialMapping *mapping = [[GLTFMaterialMapping alloc] initWithMaterial:material variant:variant];
+                    mapping.extras = GLTFObjectFromExtras(gltf->json, mm->extras, nil);
+                    [materialMappings addObject:mapping];
+                }
+                primitive.materialMappings = materialMappings;
             }
             primitive.targets = targets;
             primitive.extras = GLTFObjectFromExtras(gltf->json, p->extras, nil);
@@ -604,7 +874,7 @@ static dispatch_queue_t _loaderQueue;
         }
         mesh.targetNames = targetNames;
 
-        mesh.name = m->name ? [NSString stringWithUTF8String:m->name]
+        mesh.name = m->name ? GLTFUnescapeJSONString(m->name)
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Mesh"];
         mesh.extensions = GLTFConvertExtensions(m->extensions, m->extensions_count, nil);
         mesh.extras = GLTFObjectFromExtras(gltf->json, m->extras, nil);
@@ -636,7 +906,7 @@ static dispatch_queue_t _loaderQueue;
         } else {
             camera = [GLTFCamera new]; // Got an invalid camera, so just make a dummy to occupy the slot
         }
-        camera.name = c->name ? [NSString stringWithUTF8String:c->name]
+        camera.name = c->name ? GLTFUnescapeJSONString(c->name)
                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Camera"];
         camera.extensions = GLTFConvertExtensions(c->extensions, c->extensions_count, nil);
         camera.extras = GLTFObjectFromExtras(gltf->json, c->extras, nil);
@@ -708,7 +978,7 @@ static dispatch_queue_t _loaderQueue;
             node.matrix = transform;
         }
         // TODO: morph target weights
-        node.name = n->name ? [NSString stringWithUTF8String:n->name]
+        node.name = n->name ? GLTFUnescapeJSONString(n->name)
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Node"];
         node.extensions = GLTFConvertExtensions(n->extensions, n->extensions_count, nil);
         node.extras = GLTFObjectFromExtras(gltf->json, n->extras, nil);
@@ -752,7 +1022,7 @@ static dispatch_queue_t _loaderQueue;
             GLTFNode *skeletonRoot = self.asset.nodes[skeletonIndex];
             skin.skeleton = skeletonRoot;
         }
-        skin.name = s->name ? [NSString stringWithUTF8String:s->name]
+        skin.name = s->name ? GLTFUnescapeJSONString(s->name)
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Skin"];
         skin.extensions = GLTFConvertExtensions(s->extensions, s->extensions_count, nil);
         skin.extras = GLTFObjectFromExtras(gltf->json, s->extras, nil);
@@ -805,7 +1075,7 @@ static dispatch_queue_t _loaderQueue;
             [channels addObject:channel];
         }
         GLTFAnimation *animation = [[GLTFAnimation alloc] initWithChannels:channels samplers:samplers];
-        animation.name = a->name ? [NSString stringWithUTF8String:a->name]
+        animation.name = a->name ? GLTFUnescapeJSONString(a->name)
                                  : [self.nameGenerator nextUniqueNameWithPrefix:@"Animation"];
         animation.extras = GLTFObjectFromExtras(gltf->json, a->extras, nil);
         [animations addObject:animation];
@@ -826,7 +1096,7 @@ static dispatch_queue_t _loaderQueue;
             [rootNodes addObject:node];
         }
         scene.nodes = rootNodes;
-        scene.name = s->name ? [NSString stringWithUTF8String:s->name]
+        scene.name = s->name ? GLTFUnescapeJSONString(s->name)
                              : [self.nameGenerator nextUniqueNameWithPrefix:@"Scene"];
         scene.extensions = GLTFConvertExtensions(s->extensions, s->extensions_count, nil);
         scene.extras = GLTFObjectFromExtras(gltf->json, s->extras, nil);
@@ -835,21 +1105,59 @@ static dispatch_queue_t _loaderQueue;
     return scenes;
 }
 
-- (void)convertAsset {
+- (BOOL)validateRequiredExtensions:(NSError **)error {
+    NSMutableArray *supportedExtensions = [NSMutableArray arrayWithObjects:
+        @"KHR_emissive_strength",
+        @"KHR_materials_ior",
+        @"KHR_lights_punctual",
+        @"KHR_materials_clearcoat",
+        @"KHR_materials_specular",
+        @"KHR_materials_transmission",
+        @"KHR_materials_unlit",
+        @"KHR_materials_variants",
+        @"KHR_texture_transform",
+        @"KHR_materials_pbrSpecularGlossiness", // deprecated
+        nil
+    ];
+    if ([GLTFAsset dracoDecompressorClassName] != nil) {
+        [supportedExtensions addObject:@"KHR_draco_mesh_compression"];
+    }
+#if defined(GLTF_BUILD_WITH_KTX2)
+    [supportedExtensions addObject:@"KHR_texture_basisu"];
+#endif
+    NSMutableArray *unsupportedExtensions = [NSMutableArray array];
+    for (NSString *requiredExtension in self.asset.extensionsRequired) {
+        if (![supportedExtensions containsObject:requiredExtension]) {
+            [unsupportedExtensions addObject:requiredExtension];
+        }
+    }
+    if (unsupportedExtensions.count > 0) {
+        if (error != nil) {
+            NSString *description = [NSString stringWithFormat:@"Asset contains unsupported required extensions: %@",
+                                     unsupportedExtensions];
+            *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeUnsupportedExtension userInfo:@{
+                NSLocalizedDescriptionKey : description
+            }];
+        }
+    }
+    return (unsupportedExtensions.count == 0);
+}
+
+- (BOOL)convertAsset:(NSError **)error {
     self.asset = [GLTFAsset new];
     self.asset.url = self.assetURL;
     cgltf_asset *meta = &gltf->asset;
     if (meta->copyright) {
-        self.asset.copyright = [NSString stringWithUTF8String:meta->copyright];
+        self.asset.copyright = GLTFUnescapeJSONString(meta->copyright);
     }
     if (meta->generator) {
-        self.asset.generator = [NSString stringWithUTF8String:meta->generator];
+        self.asset.generator = GLTFUnescapeJSONString(meta->generator);
     }
     if (meta->min_version) {
-        self.asset.minVersion = [NSString stringWithUTF8String:meta->min_version];
+        self.asset.minVersion = GLTFUnescapeJSONString(meta->min_version);
     }
     if (meta->version) {
-        self.asset.version = [NSString stringWithUTF8String:meta->version];
+        self.asset.version = GLTFUnescapeJSONString(meta->version);
     }
     if (gltf->extensions_used_count > 0) {
         NSMutableArray *extensionsUsed = [NSMutableArray arrayWithCapacity:gltf->extensions_used_count];
@@ -867,6 +1175,9 @@ static dispatch_queue_t _loaderQueue;
         }
         self.asset.extensionsRequired = extensionsRequired;
     }
+    if(![self validateRequiredExtensions:error]) {
+        return NO;
+    }
     self.asset.extensions = GLTFConvertExtensions(meta->extensions, meta->extensions_count, nil);
     self.asset.extras = GLTFObjectFromExtras(gltf->json, meta->extras, nil);
     self.asset.buffers = [self convertBuffers];
@@ -876,6 +1187,7 @@ static dispatch_queue_t _loaderQueue;
     self.asset.images = [self convertImages];
     self.asset.textures = [self convertTextures];
     self.asset.materials = [self convertMaterials];
+    self.asset.materialVariants = [self convertMaterialVariants];
     self.asset.meshes = [self convertMeshes];
     self.asset.cameras = [self convertCameras];
     self.asset.lights = [self convertLights];
@@ -890,6 +1202,7 @@ static dispatch_queue_t _loaderQueue;
     } else {
         self.asset.defaultScene = self.asset.scenes.firstObject;
     }
+    return YES;
 }
 
 @end

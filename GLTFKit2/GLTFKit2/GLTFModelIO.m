@@ -389,15 +389,18 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             normalSampler.mappingChannel = material.normalTexture.texCoord;
             func.normal.textureSamplerValue = normalSampler;
         }
-        if (material.emissiveTexture) {
-            MDLTextureSampler *emissiveSampler = [textureSamplersForTextureIdentifiers[material.emissiveTexture.texture.identifier] GLTF_copy];
-            if (material.emissiveTexture.transform) {
-                emissiveSampler.transform = [[MDLTransform alloc] initWithMatrix:material.emissiveTexture.transform.matrix];
+        if (material.emissive.emissiveTexture) {
+            MDLTextureSampler *emissiveSampler = [textureSamplersForTextureIdentifiers[material.emissive.emissiveTexture.texture.identifier] GLTF_copy];
+            if (material.emissive.emissiveTexture.transform) {
+                emissiveSampler.transform = [[MDLTransform alloc] initWithMatrix:material.emissive.emissiveTexture.transform.matrix];
             }
-            emissiveSampler.mappingChannel = material.emissiveTexture.texCoord;
+            emissiveSampler.mappingChannel = material.emissive.emissiveTexture.texCoord;
             func.emission.textureSamplerValue = emissiveSampler;
         }
         // TODO: How to represent base color/emissive factor, normal/occlusion strength, etc.?
+        if (material.indexOfRefraction) {
+            func.interfaceIndexOfRefraction.floatValue = material.indexOfRefraction.floatValue;
+        }
 
         MDLMaterial *mdlMaterial = [[MDLMaterial alloc] initWithName:material.name scatteringFunction:func];
         mdlMaterial.materialFace = material.isDoubleSided ? MDLMaterialFaceDoubleSided : MDLMaterialFaceFront;

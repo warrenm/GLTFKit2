@@ -3,6 +3,10 @@
 
 #define GLTFKIT2_EXPORT __attribute__((visibility("default"))) FOUNDATION_EXTERN
 
+#if __has_include(<ktx.h>)
+#define GLTF_BUILD_WITH_KTX2
+#endif
+
 typedef NS_ENUM(NSInteger, GLTFComponentType) {
     GLTFComponentTypeInvalid,
     GLTFComponentTypeByte,

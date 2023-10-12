@@ -1,0 +1,68 @@
+#include <metal_stdlib>
+using namespace metal;
+static constant float3 diffuseF0 { 0.04, 0.04, 0.04 };
+struct sg_to_rm_params {
+    float4 diffuseColorFactor;
+    float3 specularFactor;
+    float glossinessFactor;
+};
+static float max_component(float3 v) {
+    return max(max(v.x, v.y), v.z);
+}
+static float y_from_rgb(float3 rgb) {
+    return dot(rgb, float3(0.2126, 0.7152, 0.0722));
+}
+static float solve_metallic(float diffuse, float specular, float oneMinusSpecularStrength) {
+    if (specular < diffuseF0.r) {
+        return 0;
+    }
+    float a = diffuseF0.r;
+    float b = diffuse * oneMinusSpecularStrength / (1 - diffuseF0.r) + specular - 2 * diffuseF0.r;
+    float c = diffuseF0.r - specular;
+    float D = b * b - 4 * a * c;
+    return saturate((-b + sqrt(D)) / (2 * a));
+}
+static void get_rm_from_sg(float3 diffuse, float3 specular, float glossiness,
+                           thread float3 *outBaseColor, thread float *outMetallic, thread float *outRoughness)
+{
+    const float epsilon = 1e-6;
+    float oneMinusSpecularStrength = 1 - max_component(specular);
+    float metallic = solve_metallic(y_from_rgb(diffuse), y_from_rgb(specular), oneMinusSpecularStrength);
+    float3 baseColorFromDiffuse = diffuse * (oneMinusSpecularStrength / (1 - diffuseF0.r) / max(1 - metallic, epsilon));
+    float3 baseColorFromSpecular = specular - (diffuseF0 * (1 - metallic)) * (1 / max(metallic, epsilon));
+    float3 baseColor = mix(baseColorFromDiffuse, baseColorFromSpecular, metallic * metallic);
+    *outBaseColor = baseColor;
+    *outMetallic = metallic;
+    *outRoughness = 1 - glossiness;
+}
+kernel void sg_to_mr(texture2d<float, access::sample> diffuseTexture            [[texture(0)]],
+                     texture2d<float, access::sample> specularGlossinessTexture [[texture(1)]],
+                     texture2d<float, access::write> baseColorTexture           [[texture(2)]],
+                     texture2d<float, access::write> roughnessMetallicTexture   [[texture(3)]],
+                     constant sg_to_rm_params &params [[buffer(0)]],
+                     uint2 index [[thread_position_in_grid]])
+{
+    constexpr sampler linearSampler(coord::normalized, address::clamp_to_edge, filter::linear);
+    uint outputWidth = baseColorTexture.get_width();
+    uint outputHeight = baseColorTexture.get_height();
+    if (index.x >= outputWidth || index.y >= outputHeight) { return; }
+    float2 uv { float(index.x) / outputWidth, float(index.y) / outputHeight };
+    float4 diffuseColor = params.diffuseColorFactor;
+    if (!is_null_texture(diffuseTexture)) {
+        float4 sampledDiffuse = diffuseTexture.sample(linearSampler, uv);
+        sampledDiffuse.rgb /= sampledDiffuse.a;
+        diffuseColor *= sampledDiffuse;
+    }
+    float3 specularColor = params.specularFactor;
+    float glossiness = params.glossinessFactor;
+    if (!is_null_texture(specularGlossinessTexture)) {
+        float4 sampledSpecGloss = specularGlossinessTexture.sample(linearSampler, uv);
+        specularColor *= (sampledSpecGloss.rgb / sampledSpecGloss.a);
+        glossiness *= sampledSpecGloss.a;
+    }
+    float3 baseColor;
+    float metallic, roughness;
+    get_rm_from_sg(diffuseColor.rgb, specularColor, glossiness, &baseColor, &metallic, &roughness);
+    baseColorTexture.write(float4(baseColor * diffuseColor.a, diffuseColor.a), ushort2(index));
+    roughnessMetallicTexture.write(float4(0.0, roughness * roughness, metallic, 1.0), ushort2(index));
+}

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 53;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -14,13 +14,14 @@
 		833684CC26F139840057B9CA /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 833684CB26F139830057B9CA /* Quartz.framework */; };
 		833684D026F139840057B9CA /* GLTFPreviewViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 833684CF26F139840057B9CA /* GLTFPreviewViewController.m */; };
 		833684D626F139840057B9CA /* PreviewViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 833684D426F139840057B9CA /* PreviewViewController.xib */; };
-		833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 833684CA26F139830057B9CA /* GLTFQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 833684CA26F139830057B9CA /* GLTFQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		833684E226F154DA0057B9CA /* studio.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E026F154D40057B9CA /* studio.hdr */; };
 		833684E326F154DA0057B9CA /* studio.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E026F154D40057B9CA /* studio.hdr */; };
 		833684E426F154DD0057B9CA /* studio-ql.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E126F154D40057B9CA /* studio-ql.hdr */; };
 		8373775926F14D6400595C2A /* QuickLook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8373775826F14D6400595C2A /* QuickLook.framework */; };
 		83AB9EA126D98BEB00FD9C95 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = 83AB9EA026D98BCF00FD9C95 /* Models */; };
 		83CFBF4826F2BE66003BEBFA /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 830C44B126F292C60075CCBF /* GLTFKit2.framework */; };
+		83D27444286B768E0003A3C5 /* SampleDracoPlugin.mm in Sources */ = {isa = PBXBuildFile; fileRef = 83D27442286B76870003A3C5 /* SampleDracoPlugin.mm */; };
 		83D5B17B278295600015E015 /* AnimationPlaybackView.xib in Resources */ = {isa = PBXBuildFile; fileRef = 83D5B179278295600015E015 /* AnimationPlaybackView.xib */; };
 		83D5B17D278295C30015E015 /* AnimationPlaybackViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D5B17C278295C30015E015 /* AnimationPlaybackViewController.swift */; };
 		83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83D9950425C6573C00B5B234 /* AppDelegate.swift */; };
@@ -46,15 +47,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		833684DB26F139840057B9CA /* Embed App Extensions */ = {
+		833684DB26F139840057B9CA /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed App Extensions */,
+				833684DA26F139840057B9CA /* GLTFQuickLook.appex in Embed Foundation Extensions */,
 			);
-			name = "Embed App Extensions";
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		83869A5725C671B4006CAFF1 /* Embed Frameworks */ = {
@@ -93,6 +94,8 @@
 		833684E126F154D40057B9CA /* studio-ql.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; path = "studio-ql.hdr"; sourceTree = "<group>"; };
 		8373775826F14D6400595C2A /* QuickLook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLook.framework; path = System/Library/Frameworks/QuickLook.framework; sourceTree = SDKROOT; };
 		83AB9EA026D98BCF00FD9C95 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
+		83D27441286B76870003A3C5 /* SampleDracoPlugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SampleDracoPlugin.h; sourceTree = "<group>"; };
+		83D27442286B76870003A3C5 /* SampleDracoPlugin.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = SampleDracoPlugin.mm; sourceTree = "<group>"; };
 		83D5B17A278295600015E015 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/AnimationPlaybackView.xib; sourceTree = "<group>"; };
 		83D5B17C278295C30015E015 /* AnimationPlaybackViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationPlaybackViewController.swift; sourceTree = "<group>"; };
 		83D9950125C6573C00B5B234 /* glTF Viewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "glTF Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -102,7 +105,6 @@
 		83D9950A25C6573E00B5B234 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		83D9950D25C6573E00B5B234 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		83D9950F25C6573E00B5B234 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		83D9951025C6573E00B5B234 /* GLTFViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GLTFViewer.entitlements; sourceTree = "<group>"; };
 		83FFB68826CF0CF3008AE676 /* glTF Viewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "glTF Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		83FFB68A26CF0CF3008AE676 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		83FFB68E26CF0CF3008AE676 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -202,11 +204,12 @@
 				83D9950625C6573C00B5B234 /* ViewController.swift */,
 				83D9950825C6573C00B5B234 /* GLTFDocument.swift */,
 				83D5B17C278295C30015E015 /* AnimationPlaybackViewController.swift */,
+				83D27441286B76870003A3C5 /* SampleDracoPlugin.h */,
+				83D27442286B76870003A3C5 /* SampleDracoPlugin.mm */,
 				83D9950A25C6573E00B5B234 /* Assets.xcassets */,
 				83D5B179278295600015E015 /* AnimationPlaybackView.xib */,
 				83D9950C25C6573E00B5B234 /* Main.storyboard */,
 				83D9950F25C6573E00B5B234 /* Info.plist */,
-				83D9951025C6573E00B5B234 /* GLTFViewer.entitlements */,
 			);
 			path = macOS;
 			sourceTree = "<group>";
@@ -252,7 +255,7 @@
 				83D994FE25C6573C00B5B234 /* Frameworks */,
 				83D994FF25C6573C00B5B234 /* Resources */,
 				83869A5725C671B4006CAFF1 /* Embed Frameworks */,
-				833684DB26F139840057B9CA /* Embed App Extensions */,
+				833684DB26F139840057B9CA /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -288,8 +291,9 @@
 		83D994F925C6573C00B5B234 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 1250;
-				LastUpgradeCheck = 1250;
+				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 1410;
+				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					833684C926F139830057B9CA = {
 						CreatedOnToolsVersion = 13.0;
@@ -372,6 +376,7 @@
 			files = (
 				83D9950725C6573C00B5B234 /* ViewController.swift in Sources */,
 				83D5B17D278295C30015E015 /* AnimationPlaybackViewController.swift in Sources */,
+				83D27444286B768E0003A3C5 /* SampleDracoPlugin.mm in Sources */,
 				83D9950525C6573C00B5B234 /* AppDelegate.swift in Sources */,
 				83D9950925C6573C00B5B234 /* GLTFDocument.swift in Sources */,
 			);
@@ -447,9 +452,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = QuickLook/Info.plist;
@@ -475,9 +478,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = QuickLook/Info.plist;
@@ -502,7 +503,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -530,10 +531,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -547,13 +549,15 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -563,7 +567,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -591,10 +595,11 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -602,12 +607,14 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
@@ -616,12 +623,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = macOS/GLTFViewer.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = YES;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = macOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -629,7 +635,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-macos";
 				PRODUCT_NAME = "glTF Viewer";
-				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -638,12 +643,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = macOS/GLTFViewer.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = YES;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = macOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -651,7 +655,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-macos";
 				PRODUCT_NAME = "glTF Viewer";
-				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
@@ -671,7 +674,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-ios";
 				PRODUCT_NAME = "glTF Viewer";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -692,7 +694,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-ios";
 				PRODUCT_NAME = "glTF Viewer";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};

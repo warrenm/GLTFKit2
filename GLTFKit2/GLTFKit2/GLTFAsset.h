@@ -1,10 +1,30 @@
 #import <Foundation/Foundation.h>
 #import <simd/simd.h>
 #import <CoreGraphics/CoreGraphics.h>
+#import <Metal/Metal.h>
 
 #import <GLTFKit2/GLTFTypes.h>
 
 NS_ASSUME_NONNULL_BEGIN
+
+extern NSString *const GLTFErrorDomain;
+
+enum {
+    GLTFErrorCodeDataTooShort         = 1001,
+    GLTFErrorCodeUnknownFormat        = 1002,
+    GLTFErrorCodeInvalidJSON          = 1003,
+    GLTFErrorCodeInvalidGLTF          = 1004,
+    GLTFErrorCodeInvalidOptions       = 1005,
+    GLTFErrorCodeFileNotFound         = 1006,
+    GLTFErrorCodeIOError              = 1007,
+    GLTFErrorCodeOutOfMemory          = 1008,
+    GLTFErrorCodeLegacyGLTF           = 1009,
+    GLTFErrorCodeNoDataToLoad         = 1010,
+    GLTFErrorCodeFailedToLoad         = 1011,
+    GLTFErrorCodeUnsupportedExtension = 1012,
+};
+
+typedef NSInteger GLTFErrorCode;
 
 extern const float LumensPerCandela;
 
@@ -56,13 +76,18 @@ GLTFKIT2_EXPORT
 @class GLTFAsset;
 
 typedef NSString * GLTFAssetLoadingOption NS_STRING_ENUM;
+
+/// This option is not currently implemented.
 GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetCreateNormalsIfAbsentKey;
-GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetAssetDirectoryURLsKey;
-GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetOverrideAssetURLsKey;
+
+/// If a suitable asset directory URL is passed in the options dictionary, connected files (binary buffer files, textures, etc.)
+/// will be accessed using security-scoped URLs, as required by the app sandbox model. If an asset directory URL is
+/// not provided, it is assumed that the asset file is self-contained (e.g., a .glb) or that any necessary connected files are
+/// accessible without security-scoped access (e.g. because they are in the app's container).
+GLTFKIT2_EXPORT GLTFAssetLoadingOption const GLTFAssetAssetDirectoryURLKey;
 
 #define GLTFAssetLoadingOptionCreateNormalsIfAbsent GLTFAssetCreateNormalsIfAbsentKey
-#define GLTFAssetLoadingOptionAssetDirectoryURLs    GLTFAssetAssetDirectoryURLsKey
-#define GLTFAssetLoadingOptionOverrideAssetURLs     GLTFAssetOverrideAssetURLsKey
+#define GLTFAssetLoadingOptionAssetDirectoryURL     GLTFAssetAssetDirectoryURLKey
 
 typedef NS_ENUM(NSInteger, GLTFAssetStatus) {
     GLTFAssetStatusError = -1,
@@ -78,7 +103,13 @@ typedef void (^GLTFAssetLoadingHandler)(float progress, GLTFAssetStatus status, 
 typedef BOOL (^GLTFFilterPredicate)(GLTFObject *entry, NSString *identifier, BOOL *stop);
 
 @class GLTFAccessor, GLTFAnimation, GLTFBuffer, GLTFBufferView, GLTFCamera, GLTFImage, GLTFLight;
-@class GLTFMaterial, GLTFMesh, GLTFNode, GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
+@class GLTFMaterial, GLTFMaterialMapping, GLTFMaterialVariant, GLTFMesh, GLTFNode, GLTFPrimitive;
+@class GLTFScene, GLTFSkin, GLTFTexture, GLTFTextureSampler;
+
+@protocol GLTFDracoMeshDecompressor
++ (GLTFPrimitive *)newPrimitiveForCompressedBufferView:(GLTFBufferView *)bufferView
+                                          attributeMap:(NSDictionary<NSString *, NSNumber *> *)attributes;
+@end
 
 GLTFKIT2_EXPORT
 @interface GLTFAsset : GLTFObject
@@ -99,6 +130,7 @@ GLTFKIT2_EXPORT
                   options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                   handler:(nullable GLTFAssetLoadingHandler)handler;
 
+@property (class, nonatomic, copy) NSString *dracoDecompressorClassName;
 @property (nonatomic, nullable) NSURL *url;
 @property (nonatomic, nullable, readonly) NSData *data;
 @property (nonatomic, nullable) NSString *copyright;
@@ -115,6 +147,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, copy) NSArray<GLTFLight *> *lights;
 @property (nonatomic, copy) NSArray<GLTFImage *> *images;
 @property (nonatomic, copy) NSArray<GLTFMaterial *> *materials;
+@property (nonatomic, nullable, copy) NSArray<GLTFMaterialVariant *> *materialVariants;
 @property (nonatomic, copy) NSArray<GLTFMesh *> *meshes;
 @property (nonatomic, copy) NSArray<GLTFNode *> *nodes;
 @property (nonatomic, copy) NSArray<GLTFTextureSampler *> *samplers;
@@ -140,7 +173,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, copy) NSArray<NSNumber *> *maxValues;
 @property (nonatomic, nullable, strong) GLTFSparseStorage *sparse;
 
-- (instancetype)initWithBufferView:(GLTFBufferView * _Nullable)bufferView
+- (instancetype)initWithBufferView:(nullable GLTFBufferView *)bufferView
                             offset:(NSInteger)offset
                      componentType:(GLTFComponentType)componentType
                          dimension:(GLTFValueDimension)dimension
@@ -274,11 +307,18 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFBufferView *bufferView;
 @property (nonatomic, nullable) NSString *mimeType;
 
+/// If provided, this URL will be used to perform security-scoped access to the corresponding image file URL.
+/// Without a security-scoped URL, file access may fail when the image file is not in the app's container, as
+/// may happen when loading .gltf assets with connected files. Not necessary when `uri` is a data URI.
+@property (nonatomic, nullable) NSURL *assetDirectoryURL;
+
 - (instancetype)initWithURI:(NSURL *)uri NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithBufferView:(GLTFBufferView *)bufferView mimeType:(NSString *)mimeType NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithCGImage:(CGImageRef)cgImage NS_DESIGNATED_INITIALIZER; // For internal use.
 - (instancetype)init NS_UNAVAILABLE;
 
-- (CGImageRef _Nullable)newCGImage;
+- (nullable CGImageRef)newCGImage;
+- (nullable id<MTLTexture>)newTextureWithDevice:(id<MTLDevice>)device;
 
 @end
 
@@ -322,6 +362,43 @@ GLTFKIT2_EXPORT
 
 @end
 
+GLTFKIT2_EXPORT
+@interface GLTFSpecularParams : GLTFObject
+
+@property (nonatomic, assign) float specularFactor;
+@property (nonatomic, nullable, strong) GLTFTextureParams *specularTexture;
+@property (nonatomic, assign) simd_float3 specularColorFactor;
+@property (nonatomic, nullable, strong) GLTFTextureParams *specularColorTexture;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFEmissiveParams : GLTFObject
+
+@property (nonatomic, nullable, strong) GLTFTextureParams *emissiveTexture;
+@property (nonatomic, assign) simd_float3 emissiveFactor;
+// Introduced by the KHR_emissive_strength extension
+@property (nonatomic, assign) float emissiveStrength;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFTransmissionParams : GLTFObject
+
+@property (nonatomic, nullable, strong) GLTFTextureParams *transmissionTexture;
+@property (nonatomic, assign) float transmissionFactor;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFVolumeParams : GLTFObject
+
+@property (nonatomic, nullable) GLTFTextureParams *thicknessTexture;
+@property (nonatomic, assign) float thicknessFactor;
+@property (nonatomic, assign) float attenuationDistance;
+@property (nonatomic, assign) simd_float3 attenuationColor;
+
+@end
 
 GLTFKIT2_EXPORT
 @interface GLTFClearcoatParams : GLTFObject
@@ -335,15 +412,42 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFSheenParams : GLTFObject
+
+@property (nonatomic, assign) simd_float3 sheenColorFactor;
+@property (nonatomic, nullable) GLTFTextureParams *sheenColorTexture;
+@property (nonatomic, assign) float sheenRoughnessFactor;
+@property (nonatomic, nullable) GLTFTextureParams *sheenRoughnessTexture;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFIridescence : NSObject
+
+@property (nonatomic, assign) float iridescenceFactor;
+@property (nonatomic, nullable) GLTFTextureParams *iridescenceTexture;
+@property (nonatomic, assign) float iridescenceIndexOfRefraction;
+@property (nonatomic, assign) float iridescenceThicknessMinimum;
+@property (nonatomic, assign) float iridescenceThicknessMaximum;
+@property (nonatomic, nullable) GLTFTextureParams *iridescenceThicknessTexture;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFMaterial : GLTFObject
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
 @property (nonatomic, nullable) GLTFPBRSpecularGlossinessParams *specularGlossiness;
+@property (nonatomic, nullable) GLTFSpecularParams *specular;
+@property (nonatomic, nullable) GLTFEmissiveParams *emissive;
+@property (nonatomic, nullable) GLTFTransmissionParams *transmission;
+@property (nonatomic, nullable) GLTFVolumeParams *volume;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
+@property (nonatomic, nullable) GLTFSheenParams *sheen;
+@property (nonatomic, nullable) GLTFIridescence *iridescence;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
 @property (nonatomic, nullable) GLTFTextureParams *occlusionTexture;
-@property (nonatomic, nullable) GLTFTextureParams *emissiveTexture;
-@property (nonatomic, assign) simd_float3 emissiveFactor;
+@property (nonatomic, nullable) NSNumber *indexOfRefraction;
 @property (nonatomic, assign) GLTFAlphaMode alphaMode;
 @property (nonatomic, assign) float alphaCutoff;
 @property (nonatomic, assign, getter=isDoubleSided) BOOL doubleSided;
@@ -374,15 +478,18 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFMaterial *material;
 @property (nonatomic, assign) GLTFPrimitiveType primitiveType;
 @property (nonatomic, copy) NSArray<GLTFMorphTarget *> *targets;
+@property (nonatomic, nullable, copy) NSArray<GLTFMaterialMapping *> *materialMappings;
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
                            attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes
-                              indices:(GLTFAccessor * _Nullable)indices NS_DESIGNATED_INITIALIZER;
+                              indices:(nullable GLTFAccessor *)indices NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
                            attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes;
 
 - (instancetype)init NS_UNAVAILABLE;
+
+- (GLTFMaterial *)effectiveMaterialForVariant:(GLTFMaterialVariant *)variant;
 
 @end
 
@@ -482,8 +589,29 @@ GLTFKIT2_EXPORT
 
 @property (nonatomic, nullable, strong) GLTFTextureSampler *sampler;
 @property (nonatomic, nullable, strong) GLTFImage *source;
+@property (nonatomic, nullable, strong) GLTFImage *basisUSource;
 
-- (instancetype)initWithSource:(GLTFImage * _Nullable)source NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithSource:(nullable GLTFImage *)source;
+- (instancetype)initWithSource:(nullable GLTFImage *)source basisUSource:(nullable GLTFImage *)basisUSource NS_DESIGNATED_INITIALIZER;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFMaterialVariant : GLTFObject
+
+- (instancetype)initWithName:(NSString *)name NS_DESIGNATED_INITIALIZER;
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFMaterialMapping : GLTFObject
+
+@property (nonatomic, strong) GLTFMaterial *material;
+@property (nonatomic, strong) GLTFMaterialVariant *variant;
+
+- (instancetype)initWithMaterial:(GLTFMaterial *)material variant:(GLTFMaterialVariant *)variant NS_DESIGNATED_INITIALIZER;
+- (id)init NS_UNAVAILABLE;
 
 @end
 
