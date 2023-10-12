@@ -273,7 +273,6 @@ GLTFKIT2_EXPORT
 @property (nonatomic, assign) NSInteger offset;
 @property (nonatomic, assign) NSInteger length;
 @property (nonatomic, assign) NSInteger stride;
-//@property (nonatomic, assign) NSInteger target;
 
 - (instancetype)initWithBuffer:(GLTFBuffer *)buffer
                         length:(NSInteger)length
