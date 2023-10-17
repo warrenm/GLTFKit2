@@ -16,7 +16,10 @@ class DocumentController : NSDocumentController {
 }
 
 class GLTFDocument: NSDocument {
-    
+    enum GLTFDocumentSaveError : Error {
+        case noAssetToWrite
+    }
+
     var asset: GLTFAsset? = GLTFAsset() {
         didSet {
             if let asset = asset {
@@ -49,26 +52,30 @@ class GLTFDocument: NSDocument {
         }
     }
 
-    enum GLTFDocumentSaveError : Error {
-        case noAssetToWrite
-    }
-
-    override func data(ofType typeName: String) throws -> Data {
+    override func write(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType,
+                        originalContentsURL absoluteOriginalContentsURL: URL?) throws
+    {
         guard let asset = asset else {
             throw GLTFDocumentSaveError.noAssetToWrite
         }
 
-        var data: Data? = nil
+        var writeOptions: [GLTFAssetExportOption : Any] = [:]
+        if url.isFileURL && url.pathExtension == "glb" {
+            writeOptions[.asBinary] = true
+        }
+
         let group = DispatchGroup()
         group.enter()
 
-        asset.serialize(options: [.asBinary : false]) { progress, status, maybeData, maybeError, shouldStop in
-            data = maybeData
-            group.leave()
+        asset.write(to: url, options: writeOptions) { progress, status, maybeError, shouldStop in
+            if status == .writing {
+                self.unblockUserInteraction() // We've safely serialized, so we're safe to unblock the UI
+            }
+            if status == .complete || status == .error {
+                group.leave()
+            }
         }
 
-        _ = group.wait(timeout: DispatchTime.now().advanced(by: .seconds(30)))
-
-        return data ?? Data()
+        group.wait()
     }
 }

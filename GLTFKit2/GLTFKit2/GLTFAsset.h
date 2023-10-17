@@ -89,6 +89,8 @@ typedef NS_ENUM(NSInteger, GLTFAssetStatus) {
     GLTFAssetStatusParsing = 1,
     GLTFAssetStatusValidating,
     GLTFAssetStatusProcessing,
+    GLTFAssetStatusSerializing,
+    GLTFAssetStatusWriting,
     GLTFAssetStatusComplete
 };
 
