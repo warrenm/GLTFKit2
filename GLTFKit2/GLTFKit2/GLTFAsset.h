@@ -509,7 +509,7 @@ GLTFKIT2_EXPORT
 
 - (instancetype)init NS_UNAVAILABLE;
 
-- (GLTFMaterial *)effectiveMaterialForVariant:(GLTFMaterialVariant *)variant;
+- (nullable GLTFMaterial *)effectiveMaterialForVariant:(GLTFMaterialVariant *)variant;
 
 @end
 

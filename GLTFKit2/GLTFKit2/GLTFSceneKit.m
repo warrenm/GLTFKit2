@@ -939,7 +939,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         NSString *legalizedName = [node.name stringByReplacingOccurrencesOfString:@"." withString:@"_"];
         if ([legalizedNodeNames containsObject:legalizedName]) {
             NSInteger uniqueIndex = 1;
-            NSString *uniquedName = legalizedName;
+            NSString *uniquedName = nil;
             do {
                 uniquedName = [NSString stringWithFormat:@"%@_%d", legalizedName, (int)uniqueIndex];
                 ++uniqueIndex;

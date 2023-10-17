@@ -398,7 +398,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             func.emission.textureSamplerValue = emissiveSampler;
         }
         // TODO: How to represent base color/emissive factor, normal/occlusion strength, etc.?
-        if (material.indexOfRefraction) {
+        if (material.indexOfRefraction != nil) {
             func.interfaceIndexOfRefraction.floatValue = material.indexOfRefraction.floatValue;
         }
 
@@ -528,6 +528,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             MDLCamera *camera = camerasForIdentifiers[node.camera.identifier];
             [mdlNode addChild:camera];
         }
+        nodesForIdentifiers[node.identifier] = mdlNode;
     }
     
     // Scene -> MDLAsset
