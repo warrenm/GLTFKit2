@@ -13,6 +13,7 @@ static const uint32_t GlbJsonChunkID = 0x4E4F534A;
 static const uint32_t GlbBinChunkID = 0x004E4942;
 
 GLTFAssetExportOption const GLTFAssetExportAsBinary = @"GLTFAssetExportAsBinary";
+GLTFAssetExportOption const GLTFAssetExportEmbedBuffers = @"GLTFAssetExportEmbedBuffers";
 
 static size_t align_up(size_t base, size_t alignment) {
     return ((base + (alignment - 1)) / alignment) * alignment;
@@ -70,7 +71,7 @@ static void *paged_allocator_alloc(struct paged_allocator *allocator, size_t siz
     if (allocator == NULL || allocator->head_block == NULL) {
         return NULL;
     }
-    struct paged_allocator_block *block = allocator->head_block;
+    struct paged_allocator_block *block = allocator->tail_block;
     if ((align_up(block->alloc_offset, alignment) + size) < block->capacity) {
         block->alloc_offset = align_up(block->alloc_offset, alignment);
         void *allocAddr = block->base_address + block->alloc_offset;
@@ -84,11 +85,13 @@ static void *paged_allocator_alloc(struct paged_allocator *allocator, size_t siz
             block->previous = allocator->tail_block->previous;
             if (allocator->tail_block->previous) {
                 allocator->tail_block->previous->next = block;
+            } else {
+                allocator->head_block = block;
             }
             allocator->tail_block->previous = block;
             return block->base_address;
         } else {
-            block = paged_allocator_block_alloc(allocator, size);
+            block = paged_allocator_block_alloc(allocator, 8 * allocator->page_size);
             block->next = NULL;
             block->previous = allocator->tail_block;
             allocator->tail_block->next = block;
@@ -121,11 +124,20 @@ static void paged_allocator_free_all(struct paged_allocator *allocator) {
         return;
     }
     struct paged_allocator_block *block = allocator->head_block;
+    size_t blockCount = 0, totalAllocSize = 0, totalUnusedSpace = 0;
     while (block != NULL) {
         struct paged_allocator_block *next = block->next;
+        blockCount++;
+        totalAllocSize += block->capacity;
+        totalUnusedSpace += block->next ? (block->capacity - block->alloc_offset) : 0;
         paged_allocator_block_free(block);
         block = next;
     }
+    //printf("Paged allocator deallocation report:\n");
+    //printf("\t%d blocks were freed\n", (int)blockCount);
+    //printf("\tTotal allocation was %d bytes\n", (int)totalAllocSize);
+    //printf("\t%d bytes were unavailable and unused (%0.2f waste factor)\n",
+    //       (int)totalUnusedSpace, (double)totalUnusedSpace/(double)totalAllocSize);
 }
 
 static void *gltf_alloc(void *user, cgltf_size size) {
@@ -137,6 +149,19 @@ static void gltf_free(void *user, void *ptr) {
     (void)user;
     (void)ptr;
     // no-op; all allocations are freed with paged_allocator_free_all
+}
+
+static cgltf_animation_path_type GLTFAnimationPathTypeFromPath(NSString *path) {
+    if ([path isEqualToString:@"translation"]) {
+        return cgltf_animation_path_type_translation;
+    } else if ([path isEqualToString:@"rotation"]) {
+        return cgltf_animation_path_type_rotation;
+    } else if ([path isEqualToString:@"scale"]) {
+        return cgltf_animation_path_type_scale;
+    } else if ([path isEqualToString:@"weights"]) {
+        return cgltf_animation_path_type_weights;
+    }
+    return cgltf_animation_path_type_invalid;
 }
 
 @interface GLTFSerializedExtension : NSObject
@@ -226,6 +251,15 @@ void GLTFCopyTextureProperties(GLTFTextureParams *textureParams, cgltf_texture_v
     // textureView->extensions
 }
 
+NSString *GLTFEmbeddedBufferDataURI(GLTFBuffer *buffer) {
+    if (buffer == NULL || buffer.data == NULL || buffer.data.length == 0) {
+        return NULL;
+    }
+    NSString *base64Data = [buffer.data base64EncodedStringWithOptions:0];
+    NSString *dataURI = [@"data:application/octet-stream;base64," stringByAppendingString:base64Data];
+    return dataURI;
+}
+
 @interface GLTFAssetWriter ()
 @property (class, nonatomic, readonly) dispatch_queue_t writerQueue;
 @property (nonatomic, strong) GLTFAsset *asset;
@@ -311,9 +345,11 @@ static dispatch_queue_t _writerQueue;
                    handler:(GLTFAssetDataExportProgressHandler)handler
 {
     NSError *internalError = nil;
+    BOOL exportAsGLB = [options[GLTFAssetExportAsBinary] boolValue];
+    BOOL embedBuffers = [options[GLTFAssetExportEmbedBuffers] boolValue];
 
     struct paged_allocator allocator;
-    paged_allocator_init(&allocator, 16 * 1024);
+    paged_allocator_init(&allocator, 64 * 1024);
 
     cgltf_memory_options memory = { gltf_alloc, gltf_free, &allocator };
 
@@ -322,6 +358,33 @@ static dispatch_queue_t _writerQueue;
 
     gltf->buffers = paged_allocator_calloc(&allocator, asset.buffers.count, sizeof(cgltf_buffer));
     gltf->buffers_count = asset.buffers.count;
+    gltf->buffer_views = paged_allocator_calloc(&allocator, asset.bufferViews.count, sizeof(cgltf_buffer_view));
+    gltf->buffer_views_count = asset.bufferViews.count;
+    gltf->accessors = paged_allocator_calloc(&allocator, asset.accessors.count, sizeof(cgltf_accessor));
+    gltf->accessors_count = asset.accessors.count;
+    gltf->cameras = paged_allocator_calloc(&allocator, asset.cameras.count, sizeof(cgltf_camera));
+    gltf->cameras_count = asset.cameras.count;
+    gltf->lights = paged_allocator_calloc(&allocator, asset.lights.count, sizeof(cgltf_light));
+    gltf->lights_count = asset.lights.count;
+    gltf->images = paged_allocator_calloc(&allocator, asset.images.count, sizeof(cgltf_image));
+    gltf->images_count = asset.images.count;
+    gltf->samplers = paged_allocator_calloc(&allocator, asset.samplers.count, sizeof(cgltf_sampler));
+    gltf->samplers_count = asset.samplers.count;
+    gltf->textures = paged_allocator_calloc(&allocator, asset.textures.count, sizeof(cgltf_texture));
+    gltf->textures_count = asset.textures.count;
+    gltf->materials = paged_allocator_calloc(&allocator, asset.materials.count, sizeof(cgltf_material));
+    gltf->materials_count = asset.materials.count;
+    gltf->meshes = paged_allocator_calloc(&allocator, asset.meshes.count, sizeof(cgltf_mesh));
+    gltf->meshes_count = asset.meshes.count;
+    gltf->skins = paged_allocator_calloc(&allocator, asset.skins.count, sizeof(cgltf_skin));
+    gltf->skins_count = asset.skins.count;
+    gltf->animations = paged_allocator_calloc(&allocator, asset.animations.count, sizeof(cgltf_animation));
+    gltf->animations_count = asset.animations.count;
+    gltf->nodes = paged_allocator_calloc(&allocator, asset.nodes.count, sizeof(cgltf_node));
+    gltf->nodes_count = asset.nodes.count;
+    gltf->scenes = paged_allocator_calloc(&allocator, asset.scenes.count, sizeof(cgltf_scene));
+    gltf->scenes_count = asset.scenes.count;
+
     for (size_t i = 0; i < asset.buffers.count; ++i) {
         GLTFBuffer *buffer = asset.buffers[i];
         cgltf_buffer *gltfBuffer = gltf->buffers + i;
@@ -331,14 +394,15 @@ static dispatch_queue_t _writerQueue;
         gltfBuffer->size = buffer.length;
         if (buffer.uri) {
             gltfBuffer->uri = paged_allocator_strdup(&allocator, buffer.uri.absoluteString.UTF8String);
+        } else if (embedBuffers) {
+            NSString *uri = GLTFEmbeddedBufferDataURI(buffer);
+            gltfBuffer->uri = paged_allocator_strdup(&allocator, uri.UTF8String);
         }
-        // gltfBuffer->extras
-        // gltfBuffer->extensions_count
-        // gltfBuffer->extensions
+        //gltfBuffer->extras
+        //gltfBuffer->extensions_count
+        //gltfBuffer->extensions
     }
 
-    gltf->buffer_views = paged_allocator_calloc(&allocator, asset.bufferViews.count, sizeof(cgltf_buffer_view));
-    gltf->buffer_views_count = asset.bufferViews.count;
     for (size_t i = 0; i < asset.bufferViews.count; ++i) {
         GLTFBufferView *bufferView = asset.bufferViews[i];
         cgltf_buffer_view *gltfBufferView = gltf->buffer_views + i;
@@ -354,13 +418,11 @@ static dispatch_queue_t _writerQueue;
         gltfBufferView->offset = bufferView.offset;
         gltfBufferView->size = bufferView.length;
         gltfBufferView->stride = bufferView.stride;
-        // gltfBufferView->extras
-        // gltfBufferView->extensions_count
-        // gltfBufferView->extensions
+        //gltfBufferView->extras
+        //gltfBufferView->extensions_count
+        //gltfBufferView->extensions
     }
 
-    gltf->accessors = paged_allocator_calloc(&allocator, asset.accessors.count, sizeof(cgltf_accessor));
-    gltf->accessors_count = asset.accessors.count;
     for (size_t i = 0; i < asset.accessors.count; ++i) {
         GLTFAccessor *accessor = asset.accessors[i];
         cgltf_accessor *gltfAccessor = gltf->accessors + i;
@@ -372,7 +434,6 @@ static dispatch_queue_t _writerQueue;
         gltfAccessor->type = (cgltf_type)accessor.dimension;
         gltfAccessor->offset = accessor.offset;
         gltfAccessor->count = accessor.count;
-        gltfAccessor->stride = 0; // accessor.stride;
         if (accessor.bufferView) {
             NSInteger bufferViewIndex = [asset.bufferViews indexOfObject:accessor.bufferView];
             if (bufferViewIndex != NSNotFound) {
@@ -387,15 +448,13 @@ static dispatch_queue_t _writerQueue;
         for (int c = 0; c < accessor.maxValues.count; ++c) {
             gltfAccessor->max[c] = accessor.maxValues[c].floatValue;
         }
-        gltfAccessor->is_sparse = 0;
-        // gltfAccessor->sparse
-        // gltfAccessor->extras
-        // gltfAccessor->extensions_count
-        // gltfAccessor->extensions
+        //gltfAccessor->is_sparse = 0;
+        //gltfAccessor->sparse
+        //gltfAccessor->extras
+        //gltfAccessor->extensions_count
+        //gltfAccessor->extensions
     }
 
-    gltf->cameras = paged_allocator_calloc(&allocator, asset.cameras.count, sizeof(cgltf_camera));
-    gltf->cameras_count = asset.cameras.count;
     for (size_t i = 0; i < asset.cameras.count; ++i) {
         GLTFCamera *camera = asset.cameras[i];
         cgltf_camera *gltfCamera = gltf->cameras + i;
@@ -428,8 +487,6 @@ static dispatch_queue_t _writerQueue;
         //gltfCamera->extensions
     }
 
-    gltf->lights = paged_allocator_calloc(&allocator, asset.lights.count, sizeof(cgltf_light));
-    gltf->lights_count = asset.lights.count;
     for (size_t i = 0; i < asset.lights.count; ++i) {
         GLTFLight *light = asset.lights[i];
         cgltf_light *gltfLight = gltf->lights + i;
@@ -446,8 +503,6 @@ static dispatch_queue_t _writerQueue;
         //gltfLight->extras
     }
 
-    gltf->images = paged_allocator_calloc(&allocator, asset.images.count, sizeof(cgltf_image));
-    gltf->images_count = asset.images.count;
     for (size_t i = 0; i < asset.images.count; ++i) {
         GLTFImage *image = asset.images[i];
         cgltf_image *gltfImage = gltf->images + i;
@@ -471,8 +526,6 @@ static dispatch_queue_t _writerQueue;
         //gltfImage->extensions
     }
 
-    gltf->samplers = paged_allocator_calloc(&allocator, asset.samplers.count, sizeof(cgltf_sampler));
-    gltf->samplers_count = asset.samplers.count;
     for (size_t i = 0; i < asset.samplers.count; ++i) {
         GLTFTextureSampler *sampler = asset.samplers[i];
         cgltf_sampler *gltfSampler = gltf->samplers + i;
@@ -488,8 +541,6 @@ static dispatch_queue_t _writerQueue;
         //gltfSampler->extensions
     }
 
-    gltf->textures = paged_allocator_calloc(&allocator, asset.textures.count, sizeof(cgltf_texture));
-    gltf->textures_count = asset.textures.count;
     for (size_t i = 0; i < asset.textures.count; ++i) {
         GLTFTexture *texture = asset.textures[i];
         cgltf_texture *gltfTexture = gltf->textures + i;
@@ -508,15 +559,13 @@ static dispatch_queue_t _writerQueue;
                 gltfTexture->sampler = gltf->samplers + samplerIndex;
             }
         }
-        //gltfTexture->has_basisu
+        gltfTexture->has_basisu = 0;
         //gltfTexture->basisu_image
         //gltfTexture->extras
         //gltfTexture->extensions_count
         //gltfTexture->extensions
     }
 
-    gltf->materials = paged_allocator_calloc(&allocator, asset.materials.count, sizeof(cgltf_material));
-    gltf->materials_count = asset.materials.count;
     for (size_t i = 0; i < asset.materials.count; ++i) {
         GLTFMaterial *material = asset.materials[i];
         cgltf_material *gltfMaterial = gltf->materials + i;
@@ -539,7 +588,7 @@ static dispatch_queue_t _writerQueue;
             memcpy(gltfMaterial->pbr_metallic_roughness.base_color_factor, &baseColorFactor, sizeof(float) * 4);
             gltfMaterial->pbr_metallic_roughness.metallic_factor = material.metallicRoughness.metallicFactor;
             gltfMaterial->pbr_metallic_roughness.roughness_factor = material.metallicRoughness.roughnessFactor;
-            // gltfMaterial->pbr_metallic_roughness.extras
+            //gltfMaterial->pbr_metallic_roughness.extras
         }
         gltfMaterial->has_pbr_specular_glossiness = 0; // Obsolete
         if (material.clearcoat != nil) {
@@ -633,13 +682,11 @@ static dispatch_queue_t _writerQueue;
                                   &gltfMaterial->occlusion_texture,
                                   asset.textures, gltf->textures);
 
-        // gltfMaterial->extras
-        // gltfMaterial->extensions_count
-        // gltfMaterial->extensions
+        //gltfMaterial->extras
+        //gltfMaterial->extensions_count
+        //gltfMaterial->extensions
     }
 
-    gltf->meshes = paged_allocator_calloc(&allocator, asset.meshes.count, sizeof(cgltf_mesh));
-    gltf->meshes_count = asset.meshes.count;
     for (size_t i = 0; i < asset.meshes.count; ++i) {
         GLTFMesh *mesh = asset.meshes[i];
         cgltf_mesh *gltfMesh = gltf->meshes + i;
@@ -668,25 +715,24 @@ static dispatch_queue_t _writerQueue;
             gltfPrim->attributes = paged_allocator_calloc(&allocator, prim.attributes.count, sizeof(cgltf_attribute));
             gltfPrim->attributes_count = prim.attributes.count;
 
-            __block size_t k = 0;
             __block struct paged_allocator *stringAllocator = &allocator;
-            [prim.attributes enumerateKeysAndObjectsUsingBlock:^(NSString *attributeName, GLTFAccessor *accessor, BOOL *stop) {
+            [prim.attributes enumerateObjectsUsingBlock:^(GLTFAttribute *attribute, NSUInteger k, BOOL *stop) {
+                GLTFAccessor *accessor = attribute.accessor;
                 cgltf_attribute *gltfAttrib = gltfPrim->attributes + k;
-                gltfAttrib->name = paged_allocator_strdup(stringAllocator, attributeName.UTF8String);
+                gltfAttrib->name = paged_allocator_strdup(stringAllocator, attribute.name.UTF8String);
                 NSInteger accessorIndex = [asset.accessors indexOfObject:accessor];
                 if (accessorIndex != NSNotFound) {
                     gltfAttrib->data = gltf->accessors + accessorIndex;
                 }
-                ++k;
             }];
             //gltfPrim->targets
             //gltfPrim->targets_count
-            //gltfPrim->has_draco_mesh_compression
+            gltfPrim->has_draco_mesh_compression = 0;
             //gltfPrim->draco_mesh_compression
             //gltfPrim->mappings
             //gltfPrim->mappings_count
             //gltfPrim->extras
-            //gltfPrim->extensions_count
+            gltfPrim->extensions_count = 0;
             //gltfPrim->extensions
         }
         //gltfMesh->weights
@@ -694,15 +740,101 @@ static dispatch_queue_t _writerQueue;
         //gltfMesh->target_names
         //gltfMesh->target_names_count
         //gltfMesh->extras
-        //gltfMesh->extensions_count
+        gltfMesh->extensions_count = 0;
         //gltfMesh->extensions
     }
 
-    //TODO: skins
-    //TODO: animations
+    for (size_t i = 0; i < asset.skins.count; ++i) {
+        GLTFSkin *skin = asset.skins[i];
+        cgltf_skin *gltfSkin = gltf->skins + i;
+        if (skin.name) {
+            gltfSkin->name = paged_allocator_strdup(&allocator, skin.name.UTF8String);
+        }
+        gltfSkin->joints = paged_allocator_calloc(&allocator, skin.joints.count, sizeof(cgltf_node *));
+        gltfSkin->joints_count = skin.joints.count;
+        for (size_t j = 0; j < skin.joints.count; ++j) {
+            NSInteger jointIndex = [asset.nodes indexOfObject:skin.joints[j]];
+            if (jointIndex != NSNotFound) {
+                gltfSkin->joints[j] = gltf->nodes + jointIndex;
+            }
+        }
+        if (skin.skeleton) {
+            NSInteger skeletonNodeIndex = [asset.nodes indexOfObject:skin.skeleton];
+            if (skeletonNodeIndex != NSNotFound) {
+                gltfSkin->skeleton = gltf->nodes + skeletonNodeIndex;
+            }
+        }
+        if (skin.inverseBindMatrices) {
+            NSInteger ibmAccessorIndex = [asset.accessors indexOfObject:skin.inverseBindMatrices];
+            if (ibmAccessorIndex != NSNotFound) {
+                gltfSkin->inverse_bind_matrices = gltf->accessors + ibmAccessorIndex;
+            }
+        }
+        //gltfSkin->extras
+        gltfSkin->extensions_count = 0;
+        //gltfSkin->extensions
+    }
 
-    gltf->nodes = paged_allocator_calloc(&allocator, asset.nodes.count, sizeof(cgltf_node));
-    gltf->nodes_count = asset.nodes.count;
+    NSMutableSet *animatedNodeIndices = [NSMutableSet set];
+
+    for (size_t i = 0; i < asset.animations.count; ++i) {
+        GLTFAnimation *animation = asset.animations[i];
+        cgltf_animation *gltfAnimation = gltf->animations + i;
+        if (animation.name) {
+            gltfAnimation->name = paged_allocator_strdup(&allocator, animation.name.UTF8String);
+        }
+        gltfAnimation->samplers = paged_allocator_calloc(&allocator, animation.samplers.count, sizeof(cgltf_animation_sampler));
+        gltfAnimation->samplers_count = animation.samplers.count;
+        for (size_t j = 0; j < animation.samplers.count; ++j) {
+            GLTFAnimationSampler *sampler = animation.samplers[j];
+            cgltf_animation_sampler *gltfSampler = gltfAnimation->samplers + j;
+            if (sampler.input) {
+                NSInteger inputAccessorIndex = [asset.accessors indexOfObject:sampler.input];
+                if (inputAccessorIndex != NSNotFound) {
+                    gltfSampler->input = gltf->accessors + inputAccessorIndex;
+                }
+            }
+            if (sampler.output) {
+                NSInteger outputAccessorIndex = [asset.accessors indexOfObject:sampler.output];
+                if (outputAccessorIndex != NSNotFound) {
+                    gltfSampler->output = gltf->accessors + outputAccessorIndex;
+                }
+            }
+            gltfSampler->interpolation = (cgltf_interpolation_type)sampler.interpolationMode;
+            //gltfSampler->extras
+            gltfSampler->extensions_count = 0;
+            //gltfSampler->extensions
+        }
+        gltfAnimation->channels = paged_allocator_calloc(&allocator, animation.channels.count, sizeof(cgltf_animation_channel));
+        gltfAnimation->channels_count = animation.channels.count;
+        for (size_t j = 0; j < animation.channels.count; ++j) {
+            GLTFAnimationChannel *channel = animation.channels[j];
+            cgltf_animation_channel *gltfChannel = gltfAnimation->channels + j;
+            if (channel.sampler) {
+                NSInteger samplerIndex = [animation.samplers indexOfObject:channel.sampler];
+                if (samplerIndex != NSNotFound) {
+                    gltfChannel->sampler = gltfAnimation->samplers + samplerIndex;
+                }
+            }
+            if (channel.target) {
+                if (channel.target.node) {
+                    NSInteger targetNodeIndex = [asset.nodes indexOfObject:channel.target.node];
+                    if (targetNodeIndex != NSNotFound) {
+                        gltfChannel->target_node = gltf->nodes + targetNodeIndex;
+                        [animatedNodeIndices addObject:@(targetNodeIndex)];
+                    }
+                }
+                gltfChannel->target_path = GLTFAnimationPathTypeFromPath(channel.target.path); // We'd prefer not to have to do this.
+            }
+            //gltfChannel->extras
+            gltfChannel->extensions_count = 0;
+            //gltfChannel->extensions
+        }
+        //gltfAnimation->extras
+        gltfAnimation->extensions_count = 0;
+        //gltfAnimation->extensions
+    }
+
     for (size_t i = 0; i < asset.nodes.count; ++i) {
         GLTFNode *node = asset.nodes[i];
         cgltf_node *gltfNode = gltf->nodes + i;
@@ -710,13 +842,24 @@ static dispatch_queue_t _writerQueue;
             gltfNode->name = paged_allocator_strdup(&allocator, node.name.UTF8String);
         }
 
-        gltfNode->has_translation = 0;
-        gltfNode->has_rotation = 0;
-        gltfNode->has_scale = 0;
-        gltfNode->has_matrix = 1;
-        simd_float4x4 M = node.matrix;
-        // TODO: Write TRS properties instead if our transform is an animation target
-        memcpy(&gltfNode->matrix[0], &M, sizeof(float) * 16);
+        // TODO: We could consult animatedNodeIndices to determine if this node is
+        // the target of any animations and if not, write out a TRS matrix instead.
+        // There are perhaps marginal benefits in size and numerical stability.
+        simd_float3 translation = node.translation;
+        if (translation.x != 0.0 || translation.y != 0.0 || translation.z != 0.0) {
+            gltfNode->has_translation = 1;
+            memcpy(gltfNode->translation, &translation, sizeof(float) * 3);
+        }
+        simd_float4 rotation = node.rotation.vector;
+        if (rotation.x != 0.0 || rotation.y != 0.0 || rotation.z != 0.0) {
+            gltfNode->has_rotation = 1;
+            memcpy(gltfNode->rotation, &rotation, sizeof(float) * 4);
+        }
+        simd_float3 scale = node.scale;
+        if (scale.x != 1.0 || scale.y != 1.0 || scale.z != 1.0) {
+            gltfNode->has_scale = 1;
+            memcpy(gltfNode->scale, &scale, sizeof(float) * 3);
+        }
 
         if (node.parentNode) {
             NSInteger parentIndex = [asset.nodes indexOfObject:node.parentNode];
@@ -731,7 +874,7 @@ static dispatch_queue_t _writerQueue;
             for (int j = 0; j < node.childNodes.count; ++j) {
                 NSInteger childIndex = [asset.nodes indexOfObject:node.childNodes[j]];
                 if (childIndex != NSNotFound) {
-                    gltfNode->children[gltfNode->children_count++] = gltf->nodes + childIndex;
+                    gltfNode->children[j] = gltf->nodes + childIndex;
                 }
             }
         }
@@ -757,18 +900,21 @@ static dispatch_queue_t _writerQueue;
             }
         }
 
-        gltfNode->skin = NULL;
-        gltfNode->weights = NULL;
-        gltfNode->weights_count = 0;
+        if (node.skin != nil) {
+            NSInteger skinIndex = [asset.skins indexOfObject:node.skin];
+            if (skinIndex != NSNotFound) {
+                gltfNode->skin = gltf->skins + skinIndex;
+            }
+        }
 
+        //gltfNode->weights
+        //gltfNode->weights_count
         gltfNode->has_mesh_gpu_instancing = 0;
         //gltfNode->extras
-        //gltfNode->extensions;
-        //gltfNode->extensions_count;
+        //gltfNode->extensions
+        gltfNode->extensions_count = 0;
     }
 
-    gltf->scenes = paged_allocator_calloc(&allocator, asset.scenes.count, sizeof(cgltf_scene));
-    gltf->scenes_count = asset.scenes.count;
     for (size_t i = 0; i < asset.scenes.count; ++i) {
         GLTFScene *scene = asset.scenes[i];
         cgltf_scene *gltfScene = gltf->scenes + i;
@@ -780,9 +926,9 @@ static dispatch_queue_t _writerQueue;
                 gltfScene->nodes[gltfScene->nodes_count++] = gltf->nodes + nodeIndex;
             }
         }
-        //gltfScene->extras;
-        //gltfScene->extensions;
-        //gltfScene->extensions_count;
+        //gltfScene->extras
+        //gltfScene->extensions
+        //gltfScene->extensions_count
     }
     
     if (asset.defaultScene) {
@@ -817,7 +963,7 @@ static dispatch_queue_t _writerQueue;
 
     NSData *outData = jsonData;
 
-    if ([options[GLTFAssetExportAsBinary] boolValue]) {
+    if (exportAsGLB) {
         // Calculate GLB file size, accounting for mandatory padding and presence of binary chunk
         // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#glb-file-format-specification
         uint32_t glbSize = GlbHeaderSize;

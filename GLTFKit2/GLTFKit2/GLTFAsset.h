@@ -96,17 +96,17 @@ typedef void (^GLTFAssetLoadingHandler)(float progress, GLTFAssetStatus status, 
                                         NSError * _Nullable error, BOOL *stop);
 
 typedef NSString * GLTFAssetExportOption NS_STRING_ENUM;
-GLTFKIT2_EXPORT GLTFAssetExportOption const GLTFAssetExportAsBinary;  // BOOL-valued NSNumber
+GLTFKIT2_EXPORT GLTFAssetExportOption const GLTFAssetExportAsBinary;     // BOOL-valued NSNumber
+GLTFKIT2_EXPORT GLTFAssetExportOption const GLTFAssetExportEmbedBuffers; // BOOL-valued NSNumber
 
 #define GLTFAssetExportOptionExportAsBinary GLTFAssetExportAsBinary
+#define GLTFAssetExportOptionEmbedBuffers GLTFAssetExportEmbedBuffers
 
 typedef void (^GLTFAssetURLExportProgressHandler)(float progress, GLTFAssetStatus status,
                                                   NSError * _Nullable error, BOOL *stop);
 
 typedef void (^GLTFAssetDataExportProgressHandler)(float progress, GLTFAssetStatus status,
                                                    NSData * _Nullable data, NSError * _Nullable error, BOOL *stop);
-
-typedef BOOL (^GLTFFilterPredicate)(GLTFObject *entry, NSString *identifier, BOOL *stop);
 
 @class GLTFAccessor, GLTFAnimation, GLTFBuffer, GLTFBufferView, GLTFCamera, GLTFImage, GLTFLight;
 @class GLTFMaterial, GLTFMaterialMapping, GLTFMaterialVariant, GLTFMesh, GLTFNode, GLTFPrimitive;

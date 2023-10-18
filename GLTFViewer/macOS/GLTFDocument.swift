@@ -62,6 +62,8 @@ class GLTFDocument: NSDocument {
         var writeOptions: [GLTFAssetExportOption : Any] = [:]
         if url.isFileURL && url.pathExtension == "glb" {
             writeOptions[.asBinary] = true
+        } else {
+            writeOptions[.embedBuffers] = true
         }
 
         let group = DispatchGroup()
