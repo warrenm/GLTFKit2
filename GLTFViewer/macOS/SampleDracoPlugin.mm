@@ -77,7 +77,7 @@ static uint32_t *GLTFCopyUInt32IndexDataForMesh(draco::Mesh *mesh, size_t &outIn
         return nil;
     }
     GLTFAccessor *indexAccessor = nil;
-    __block NSMutableDictionary<NSString *, GLTFAccessor *> *attributes = [NSMutableDictionary dictionary];
+    __block NSMutableArray<GLTFAttribute *> *attributes = [NSMutableArray array];
     draco::EncodedGeometryType geometryType = typeOrStatus.value();
     if (geometryType == draco::TRIANGULAR_MESH) {
         auto meshOrStatus = decoder.DecodeMeshFromBuffer(&buffer);
@@ -106,7 +106,8 @@ static uint32_t *GLTFCopyUInt32IndexDataForMesh(draco::Mesh *mesh, size_t &outIn
                                                                                  dimension:dimension
                                                                                      count:meshPtr->num_points()
                                                                                 normalized:normalized];
-                attributes[key] = attributeAccessor;
+                GLTFAttribute *attribute = [[GLTFAttribute alloc] initWithName:key accessor:attributeAccessor];
+                [attributes addObject:attribute];
             }];
             size_t indexCount, indexBufferSize;
             uint32_t *indices = GLTFCopyUInt32IndexDataForMesh(meshPtr, indexCount, indexBufferSize);

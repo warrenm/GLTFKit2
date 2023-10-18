@@ -807,13 +807,17 @@ static dispatch_queue_t _loaderQueue;
                 dracoPrimitive = [DecompressorClass newPrimitiveForCompressedBufferView:bufferView
                                                                            attributeMap:dracoAttributes];
             }
-            NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
+            NSMutableArray *attributes = [NSMutableArray array];
             for (int k = 0; k < p->attributes_count; ++k) {
                 cgltf_attribute *a = p->attributes + k;
                 NSString *attrName = [NSString stringWithUTF8String:a->name];
                 size_t attrIndex = a->data - gltf->accessors;
                 GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
-                attributes[attrName] = dracoPrimitive.attributes[attrName] ?: attrAccessor;
+                GLTFAttribute *_Nullable attribute = [dracoPrimitive attributeForName:attrName];
+                if (attribute == nil) {
+                    attribute = [[GLTFAttribute alloc] initWithName:attrName accessor:attrAccessor];
+                }
+                [attributes addObject:attribute];
             }
             GLTFPrimitive *primitive = nil;
             if (p->indices) {

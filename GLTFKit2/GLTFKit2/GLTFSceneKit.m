@@ -439,7 +439,7 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
     // and SceneKit relies on this invariant as of iOS 12 and macOS Mojave.
     // TODO: Support multiple sets of weights, assuring that sum of weights across
     // all weight sets is 1.
-    if ([semanticName isEqualToString:@"WEIGHTS_0"]) {
+    if ([semanticName isEqualToString:GLTFAttributeSemanticWeights0]) {
         assert(floatComponents && (componentCount == 4) &&
                  "Accessor for joint weights must be of float4 type; other data types are not currently supported");
         for (int i = 0; i < accessor.count; ++i) {
@@ -816,7 +816,8 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     for (GLTFMesh *mesh in self.asset.meshes) {
         for (GLTFPrimitive *primitive in mesh.primitives) {
             int vertexCount = 0;
-            GLTFAccessor *positionAccessor = primitive.attributes[GLTFAttributeSemanticPosition];
+            GLTFAttribute *positionAttribute = [primitive attributeForName:GLTFAttributeSemanticPosition];
+            GLTFAccessor *positionAccessor = positionAttribute.accessor;
             if (positionAccessor != nil) {
                 vertexCount = (int)positionAccessor.count;
             }
@@ -864,13 +865,12 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             geometryElementForIdentifiers[primitive.identifier] = element;
 
             NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
-            for (NSString *key in primitive.attributes.allKeys) {
-                GLTFAccessor *attrAccessor = primitive.attributes[key];
+            for (GLTFAttribute *attribute in primitive.attributes) {
                 // TODO: Retopologize geometry source if geometry element's data is `nil`.
                 // For primitive types not supported by SceneKit (line loops, line strips, triangle
                 // fans), we retopologize the primitive's indices. However, if they aren't present,
                 // we need to adjust the vertex data.
-                [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attrAccessor, key)];
+                [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name)];
             }
 
             SCNGeometry *geometry = [SCNGeometry geometryWithSources:geometrySources elements:@[element]];

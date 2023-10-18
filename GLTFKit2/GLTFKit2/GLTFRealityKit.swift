@@ -367,26 +367,26 @@ public class GLTFRealityKitLoader {
 
         var meshDescriptor = MeshDescriptor(name: gltfPrimitive.name ?? "(unnamed prim)") // TODO: Unique names
 
-        if let positionAccessor = gltfPrimitive.attributes["POSITION"],
-            let positionArray = packedFloat3Array(for: positionAccessor)
+        if let positionAttribute = gltfPrimitive.attribute(forName: "POSITION"),
+           let positionArray = packedFloat3Array(for: positionAttribute.accessor)
         {
             meshDescriptor.positions = MeshBuffers.Positions(positionArray)
         }
 
-        if let normalAccessor = gltfPrimitive.attributes["NORMAL"],
-            let normalArray = packedFloat3Array(for: normalAccessor)
+        if let normalAttribute = gltfPrimitive.attribute(forName: "NORMAL"),
+           let normalArray = packedFloat3Array(for: normalAttribute.accessor)
         {
             meshDescriptor.normals = MeshBuffers.Normals(normalArray)
         }
 
-        if let tangentAccessor = gltfPrimitive.attributes["TANGENT"],
-            let tangentArray = packedFloat3Array(for: tangentAccessor)
+        if let tangentAttribute = gltfPrimitive.attribute(forName: "TANGENT"),
+           let tangentArray = packedFloat3Array(for: tangentAttribute.accessor)
         {
             meshDescriptor.tangents = MeshBuffers.Tangents(tangentArray)
         }
 
-        if let texCoords0Accessor = gltfPrimitive.attributes["TEXCOORD_0"],
-            let texCoordsArray = packedFloat2Array(for: texCoords0Accessor, flipVertically: true)
+        if let texCoords0Attribute = gltfPrimitive.attribute(forName: "TEXCOORD_0"),
+           let texCoordsArray = packedFloat2Array(for: texCoords0Attribute.accessor, flipVertically: true)
         {
             meshDescriptor.textureCoordinates = MeshBuffers.TextureCoordinates(texCoordsArray)
         }
@@ -396,7 +396,7 @@ public class GLTFRealityKitLoader {
         if let indexAccessor = gltfPrimitive.indices, let indices = packedUInt32Array(for: indexAccessor) {
             meshDescriptor.primitives = .triangles(indices)
         } else {
-            let vertexCount = gltfPrimitive.attributes["POSITION"]?.count ?? 0
+            let vertexCount = gltfPrimitive.attribute(forName: "POSITION")?.accessor.count ?? 0
             let indices = [UInt32](UInt32(0)..<UInt32(vertexCount))
             meshDescriptor.primitives = .triangles(indices)
         }
