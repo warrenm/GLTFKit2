@@ -666,6 +666,18 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
 
 @end
 
+@implementation GLTFAttribute
+
+- (instancetype)initWithName:(NSString *)name accessor:(GLTFAccessor *)accessor {
+    if (self = [super init]) {
+        [super setName:name];
+        _accessor = accessor;
+    }
+    return self;
+}
+
+@end
+
 @interface GLTFPrimitive ()
 @property (nonatomic, weak) GLTFMaterialMapping *cachedMapping;
 @end
@@ -673,13 +685,13 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
 @implementation GLTFPrimitive
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
-                           attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes
+                           attributes:(NSArray<GLTFAttribute *> *)attributes
 {
     return [self initWithPrimitiveType:primitiveType attributes:attributes indices:nil];
 }
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
-                           attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes
+                           attributes:(NSArray<GLTFAttribute *> *)attributes
                               indices:(GLTFAccessor *)indices
 {
     if (self = [super init]) {
@@ -688,6 +700,15 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
         _indices = indices;
     }
     return self;
+}
+
+- (nullable GLTFAttribute *)attributeForName:(NSString *)name {
+    for (GLTFAttribute *attrib in self.attributes) {
+        if ([attrib.name isEqualToString:name]) {
+            return attrib;
+        }
+    }
+    return nil;
 }
 
 - (GLTFMaterial *)effectiveMaterialForVariant:(GLTFMaterialVariant *)variant {

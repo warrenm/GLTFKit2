@@ -464,9 +464,19 @@ GLTFKIT2_EXPORT
 typedef NSDictionary<NSString *, GLTFAccessor *> GLTFMorphTarget;
 
 GLTFKIT2_EXPORT
+@interface GLTFAttribute : GLTFObject
+@property (nonatomic, strong) GLTFAccessor *accessor;
+
+- (instancetype)initWithName:(NSString *)name accessor:(GLTFAccessor *)accessor NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFPrimitive : GLTFObject
 
-@property (nonatomic, copy) NSDictionary<NSString *, GLTFAccessor *> *attributes;
+@property (nonatomic, copy) NSArray<GLTFAttribute *> *attributes;
 @property (nonatomic, nullable, strong) GLTFAccessor *indices;
 @property (nonatomic, nullable, strong) GLTFMaterial *material;
 @property (nonatomic, assign) GLTFPrimitiveType primitiveType;
@@ -474,13 +484,15 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, copy) NSArray<GLTFMaterialMapping *> *materialMappings;
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
-                           attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes
+                           attributes:(NSArray<GLTFAttribute *> *)attributes
                               indices:(nullable GLTFAccessor *)indices NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithPrimitiveType:(GLTFPrimitiveType)primitiveType
-                           attributes:(NSDictionary<NSString *, GLTFAccessor *> *)attributes;
+                           attributes:(NSArray<GLTFAttribute *> *)attributes;
 
 - (instancetype)init NS_UNAVAILABLE;
+
+- (nullable GLTFAttribute *)attributeForName:(NSString *)name;
 
 - (GLTFMaterial *)effectiveMaterialForVariant:(GLTFMaterialVariant *)variant;
 

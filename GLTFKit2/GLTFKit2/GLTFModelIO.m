@@ -435,8 +435,8 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             int attrIndex = 0;
             int vertexCount = 0;
             NSMutableArray *vertexBuffers = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
-            for (NSString *key in primitive.attributes.allKeys) {
-                GLTFAccessor *attrAccessor = primitive.attributes[key];
+            for (GLTFAttribute *attribute in primitive.attributes) {
+                GLTFAccessor *attrAccessor = attribute.accessor;
                 GLTFBufferView *attrBufferView = attrAccessor.bufferView;
                 GLTFBuffer *attrBuffer = attrBufferView.buffer;
                 MDLVertexFormat mdlFormat = GLTFMDLVertexFormatForAccessor(attrAccessor);
@@ -449,7 +449,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
                 vertexCount = (int)attrAccessor.count;
                 vertexDescriptor.attributes[attrIndex].bufferIndex = attrIndex;
                 vertexDescriptor.attributes[attrIndex].format = mdlFormat;
-                vertexDescriptor.attributes[attrIndex].name = GLTFMDLVertexAttributeNameForSemantic(key);
+                vertexDescriptor.attributes[attrIndex].name = GLTFMDLVertexAttributeNameForSemantic(attribute.name);
                 vertexDescriptor.attributes[attrIndex].offset = 0;
                 vertexDescriptor.layouts[attrIndex].stride = attrBufferView.stride ? attrBufferView.stride : formatSize;
                 ++attrIndex;
