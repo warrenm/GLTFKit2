@@ -91,7 +91,7 @@ static NSString * _Nullable GLTFInferredMediaTypeForData(NSData *data) {
         return @"image/png";
     }
     uint8_t jpegIdentifier[] = { 0xFF, 0xD8, 0xFF };
-    if (data.length > 3 && (memcmp(bytes, jpegIdentifier, 8) == 0)) {
+    if (data.length > 3 && (memcmp(bytes, jpegIdentifier, 3) == 0)) {
         return @"image/jpeg";
     }
     uint8_t ktx2Identifier[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
@@ -181,7 +181,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
 {
     __block NSError *internalError = nil;
     __block GLTFAsset *maybeAsset = nil;
-    dispatch_semaphore_t loadSemaphore = dispatch_semaphore_create(1);
+    dispatch_semaphore_t loadSemaphore = dispatch_semaphore_create(0);
     [self loadAssetWithData:data options:options handler:^(float progress,
                                                          GLTFAssetStatus status,
                                                          GLTFAsset *asset,
