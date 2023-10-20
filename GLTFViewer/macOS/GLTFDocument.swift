@@ -52,6 +52,17 @@ class GLTFDocument: NSDocument {
         }
     }
 
+    var currentDestinationURL: URL?
+
+    override func save(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType,
+                       delegate: Any?, didSave didSaveSelector: Selector?, contextInfo: UnsafeMutableRawPointer?)
+    {
+        currentDestinationURL = url
+        super.save(to: url, ofType: typeName, for: saveOperation, delegate: delegate, 
+                   didSave: didSaveSelector, contextInfo: contextInfo)
+        currentDestinationURL = nil
+    }
+
     override func write(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType,
                         originalContentsURL absoluteOriginalContentsURL: URL?) throws
     {
@@ -62,22 +73,27 @@ class GLTFDocument: NSDocument {
         var writeOptions: [GLTFAssetExportOption : Any] = [:]
         if url.isFileURL && url.pathExtension == "glb" {
             writeOptions[.asBinary] = true
-        } else {
-            writeOptions[.embedBuffers] = true
         }
 
-        let group = DispatchGroup()
-        group.enter()
+        let buffersToWrite = asset.buffers.filter { return ($0.uri != nil) && $0.uri!.isFileURL }
+        let imagesToWrite = asset.images.filter { return ($0.uri != nil) && $0.uri!.isFileURL }
 
-        asset.write(to: url, options: writeOptions) { progress, status, maybeError, shouldStop in
-            if status == .writing {
-                self.unblockUserInteraction() // We've safely serialized, so we're safe to unblock the UI
+        try asset.write(to: url, options: writeOptions)
+
+        if let destinationURL = currentDestinationURL {
+            let baseURL = destinationURL.deletingLastPathComponent()
+            for buffer in buffersToWrite {
+                if let uri = buffer.uri, let data = buffer.data {
+                    let destinationURL = baseURL.appendingPathComponent(uri.relativePath, isDirectory: false)
+                    try data.write(to: destinationURL, options: [])
+                }
             }
-            if status == .complete || status == .error {
-                group.leave()
+            for image in imagesToWrite {
+                if let uri = image.uri, let data = image.representation {
+                    let destinationURL = baseURL.appendingPathComponent(uri.relativePath, isDirectory: false)
+                    try data.write(to: destinationURL, options: [])
+                }
             }
         }
-
-        group.wait()
     }
 }

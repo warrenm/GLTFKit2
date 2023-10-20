@@ -120,26 +120,54 @@ typedef void (^GLTFAssetDataExportProgressHandler)(float progress, GLTFAssetStat
 GLTFKIT2_EXPORT
 @interface GLTFAsset : GLTFObject
 
+/// Loads the asset at the specified URL synchronously.
 + (nullable instancetype)assetWithURL:(NSURL *)url
                               options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                                 error:(NSError **)error;
 
+/// Loads the asset contained in the provided data synchronously.
 + (nullable instancetype)assetWithData:(NSData *)data
                                options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                                  error:(NSError **)error;
 
+/// Loads the asset at the specified URL asynchronously, providing occasional progress updates.
 + (void)loadAssetWithURL:(NSURL *)url
                  options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                  handler:(nullable GLTFAssetLoadingHandler)handler;
 
+/// Loads the asset contained in the provided data asynchronously, providing occasional progress updates.
 + (void)loadAssetWithData:(NSData *)data
                   options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                   handler:(nullable GLTFAssetLoadingHandler)handler;
 
+/// Writes the receiver to the specified URL synchronously.
+- (BOOL)writeToURL:(NSURL *)url
+           options:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
+             error:(NSError *_Nullable *_Nullable)error;
+
+/// Writes the receiver to the specified URL asynchronously, providing occasional progress updates
+/// via the specified progress handler block. This method does not write any companion files that
+/// may be referenced by the asset (.bin files, textures, etc.). These are the responsibility of
+/// the caller. If the `GLTFAssetExportAsBinary` option is present and set to `YES`, the exported
+/// asset file (.glb) will contain up to one binary chunk storing the first buffer in the asset,
+/// provided this buffer contains data and does not have an existing URI.
 - (void)writeToURL:(NSURL *)url
            options:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
    progressHandler:(nullable GLTFAssetURLExportProgressHandler)progressHandler;
 
+/// Serializes the receiver into a data object. Note that this method does not perform any file
+/// I/O operations. If the `GLTFAssetExportAsBinary` option is present and set to `YES`, the
+/// serialized asset will be suitable for writing as a .glb file and will contain up to one
+/// binary chunk, under the same conditions stated for the `-writeToURL:options:progressHandler:`
+/// method.
+- (nullable NSData *)serializeWithOptions:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
+                                    error:(NSError *_Nullable *_Nullable)error;
+
+/// Serializes the receiver into a data object asynchronously. Note that this method does not
+/// perform any file I/O operations. If the `GLTFAssetExportAsBinary` option is present and
+/// set to `YES`, the serialized asset will be suitable for writing as a .glb file and will
+/// contain up to one binary chunk, under the same conditions stated for the
+/// `-writeToURL:options:progressHandler:` method.
 - (void)serializeWithOptions:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
              progressHandler:(nullable GLTFAssetDataExportProgressHandler)progressHandler;
 
@@ -331,6 +359,9 @@ GLTFKIT2_EXPORT
 /// Without a security-scoped URL, file access may fail when the image file is not in the app's container, as
 /// may happen when loading .gltf assets with connected files. Not necessary when `uri` is a data URI.
 @property (nonatomic, nullable) NSURL *assetDirectoryURL;
+
+// The data of the image, encoded in a format (JPEG, PNG) suitable for writing to a file.
+@property (nonatomic, nullable, readonly) NSData *representation;
 
 - (instancetype)initWithURI:(NSURL *)uri NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithBufferView:(GLTFBufferView *)bufferView mimeType:(NSString *)mimeType NS_DESIGNATED_INITIALIZER;

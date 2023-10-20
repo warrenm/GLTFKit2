@@ -393,14 +393,18 @@ static dispatch_queue_t _writerQueue;
         }
         gltfBuffer->size = buffer.length;
         if (buffer.uri) {
-            gltfBuffer->uri = paged_allocator_strdup(&allocator, buffer.uri.absoluteString.UTF8String);
+            if ([buffer.uri.scheme isEqualTo:@"data"]) {
+                gltfBuffer->uri = paged_allocator_strdup(&allocator, buffer.uri.absoluteString.UTF8String);
+            } else if (buffer.uri.isFileURL) {
+                gltfBuffer->uri = paged_allocator_strdup(&allocator, buffer.uri.relativePath.UTF8String);
+            }
         } else if (embedBuffers) {
             NSString *uri = GLTFEmbeddedBufferDataURI(buffer);
             gltfBuffer->uri = paged_allocator_strdup(&allocator, uri.UTF8String);
         }
         //gltfBuffer->extras
-        //gltfBuffer->extensions_count
         //gltfBuffer->extensions
+        gltfBuffer->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.bufferViews.count; ++i) {
@@ -419,8 +423,8 @@ static dispatch_queue_t _writerQueue;
         gltfBufferView->size = bufferView.length;
         gltfBufferView->stride = bufferView.stride;
         //gltfBufferView->extras
-        //gltfBufferView->extensions_count
         //gltfBufferView->extensions
+        gltfBufferView->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.accessors.count; ++i) {
@@ -448,11 +452,11 @@ static dispatch_queue_t _writerQueue;
         for (int c = 0; c < accessor.maxValues.count; ++c) {
             gltfAccessor->max[c] = accessor.maxValues[c].floatValue;
         }
-        //gltfAccessor->is_sparse = 0;
+        gltfAccessor->is_sparse = 0;
         //gltfAccessor->sparse
         //gltfAccessor->extras
-        //gltfAccessor->extensions_count
         //gltfAccessor->extensions
+        gltfAccessor->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.cameras.count; ++i) {
@@ -483,8 +487,8 @@ static dispatch_queue_t _writerQueue;
             gltfCamera->type = cgltf_camera_type_invalid;
         }
         //gltfCamera->extras
-        //gltfCamera->extensions_count
         //gltfCamera->extensions
+        gltfCamera->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.lights.count; ++i) {
@@ -522,8 +526,8 @@ static dispatch_queue_t _writerQueue;
             gltfImage->mime_type = paged_allocator_strdup(&allocator, image.mimeType.UTF8String);
         }
         //gltfImage->extras
-        //gltfImage->extensions_count
         //gltfImage->extensions
+        gltfImage->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.samplers.count; ++i) {
@@ -537,8 +541,8 @@ static dispatch_queue_t _writerQueue;
         gltfSampler->wrap_s = (cgltf_int)sampler.wrapS;
         gltfSampler->wrap_t = (cgltf_int)sampler.wrapT;
         //gltfSampler->extras
-        //gltfSampler->extensions_count
         //gltfSampler->extensions
+        gltfSampler->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.textures.count; ++i) {
@@ -562,8 +566,8 @@ static dispatch_queue_t _writerQueue;
         gltfTexture->has_basisu = 0;
         //gltfTexture->basisu_image
         //gltfTexture->extras
-        //gltfTexture->extensions_count
         //gltfTexture->extensions
+        gltfTexture->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.materials.count; ++i) {
@@ -683,8 +687,8 @@ static dispatch_queue_t _writerQueue;
                                   asset.textures, gltf->textures);
 
         //gltfMaterial->extras
-        //gltfMaterial->extensions_count
         //gltfMaterial->extensions
+        gltfMaterial->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.meshes.count; ++i) {
@@ -726,22 +730,22 @@ static dispatch_queue_t _writerQueue;
                 }
             }];
             //gltfPrim->targets
-            //gltfPrim->targets_count
+            gltfPrim->targets_count = 0;
             gltfPrim->has_draco_mesh_compression = 0;
             //gltfPrim->draco_mesh_compression
             //gltfPrim->mappings
-            //gltfPrim->mappings_count
+            gltfPrim->mappings_count = 0;
             //gltfPrim->extras
             gltfPrim->extensions_count = 0;
             //gltfPrim->extensions
         }
         //gltfMesh->weights
-        //gltfMesh->weights_count
+        gltfMesh->weights_count = 0;
         //gltfMesh->target_names
-        //gltfMesh->target_names_count
+        gltfMesh->target_names_count = 0;
         //gltfMesh->extras
-        gltfMesh->extensions_count = 0;
         //gltfMesh->extensions
+        gltfMesh->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.skins.count; ++i) {
@@ -771,8 +775,8 @@ static dispatch_queue_t _writerQueue;
             }
         }
         //gltfSkin->extras
-        gltfSkin->extensions_count = 0;
         //gltfSkin->extensions
+        gltfSkin->extensions_count = 0;
     }
 
     NSMutableSet *animatedNodeIndices = [NSMutableSet set];
@@ -802,8 +806,8 @@ static dispatch_queue_t _writerQueue;
             }
             gltfSampler->interpolation = (cgltf_interpolation_type)sampler.interpolationMode;
             //gltfSampler->extras
-            gltfSampler->extensions_count = 0;
             //gltfSampler->extensions
+            gltfSampler->extensions_count = 0;
         }
         gltfAnimation->channels = paged_allocator_calloc(&allocator, animation.channels.count, sizeof(cgltf_animation_channel));
         gltfAnimation->channels_count = animation.channels.count;
@@ -827,12 +831,12 @@ static dispatch_queue_t _writerQueue;
                 gltfChannel->target_path = GLTFAnimationPathTypeFromPath(channel.target.path); // We'd prefer not to have to do this.
             }
             //gltfChannel->extras
-            gltfChannel->extensions_count = 0;
             //gltfChannel->extensions
+            gltfChannel->extensions_count = 0;
         }
         //gltfAnimation->extras
-        gltfAnimation->extensions_count = 0;
         //gltfAnimation->extensions
+        gltfAnimation->extensions_count = 0;
     }
 
     for (size_t i = 0; i < asset.nodes.count; ++i) {
@@ -908,7 +912,7 @@ static dispatch_queue_t _writerQueue;
         }
 
         //gltfNode->weights
-        //gltfNode->weights_count
+        gltfNode->weights_count = 0;
         gltfNode->has_mesh_gpu_instancing = 0;
         //gltfNode->extras
         //gltfNode->extensions
@@ -928,7 +932,7 @@ static dispatch_queue_t _writerQueue;
         }
         //gltfScene->extras
         //gltfScene->extensions
-        //gltfScene->extensions_count
+        gltfScene->extensions_count = 0;
     }
     
     if (asset.defaultScene) {
@@ -958,7 +962,7 @@ static dispatch_queue_t _writerQueue;
     void *jsonBuffer = realloc(NULL, jsonSize);
     jsonSize = cgltf_write(&gltfOptions, (char *)jsonBuffer, jsonSize, gltf);
 
-    // We omit the trailing NIL, since we treat the buffer as binary data, not a string
+    // We omit the trailing NUL, since we treat the buffer as binary data, not a string
     NSData *jsonData = [NSData dataWithBytesNoCopy:jsonBuffer length:(jsonSize - 1) freeWhenDone:YES];
 
     NSData *outData = jsonData;

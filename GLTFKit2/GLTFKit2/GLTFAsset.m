@@ -229,6 +229,56 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
     [GLTFAssetWriter serializeAsset:self options:options progressHandler:progressHandler];
 }
 
+- (BOOL)writeToURL:(NSURL *)url
+           options:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
+             error:(NSError **)error
+{
+    __block NSError *internalError = nil;
+    __block BOOL wroteSuccessfully = NO;
+    dispatch_semaphore_t loadSemaphore = dispatch_semaphore_create(0);
+    [GLTFAssetWriter writeAsset:self toURL:url options:options progressHandler:^(float progress, 
+                                                                                 GLTFAssetStatus status,
+                                                                                 NSError * _Nullable writeError,
+                                                                                 BOOL * _Nonnull stop)
+     {
+        if (status == GLTFAssetStatusError || status == GLTFAssetStatusComplete) {
+            internalError = writeError;
+            wroteSuccessfully = (status == GLTFAssetStatusComplete);
+            dispatch_semaphore_signal(loadSemaphore);
+        }
+    }];
+    dispatch_semaphore_wait(loadSemaphore, DISPATCH_TIME_FOREVER);
+    if (error) {
+        *error = internalError;
+    }
+    return wroteSuccessfully;
+}
+
+- (nullable NSData *)serializeWithOptions:(nullable NSDictionary<GLTFAssetExportOption, id> *)options
+                                    error:(NSError **)error
+{
+    __block NSError *internalError = nil;
+    __block NSData *maybeData = nil;
+    dispatch_semaphore_t loadSemaphore = dispatch_semaphore_create(0);
+    [GLTFAssetWriter serializeAsset:self options:options progressHandler:^(float progress,
+                                                                           GLTFAssetStatus status,
+                                                                           NSData * _Nullable data,
+                                                                           NSError * _Nullable serializationError,
+                                                                           BOOL * _Nonnull stop)
+     {
+        if (status == GLTFAssetStatusError || status == GLTFAssetStatusComplete) {
+            internalError = serializationError;
+            maybeData = data;
+            dispatch_semaphore_signal(loadSemaphore);
+        }
+    }];
+    dispatch_semaphore_wait(loadSemaphore, DISPATCH_TIME_FOREVER);
+    if (error) {
+        *error = internalError;
+    }
+    return maybeData;
+}
+
 + (NSString *)dracoDecompressorClassName {
     return g_dracoDecompressorClassName;
 }
@@ -486,6 +536,10 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
         }
     }
     return data;
+}
+
+- (NSData *)representation {
+    return [self newImageDataReturningInferredMediaType:nil];
 }
 
 - (nullable CGImageRef)newCGImage {

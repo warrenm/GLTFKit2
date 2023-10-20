@@ -843,6 +843,11 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 GLTFBufferView *indexBufferView = indexAccessor.bufferView;
                 assert(indexBufferView.stride == 0 || indexBufferView.stride == indexSize);
                 GLTFBuffer *indexBuffer = indexBufferView.buffer;
+                if (indexBuffer.data == nil) {
+                    // We don't actually have data to read (the asset is probably corrupt, and if we continue,
+                    // we will almost certainly crash), so skip this primitive.
+                    continue;
+                }
                 indexCount = (int)primitive.indices.count;
                 if((indexAccessor.componentType == GLTFComponentTypeUnsignedShort) ||
                    (indexAccessor.componentType == GLTFComponentTypeUnsignedInt))

@@ -214,7 +214,6 @@ static cgltf_result GLTFReadFileSecurityScoped(const struct cgltf_memory_options
 
     if (isAccessingDirectorySecurityScoped) {
         [directoryURL stopAccessingSecurityScopedResource];
-        isAccessingDirectorySecurityScoped = NO;
     }
 
     if (read_size != file_size) {
@@ -431,6 +430,9 @@ static dispatch_queue_t _loaderQueue;
         }
         buffer.name = b->name ? GLTFUnescapeJSONString(b->name)
                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Buffer"];
+        if (b->uri) {
+            buffer.uri = [NSURL fileURLWithPath:[NSString stringWithUTF8String:b->uri] relativeToURL:nil];
+        }
         buffer.extensions = GLTFConvertExtensions(b->extensions, b->extensions_count, nil);
         buffer.extras = GLTFObjectFromExtras(gltf->json, b->extras, nil);
         [buffers addObject:buffer];
@@ -556,7 +558,7 @@ static dispatch_queue_t _loaderQueue;
                 image = [[GLTFImage alloc] initWithURI:[NSURL URLWithString:[NSString stringWithUTF8String:img->uri]]];
             } else {
                 NSURL *baseURI = [self.asset.url URLByDeletingLastPathComponent];
-                NSURL *imageURI = [baseURI URLByAppendingPathComponent:GLTFUnescapeJSONString(img->uri)];
+                NSURL *imageURI = [NSURL fileURLWithPath:GLTFUnescapeJSONString(img->uri) relativeToURL:baseURI];
                 image = [[GLTFImage alloc] initWithURI:imageURI];
             }
         }
