@@ -453,6 +453,39 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
             }
         }
     }
+    
+    // Prior to macOS 14.0 and iOS 17.0, hit-testing against nodes whose bone indices were in ushort format
+    // did not work for GPU-skinned meshes. On older platforms, we transform from ushort indices to uchar
+    // indices iff the transform is lossless (i.e., if all indices are < 256).
+    if (@available(macOS 14.0, iOS 17.0, *)) {
+    } else {
+        if ([semanticName isEqualToString:GLTFAttributeSemanticJoints0] &&
+            accessor.componentType == GLTFComponentTypeUnsignedShort)
+        {
+            size_t totalComponentCount = componentCount * accessor.count;
+            const uint16_t *ushortIndices = attrData.bytes;
+            BOOL canTransformLosslessly = YES;
+            for (size_t i = 0; i < totalComponentCount; ++i) {
+                if (ushortIndices[i] > 255) {
+                    canTransformLosslessly = NO;
+                    break;
+                }
+            }
+            if (canTransformLosslessly) {
+                uint8_t *ucharIndices = malloc(totalComponentCount * sizeof(uint8_t));
+                for (size_t i = 0; i < totalComponentCount; ++i) {
+                    ucharIndices[i] = ushortIndices[i];
+                }
+                attrData = [NSData dataWithBytesNoCopy:ucharIndices
+                                                length:totalComponentCount * sizeof(uint8_t)
+                                          freeWhenDone:YES];
+                bytesPerComponent = sizeof(uint8_t);
+                elementSize = bytesPerComponent * componentCount;
+            } else {
+                GLTFLogWarning(@"Could not transform bone indices from ushort to uchar losslessly; hit-testing may not work as expected");
+            }
+        }
+    }
 
     return [SCNGeometrySource geometrySourceWithData:attrData
                                             semantic:GLTFSCNGeometrySourceSemanticForSemantic(semanticName)
