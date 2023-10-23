@@ -430,7 +430,8 @@ static dispatch_queue_t _loaderQueue;
         }
         buffer.name = b->name ? GLTFUnescapeJSONString(b->name)
                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Buffer"];
-        if (b->uri) {
+        if (b->uri && (strncmp(b->uri, "data", 4) != 0)) {
+            // Only set the URI if it's not a data URI (if it *is* a data URI, it's already been parsed into b->data)
             buffer.uri = [NSURL fileURLWithPath:[NSString stringWithUTF8String:b->uri] relativeToURL:nil];
         }
         buffer.extensions = GLTFConvertExtensions(b->extensions, b->extensions_count, nil);
