@@ -1,8 +1,11 @@
 
 #import "GLTFAssetReader.h"
+#import "GLTFMeshoptSupport.h"
 
 #define CGLTF_IMPLEMENTATION
 #import "cgltf.h"
+
+static NSString *const GLTFExtensionEXTMeshoptCompression = @"EXT_meshopt_compression";
 
 @interface GLTFUniqueNameGenerator : NSObject
 - (NSString *)nextUniqueNameWithPrefix:(NSString *)prefix;
@@ -322,7 +325,6 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
     return extensionsMap;
 }
 
-
 static dispatch_queue_t _loaderQueue;
 
 @implementation GLTFAssetReader
@@ -432,6 +434,11 @@ static dispatch_queue_t _loaderQueue;
         buffer.name = b->name ? GLTFUnescapeJSONString(b->name)
                               : [self.nameGenerator nextUniqueNameWithPrefix:@"Buffer"];
         buffer.extensions = GLTFConvertExtensions(b->extensions, b->extensions_count, nil);
+        NSDictionary *meshoptExtension = buffer.extensions[GLTFExtensionEXTMeshoptCompression];
+        if (meshoptExtension) {
+            BOOL isFallback = [meshoptExtension[@"fallback"] boolValue];
+            buffer.meshoptFallback = isFallback;
+        }
         buffer.extras = GLTFObjectFromExtras(gltf->json, b->extras, nil);
         [buffers addObject:buffer];
     }
@@ -440,6 +447,22 @@ static dispatch_queue_t _loaderQueue;
 
 - (NSArray *)convertBufferViews {
     NSMutableArray *bufferViews = [NSMutableArray arrayWithCapacity:gltf->buffer_views_count];
+
+    // If we have meshopt-encoded buffer views, we need somewhere to write their decoded data.
+    // If the buffer referenced by a buffer view is tagged as a fallback, it shouldn't have
+    // a URI and we shouldn't have allocated any storage to it. Now that we are loading buffer
+    // views, we allocate mutable storage for each fallback buffer so that we can write into
+    // them during meshopt decompression. The extension spec requires that the buffer referenced
+    // by a buffer view has a byte length large enough to hold any buffer views that reference it.
+    // If a fallback buffer has pre-existing data (an unusual configuration), we ignore its contents
+    // and create ad-hoc buffers for each meshopt-compressed buffer view.
+    NSMutableDictionary *mutableDatasForBuffers = [NSMutableDictionary dictionary];
+    for (GLTFBuffer *buffer in self.asset.buffers) {
+        if (buffer.isMeshoptFallback && (buffer.data == nil)) {
+            mutableDatasForBuffers[buffer.identifier] = [NSMutableData dataWithLength:buffer.length];
+        }
+    }
+
     for (int i = 0; i < gltf->buffer_views_count; ++i) {
         cgltf_buffer_view *bv = gltf->buffer_views + i;
         size_t bufferIndex = bv->buffer - gltf->buffers;
@@ -451,8 +474,51 @@ static dispatch_queue_t _loaderQueue;
                                    : [self.nameGenerator nextUniqueNameWithPrefix:@"BufferView"];
         bufferView.extensions = GLTFConvertExtensions(bv->extensions, bv->extensions_count, nil);
         bufferView.extras = GLTFObjectFromExtras(gltf->json, bv->extras, nil);
+
+        if (bv->has_meshopt_compression) {
+            cgltf_meshopt_compression *mo = &bv->meshopt_compression;
+            size_t sourceBufferIndex = mo->buffer - gltf->buffers;
+            GLTFBuffer *sourceBuffer = self.asset.buffers[sourceBufferIndex];
+            GLTFMeshoptCompression *meshopt = [[GLTFMeshoptCompression alloc] initWithBuffer:sourceBuffer
+                                                                                      length:mo->size
+                                                                                      stride:mo->stride
+                                                                                       count:mo->count
+                                                                                        mode:(GLTFMeshoptCompressionMode)mo->mode];
+            meshopt.offset = mo->offset;
+            meshopt.filter = (GLTFMeshoptCompressionFilter)mo->filter;
+            bufferView.meshoptCompression = meshopt;
+
+            NSError *error = nil;
+            NSMutableData *targetBufferData = mutableDatasForBuffers[bufferView.buffer.identifier];
+            if (targetBufferData) {
+                uint8_t *targetBufferViewPtr = targetBufferData.mutableBytes + bufferView.offset;
+                GLTFMeshoptDecodeBufferView(bufferView, targetBufferViewPtr, &error);
+            } else {
+                // We don't have a fallback buffer, so we have nowhere to write our decoded data, so allocate some.
+                targetBufferData = [NSMutableData dataWithLength:bufferView.length];
+                GLTFMeshoptDecodeBufferView(bufferView, targetBufferData.mutableBytes, &error);
+
+                // Create a new ad-hoc buffer to wrap the buffer view's decompressed storage and patch the buffer view
+                GLTFBuffer *adhocBuffer = [[GLTFBuffer alloc] initWithData:targetBufferData];
+                adhocBuffer.meshoptFallback = YES;
+                bufferView.buffer = adhocBuffer;
+                bufferView.offset = 0;
+
+                self.asset.buffers = [self.asset.buffers arrayByAddingObject:adhocBuffer];
+            }
+        }
+
         [bufferViews addObject:bufferView];
     }
+
+    // Write back any storage that was allocated to a fallback buffer now that it's
+    // been populated by its referencing meshopt-compressed buffer views
+    for (GLTFBuffer *buffer in self.asset.buffers) {
+        if (buffer.isMeshoptFallback && buffer.data == nil) {
+            buffer.data = mutableDatasForBuffers[buffer.identifier];
+        }
+    }
+
     return bufferViews;
 }
 
@@ -1111,6 +1177,7 @@ static dispatch_queue_t _loaderQueue;
 
 - (BOOL)validateRequiredExtensions:(NSError **)error {
     NSMutableArray *supportedExtensions = [NSMutableArray arrayWithObjects:
+        GLTFExtensionEXTMeshoptCompression,
         @"KHR_emissive_strength",
         @"KHR_materials_ior",
         @"KHR_lights_punctual",
