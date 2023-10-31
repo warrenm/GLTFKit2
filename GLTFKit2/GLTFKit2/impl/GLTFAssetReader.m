@@ -1186,6 +1186,7 @@ static dispatch_queue_t _loaderQueue;
         @"KHR_materials_transmission",
         @"KHR_materials_unlit",
         @"KHR_materials_variants",
+        @"KHR_mesh_quantization",
         @"KHR_texture_transform",
         @"KHR_materials_pbrSpecularGlossiness", // deprecated
         nil
