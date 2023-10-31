@@ -52,6 +52,19 @@ extern GLTFAnimationPath GLTFAnimationPathRotation;
 extern GLTFAnimationPath GLTFAnimationPathScale;
 extern GLTFAnimationPath GLTFAnimationPathWeights;
 
+typedef NS_ENUM(NSInteger, GLTFMeshoptCompressionMode) {
+    GLTFMeshoptCompressionModeAttributes = 1,
+    GLTFMeshoptCompressionModeTriangles = 2,
+    GLTFMeshoptCompressionModeIndices = 3,
+};
+
+typedef NS_ENUM(NSInteger, GLTFMeshoptCompressionFilter) {
+    GLTFMeshoptCompressionFilterNone,
+    GLTFMeshoptCompressionFilterOctahedral,
+    GLTFMeshoptCompressionFilterQuaternion,
+    GLTFMeshoptCompressionFilterExponential,
+};
+
 extern float GLTFDegFromRad(float rad);
 extern int GLTFBytesPerComponentForComponentType(GLTFComponentType type);
 extern int GLTFComponentCountForDimension(GLTFValueDimension dim);
@@ -285,10 +298,33 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) NSData *data;
 @property (nonatomic, nullable) NSURL *uri;
 @property (nonatomic, assign) NSInteger length;
+// Introduced by the EXT_meshopt_compression extension
+@property (nonatomic, assign, getter=isMeshoptFallback) BOOL meshoptFallback;
 
 - (instancetype)initWithLength:(NSInteger)length NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithData:(NSData *)data NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
+GLTFKIT2_EXPORT
+@interface GLTFMeshoptCompression : GLTFObject
+
+@property (nonatomic, nullable) GLTFBuffer *buffer;
+@property (nonatomic, assign) NSInteger offset;
+@property (nonatomic, assign) NSUInteger length;
+@property (nonatomic, assign) NSUInteger stride;
+@property (nonatomic, assign) NSUInteger count;
+@property (nonatomic, assign) GLTFMeshoptCompressionMode mode;
+@property (nonatomic, assign) GLTFMeshoptCompressionFilter filter;
+
+- (instancetype)initWithBuffer:(GLTFBuffer *)buffer
+                        length:(NSUInteger)length
+                        stride:(NSUInteger)stride
+                         count:(NSUInteger)count
+                          mode:(GLTFMeshoptCompressionMode)mode NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -301,6 +337,8 @@ GLTFKIT2_EXPORT
 @property (nonatomic, assign) NSInteger offset;
 @property (nonatomic, assign) NSInteger length;
 @property (nonatomic, assign) NSInteger stride;
+// Introduced by the EXT_meshopt_compression extension
+@property (nonatomic, nullable, strong) GLTFMeshoptCompression *meshoptCompression;
 
 - (instancetype)initWithBuffer:(GLTFBuffer *)buffer
                         length:(NSInteger)length

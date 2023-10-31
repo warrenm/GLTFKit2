@@ -346,10 +346,11 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
     return [NSData dataWithBytesNoCopy:bytes length:bufferLength freeWhenDone:YES];
 }
 
-NSData *GLTFSCNNormalizePackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceAccessor) {
-    if (!sourceAccessor.isNormalized) {
-        return sourceData; // Nothing to do.
+static NSData *GLTFSCNTransformPackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceAccessor) {
+    if (sourceAccessor.componentType == GLTFComponentTypeFloat) {
+        return sourceData; // Nothing to do
     }
+
     if ((sourceAccessor.componentType != GLTFComponentTypeByte) &&
         (sourceAccessor.componentType != GLTFComponentTypeUnsignedByte) &&
         (sourceAccessor.componentType != GLTFComponentTypeShort) &&
@@ -372,29 +373,53 @@ NSData *GLTFSCNNormalizePackedDataToFloat(NSData *sourceData, GLTFAccessor *sour
     switch (sourceAccessor.componentType) {
         case GLTFComponentTypeByte: {
             const int8_t *srcBase = sourceData.bytes;
-            for (size_t i = 0; i < elementCount; ++i) {
-                dstBase[i] = MAX(srcBase[i] / 127.0f, -1.0f); // max(c / 127.0, -1.0)
+            if (sourceAccessor.isNormalized) {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = MAX(srcBase[i] / 127.0f, -1.0f); // max(c / 127.0, -1.0)
+                }
+            } else {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i];
+                }
             }
             break;
         }
         case GLTFComponentTypeUnsignedByte: {
             const uint8_t *srcBase = sourceData.bytes;
-            for (size_t i = 0; i < elementCount; ++i) {
-                dstBase[i] = srcBase[i] / 255.0f; // f = c / 255.0
+            if (sourceAccessor.isNormalized) {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i] / 255.0f; // f = c / 255.0
+                }
+            } else {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i];
+                }
             }
             break;
         }
         case GLTFComponentTypeShort: {
             const int16_t *srcBase = sourceData.bytes;
-            for (size_t i = 0; i < elementCount; ++i) {
-                dstBase[i] = MAX(srcBase[i] / 32767.0f, -1.0f); // f = max(c / 32767.0, -1.0)
+            if (sourceAccessor.isNormalized) {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = MAX(srcBase[i] / 32767.0f, -1.0f); // f = max(c / 32767.0, -1.0)
+                }
+            } else {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i];
+                }
             }
             break;
         }
         case GLTFComponentTypeUnsignedShort: {
             const uint16_t *srcBase = sourceData.bytes;
-            for (size_t i = 0; i < elementCount; ++i) {
-                dstBase[i] = srcBase[i] / 65535.0f; // f = c / 65535.0
+            if (sourceAccessor.isNormalized) {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i] / 65535.0f; // f = c / 65535.0
+                }
+            } else {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i];
+                }
             }
             break;
         }
@@ -406,18 +431,37 @@ NSData *GLTFSCNNormalizePackedDataToFloat(NSData *sourceData, GLTFAccessor *sour
 }
 
 static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, NSTimeInterval maxKeyTime) {
-    // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
-    assert(accessor.componentType == GLTFComponentTypeFloat);
-    assert(accessor.dimension == GLTFValueDimensionScalar);
+    NSData *sourceData = GLTFSCNPackedDataForAccessor(accessor);
+    sourceData = GLTFSCNTransformPackedDataToFloat(sourceData, accessor);
     NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
-    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
     float scale = (maxKeyTime > 0) ? (1.0f / maxKeyTime) : 1.0f;
     for (int i = 0; i < accessor.count; ++i) {
-        const float *x = bufferViewBaseAddr + (i * (accessor.bufferView.stride ?: sizeof(float))) + accessor.offset;
+        const float *x = sourceData.bytes + (i * sizeof(float));
         NSNumber *value = @(x[0] * scale);
         [values addObject:value];
     }
     return values;
+}
+
+static BOOL GLTFSCNNativelySupportsAccessor(GLTFAccessor *accessor, NSString *semanticName) {
+    if ([semanticName isEqualToString:GLTFAttributeSemanticPosition]) {
+        return (accessor.componentType == GLTFComponentTypeFloat) && (accessor.dimension == GLTFValueDimensionVector3);
+    } else if ([semanticName isEqualToString:GLTFAttributeSemanticNormal]) {
+        return (accessor.componentType == GLTFComponentTypeFloat) && (accessor.dimension == GLTFValueDimensionVector3);
+    }  else if ([semanticName isEqualToString:GLTFAttributeSemanticTangent]) {
+        return (accessor.componentType == GLTFComponentTypeFloat) && (accessor.dimension == GLTFValueDimensionVector4);
+    } else if ([semanticName hasPrefix:@"TEXCOORD"]) {
+        return (accessor.componentType == GLTFComponentTypeFloat) && (accessor.dimension == GLTFValueDimensionVector2);
+    }  else if ([semanticName hasPrefix:@"COLOR"]) {
+        return (accessor.componentType == GLTFComponentTypeFloat) && (accessor.dimension == GLTFValueDimensionVector3 ||
+                                                                      accessor.dimension == GLTFValueDimensionVector4);
+    } else if ([semanticName hasPrefix:@"JOINTS"]) {
+        return ((accessor.componentType == GLTFComponentTypeUnsignedShort || accessor.componentType == GLTFComponentTypeUnsignedByte) &&
+                (accessor.dimension == GLTFValueDimensionVector4));
+    } else if ([semanticName hasPrefix:@"WEIGHTS"]) {
+        return (accessor.componentType == GLTFComponentTypeFloat) && (accessor.dimension == GLTFValueDimensionVector4);
+    }
+    return NO;
 }
 
 static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accessor, NSString *semanticName) {
@@ -427,9 +471,8 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
     BOOL floatComponents = (accessor.componentType == GLTFComponentTypeFloat);
     NSData *attrData = GLTFSCNPackedDataForAccessor(accessor);
 
-    // SceneKit doesn't support normalized integer geometry sources, so repack the data as float if needed.
-    if (accessor.isNormalized && (accessor.componentType != GLTFComponentTypeUnsignedInt)) {
-        attrData = GLTFSCNNormalizePackedDataToFloat(attrData, accessor);
+    if (!GLTFSCNNativelySupportsAccessor(accessor, semanticName)) {
+        attrData = GLTFSCNTransformPackedDataToFloat(attrData, accessor);
         bytesPerComponent = sizeof(float);
         elementSize = bytesPerComponent * componentCount;
         floatComponents = YES;
@@ -453,6 +496,39 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
             }
         }
     }
+    
+    // Prior to macOS 14.0 and iOS 17.0, hit-testing against nodes whose bone indices were in ushort format
+    // did not work for GPU-skinned meshes. On older platforms, we transform from ushort indices to uchar
+    // indices iff the transform is lossless (i.e., if all indices are < 256).
+    if (@available(macOS 14.0, iOS 17.0, *)) {
+    } else {
+        if ([semanticName isEqualToString:GLTFAttributeSemanticJoints0] &&
+            accessor.componentType == GLTFComponentTypeUnsignedShort)
+        {
+            size_t totalComponentCount = componentCount * accessor.count;
+            const uint16_t *ushortIndices = attrData.bytes;
+            BOOL canTransformLosslessly = YES;
+            for (size_t i = 0; i < totalComponentCount; ++i) {
+                if (ushortIndices[i] > 255) {
+                    canTransformLosslessly = NO;
+                    break;
+                }
+            }
+            if (canTransformLosslessly) {
+                uint8_t *ucharIndices = malloc(totalComponentCount * sizeof(uint8_t));
+                for (size_t i = 0; i < totalComponentCount; ++i) {
+                    ucharIndices[i] = ushortIndices[i];
+                }
+                attrData = [NSData dataWithBytesNoCopy:ucharIndices
+                                                length:totalComponentCount * sizeof(uint8_t)
+                                          freeWhenDone:YES];
+                bytesPerComponent = sizeof(uint8_t);
+                elementSize = bytesPerComponent * componentCount;
+            } else {
+                GLTFLogWarning(@"Could not transform bone indices from ushort to uchar losslessly; hit-testing may not work as expected");
+            }
+        }
+    }
 
     return [SCNGeometrySource geometrySourceWithData:attrData
                                             semantic:GLTFSCNGeometrySourceSemanticForSemantic(semanticName)
@@ -465,14 +541,12 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
 }
 
 static NSArray<NSValue *> *GLTFSCNVector3ArrayForAccessor(GLTFAccessor *accessor) {
-    // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
-    assert(accessor.componentType == GLTFComponentTypeFloat);
-    assert(accessor.dimension == GLTFValueDimensionVector3);
+    NSData *sourceData = GLTFSCNPackedDataForAccessor(accessor);
+    sourceData = GLTFSCNTransformPackedDataToFloat(sourceData, accessor);
     NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
-    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
     const size_t elementSize = sizeof(float) * 3;
     for (int i = 0; i < accessor.count; ++i) {
-        const float *xyz = bufferViewBaseAddr + (i * (accessor.bufferView.stride ?: elementSize)) + accessor.offset;
+        const float *xyz = sourceData.bytes + (i * elementSize);
         NSValue *value = [NSValue valueWithSCNVector3:SCNVector3Make(xyz[0], xyz[1], xyz[2])];
         [values addObject:value];
     }
@@ -480,14 +554,12 @@ static NSArray<NSValue *> *GLTFSCNVector3ArrayForAccessor(GLTFAccessor *accessor
 }
 
 static NSArray<NSValue *> *GLTFSCNVector4ArrayForAccessor(GLTFAccessor *accessor) {
-    // TODO: This is actually not assured by the spec. We should convert from normalized int types when necessary
-    assert(accessor.componentType == GLTFComponentTypeFloat);
-    assert(accessor.dimension == GLTFValueDimensionVector4);
+    NSData *sourceData = GLTFSCNPackedDataForAccessor(accessor);
+    sourceData = GLTFSCNTransformPackedDataToFloat(sourceData, accessor);
     NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
-    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
     const size_t elementSize = sizeof(float) * 4;
     for (int i = 0; i < accessor.count; ++i) {
-        const float *xyzw = bufferViewBaseAddr + (i * (accessor.bufferView.stride ?: elementSize)) + accessor.offset;
+        const float *xyzw = sourceData.bytes + (i * elementSize);
         NSValue *value = [NSValue valueWithSCNVector4:SCNVector4Make(xyzw[0], xyzw[1], xyzw[2], xyzw[3])];
         [values addObject:value];
     }
@@ -495,15 +567,14 @@ static NSArray<NSValue *> *GLTFSCNVector4ArrayForAccessor(GLTFAccessor *accessor
 }
 
 static NSArray<NSArray<NSNumber *> *> *GLTFWeightsArraysForAccessor(GLTFAccessor *accessor, NSUInteger targetCount) {
-    assert(accessor.componentType == GLTFComponentTypeFloat);
-    assert(accessor.dimension == GLTFValueDimensionScalar);
+    NSData *sourceData = GLTFSCNPackedDataForAccessor(accessor);
+    sourceData = GLTFSCNTransformPackedDataToFloat(sourceData, accessor);
     size_t keyframeCount = accessor.count / targetCount;
     NSMutableArray<NSMutableArray *> *weights = [NSMutableArray arrayWithCapacity:keyframeCount];
     for (int t = 0; t < targetCount; ++t) {
         [weights addObject:[NSMutableArray arrayWithCapacity:targetCount]];
     }
-    const void *bufferViewBaseAddr = accessor.bufferView.buffer.data.bytes + accessor.bufferView.offset;
-    const float *values = (float *)(bufferViewBaseAddr + accessor.offset);
+    const float *values = (float *)sourceData.bytes;
     for (int k = 0; k < keyframeCount; ++k) {
         for (int t = 0; t < targetCount; ++t) {
             [weights[t] addObject:@(values[k * targetCount + t])];

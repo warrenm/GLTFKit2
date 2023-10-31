@@ -406,6 +406,26 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
 
 @end
 
+@implementation GLTFMeshoptCompression
+
+- (instancetype)initWithBuffer:(GLTFBuffer *)buffer
+                        length:(NSUInteger)length
+                        stride:(NSUInteger)stride
+                         count:(NSUInteger)count
+                          mode:(GLTFMeshoptCompressionMode)mode
+{
+    if (self = [super init]) {
+        _buffer = buffer;
+        _length = length;
+        _stride = stride;
+        _count = count;
+        _mode = mode;
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFBufferView
 
 - (instancetype)initWithBuffer:(GLTFBuffer *)buffer
