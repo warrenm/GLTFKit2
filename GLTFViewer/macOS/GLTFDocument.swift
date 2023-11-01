@@ -63,7 +63,7 @@ class GLTFDocument: NSDocument, NSOpenSavePanelDelegate {
                     if (error as NSError).code == GLTFErrorCodeIOError && self.reopenAttempts == 0 {
                         self.reopenAttempts += 1
                         DispatchQueue.main.async {
-                            self.requestPermissionsAndRetryOpen(for: url.deletingLastPathComponent(), assetURL: url)
+                            try? self.requestPermissionsAndRetryOpen(for: url.deletingLastPathComponent(), assetURL: url)
                         }
                     } else {
                         self.state = .failed
@@ -83,8 +83,7 @@ class GLTFDocument: NSDocument, NSOpenSavePanelDelegate {
         }
     }
 
-    @discardableResult
-    private func requestPermissionsAndRetryOpen(for requestedURL: URL, assetURL: URL) -> Bool {
+    private func requestPermissionsAndRetryOpen(for requestedURL: URL, assetURL: URL) throws {
         self.state = .requestingPermissions
         let openPanel = NSOpenPanel()
         openPanel.message = "glTF Viewer needs access to the directory containing this asset so it can open any files it references. Please click Open."
@@ -95,14 +94,11 @@ class GLTFDocument: NSDocument, NSOpenSavePanelDelegate {
         let result = openPanel.runModal()
         if result == .OK {
             if let grantedURL = openPanel.url {
-                if grantedURL == requestedURL {
-                    self.parentDirectoryURL = grantedURL
-                    try? self.read(from: assetURL, ofType: "")
-                    return true
-                }
+                self.parentDirectoryURL = grantedURL
+                try self.read(from: assetURL, ofType: "")
             }
+        } else {
+            self.closeAllWindows()
         }
-        self.closeAllWindows()
-        return false
     }
 }
