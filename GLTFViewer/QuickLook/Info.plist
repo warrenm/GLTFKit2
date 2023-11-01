@@ -10,7 +10,8 @@
 			<false/>
 			<key>QLSupportedContentTypes</key>
 			<array>
-				<string>org.khronos.gltf</string>
+				<string>public.gltf</string>
+				<string>public.glb</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
