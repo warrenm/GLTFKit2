@@ -498,8 +498,6 @@ GLTFKIT2_EXPORT
 
 @end
 
-typedef NSDictionary<NSString *, GLTFAccessor *> GLTFMorphTarget;
-
 GLTFKIT2_EXPORT
 @interface GLTFAttribute : GLTFObject
 @property (nonatomic, strong) GLTFAccessor *accessor;
@@ -509,6 +507,8 @@ GLTFKIT2_EXPORT
 - (instancetype)init NS_UNAVAILABLE;
 
 @end
+
+typedef NSArray<GLTFAttribute *> GLTFMorphTarget;
 
 GLTFKIT2_EXPORT
 @interface GLTFPrimitive : GLTFObject

@@ -1087,21 +1087,22 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                         // as we encounter a corresponding key in the target's key list. In this way
                         // we always have a 1:1 correspondence between base and target sources.
                         NSMutableArray<SCNGeometrySource *> *sources = [geometryNode.geometry.geometrySources mutableCopy];
-                        for (NSString *key in target.allKeys) {
-                            GLTFAccessor *targetAccessor = target[key];
+                        for (GLTFAttribute *attribute in target) {
+                            GLTFAccessor *targetAccessor = attribute.accessor;
+                            NSString *targetAttrName = attribute.name;
                             __block NSInteger replacementIndex = NSNotFound;
                             [sources enumerateObjectsUsingBlock:^(SCNGeometrySource *source, NSUInteger idx, BOOL * stop) {
-                                if ([source.semantic isEqualToString:GLTFSCNGeometrySourceSemanticForSemantic(key)]) {
+                                if ([source.semantic isEqualToString:GLTFSCNGeometrySourceSemanticForSemantic(targetAttrName)]) {
                                     replacementIndex = idx;
                                     *stop = YES;
                                 }
                             }];
                             if (replacementIndex != NSNotFound) {
                                 [sources replaceObjectAtIndex:replacementIndex
-                                                   withObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
+                                                   withObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, targetAttrName)];
                             } else {
                                 // Targeting a source that doesn't exist in the base mesh. This shouldn't happen.
-                                [sources addObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
+                                [sources addObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, targetAttrName)];
                             }
 
                         }
