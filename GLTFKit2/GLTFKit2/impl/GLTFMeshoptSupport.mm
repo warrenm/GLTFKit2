@@ -6,6 +6,8 @@
 #include <cmath>
 #include <queue>
 
+namespace {
+
 #if _LIBCPP_STD_VER < 17
 template <typename Real_t>
 inline Real_t hypot(Real_t x, Real_t y, Real_t z) {
@@ -20,7 +22,7 @@ inline typename std::make_unsigned<UInt_t>::type dezig(UInt_t v) {
     return ((v & 1) != 0) ? ~(v >> 1) : v >> 1;
 }
 
-static inline uint32_t consumeLEB128(const uint8_t *source, size_t &inOutOffset) {
+inline uint32_t consumeLEB128(const uint8_t *source, size_t &inOutOffset) {
     uint32_t n = 0;
     for (int i = 0; ; i += 7) {
         const uint8_t b = source[inOutOffset++];
@@ -32,13 +34,13 @@ static inline uint32_t consumeLEB128(const uint8_t *source, size_t &inOutOffset)
     }
 }
 
-static inline uint32_t decodeIndex(uint32_t v, uint32_t &inOutLast) {
+inline uint32_t decodeIndex(uint32_t v, uint32_t &inOutLast) {
     return (inOutLast += dezig(v));
 }
 
-static BOOL GLTFMeshoptDecodeVertexBuffer(const uint8_t *source, size_t sourceLength,
-                                          size_t elementCount, size_t byteStride,
-                                          uint8_t *destination)
+BOOL GLTFMeshoptDecodeVertexBuffer(const uint8_t *source, size_t sourceLength,
+                                   size_t elementCount, size_t byteStride,
+                                   uint8_t *destination)
 {
     assert(source[0] == 0xA0);
 
@@ -122,8 +124,8 @@ static BOOL GLTFMeshoptDecodeVertexBuffer(const uint8_t *source, size_t sourceLe
     return YES;
 }
 
-static void GLTFMeshoptApplyFilter(uint8_t *destination, size_t elementCount, size_t stride,
-                                   GLTFMeshoptCompressionFilter filter)
+void GLTFMeshoptApplyFilter(uint8_t *destination, size_t elementCount, size_t stride,
+                            GLTFMeshoptCompressionFilter filter)
 {
     switch (filter) {
         case GLTFMeshoptCompressionFilterOctahedral: {
@@ -368,6 +370,8 @@ BOOL GLTFMeshoptDecodeIndexSequence(const uint8_t *source, size_t count, size_t 
     }
     return YES;
 }
+
+} // namespace
 
 BOOL GLTFMeshoptDecodeBufferView(GLTFBufferView *bufferView, uint8_t *destination, NSError **outError) {
     assert(bufferView.meshoptCompression != nil && "Cannot decode buffer view with no associated meshopt extension");
