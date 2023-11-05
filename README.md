@@ -146,6 +146,7 @@ Below is a checklist of glTF features and their current level of support.
 - [ ] Sparse accessors
 
 #### Extensions
+ - [x] EXT_meshopt_compression
  - [x] KHR_draco_mesh_compression (via plug-in)
  - [x] KHR_lights_punctual
  - [x] KHR_materials_clearcoat
@@ -158,12 +159,12 @@ Below is a checklist of glTF features and their current level of support.
  - [x] KHR_materials_unlit
  - [ ] KHR_materials_variants
  - [x] KHR_materials_volume
- - [ ] KHR_mesh_quantization
+ - [x] KHR_mesh_quantization
  - [x] KHR_texture_basisu
  - [x] KHR_texture_transform
  - [ ] KHR_xmp_json_ld
 
- Extension support indicates that an extension's features are available as first-class objects through the `GLTFAsset` API. Not all features are available after an asset is bridged to another framework (e.g. SceneKit) that does not have support for such features.
+ Extension support indicates that an extension's features are available as first-class objects through the `GLTFAsset` API. Not all features are available after an asset is bridged to another framework (e.g. SceneKit) that does not have support for such features. In particular, no Apple-provided rendering engine supports transmission or volume rendering at this time.
 
 ### Conformance
 
