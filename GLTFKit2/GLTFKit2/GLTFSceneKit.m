@@ -812,6 +812,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             SCNMaterialProperty *occlusionProperty = scnMaterial.ambientOcclusion;
             occlusionProperty.contents = [self materialPropertyContentsForTexture:occlusionTexture.texture];
             GLTFConfigureSCNMaterialProperty(occlusionProperty, occlusionTexture);
+            occlusionProperty.textureComponents = SCNColorMaskRed;
         }
         if (material.clearcoat) {
             if (@available(macOS 10.15, iOS 13.0, *)) {
