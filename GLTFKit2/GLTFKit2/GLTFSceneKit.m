@@ -955,12 +955,16 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             SCNGeometryElement *element = GLTFSCNGeometryElementForIndexData(indexData, indexCount, indexSize, primitive);
             geometryElementForIdentifiers[primitive.identifier] = element;
 
-            NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
+            NSMutableArray *geometrySources = [NSMutableArray array];
             for (GLTFAttribute *attribute in primitive.attributes) {
                 // TODO: Retopologize geometry source if geometry element's data is `nil`.
                 // For primitive types not supported by SceneKit (line loops, line strips, triangle
                 // fans), we retopologize the primitive's indices. However, if they aren't present,
                 // we need to adjust the vertex data.
+                if ([attribute.name isEqual:@"WEIGHTS_0"] || [attribute.name isEqual:@"JOINTS_0"]) {
+                    // Omit joint indices and weights; these are stored later on the skinner
+                    continue;
+                }
                 [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name)];
             }
 
@@ -1157,9 +1161,15 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 [bones addObject:bone];
             }
             NSArray *ibmValues = GLTFSCNMatrix4ArrayFromAccessor(node.skin.inverseBindMatrices);
-            for (SCNNode *skinnedNode in geometryNodes) {
-                SCNGeometrySource *boneWeights = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
-                SCNGeometrySource *boneIndices = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
+            for (int i = 0; i < geometryNodes.count; ++i) {
+                SCNNode *skinnedNode = geometryNodes[i];
+                GLTFPrimitive *sourcePrimitive = node.mesh.primitives[i];
+                GLTFAttribute *weightsAttribute = [sourcePrimitive attributeForName:GLTFAttributeSemanticWeights0];
+                SCNGeometrySource *boneWeights = GLTFSCNGeometrySourceForAccessor(weightsAttribute.accessor, 
+                                                                                  weightsAttribute.name);
+                GLTFAttribute *jointsAttribute = [sourcePrimitive attributeForName:GLTFAttributeSemanticJoints0];
+                SCNGeometrySource *boneIndices = GLTFSCNGeometrySourceForAccessor(jointsAttribute.accessor, 
+                                                                                  jointsAttribute.name);
                 if ((boneIndices.vectorCount != boneWeights.vectorCount) ||
                     ((boneIndices.data.length / boneIndices.vectorCount / boneIndices.bytesPerComponent) !=
                      (boneWeights.data.length / boneWeights.vectorCount / boneWeights.bytesPerComponent))) {
