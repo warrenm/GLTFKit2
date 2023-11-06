@@ -3,6 +3,7 @@
 #import <GLTFKit2/GLTFAsset.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <queue>
 
