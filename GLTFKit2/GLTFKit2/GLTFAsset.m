@@ -41,6 +41,8 @@ GLTFAnimationPath GLTFAnimationPathRotation = @"rotation";
 GLTFAnimationPath GLTFAnimationPathScale = @"scale";
 GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
 
+static NSString *const GLTFMediaTypeWebP = @"image/webp";
+
 float GLTFDegFromRad(float rad) {
     return rad * (180.0 / M_PI);
 }
@@ -97,6 +99,11 @@ static NSString * _Nullable GLTFInferredMediaTypeForData(NSData *data) {
     uint8_t ktx2Identifier[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
     if (data.length > 12 && (memcmp(bytes, ktx2Identifier, 12) == 0)) {
         return GLTFMediaTypeKTX2;
+    }
+    uint8_t riffIdentifier[] = { 0x52, 0x49, 0x46, 0x46 };
+    uint8_t webpIdentifier[] = { 0x57, 0x45, 0x42, 0x50 };
+    if (data.length > 12 && (memcmp(bytes, riffIdentifier, 4) == 0) && (memcmp(bytes + 8, webpIdentifier, 4) == 0)) {
+        return GLTFMediaTypeWebP;
     }
 
     return nil;
