@@ -945,6 +945,14 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name)];
             }
 
+            bool hasNormals = [primitive attributeForName:GLTFAttributeSemanticNormal];
+            if (material.lightingModelName == SCNLightingModelPhysicallyBased && !hasNormals) {
+                static dispatch_once_t warnOnce;
+                dispatch_once(&warnOnce, ^{
+                    GLTFLogWarning(@"Primitive has a physically-based material but does not supply normals");
+                });
+            }
+
             SCNGeometry *geometry = [SCNGeometry geometryWithSources:geometrySources elements:@[element]];
             geometry.name = mesh.name;
             geometry.firstMaterial = material ?: defaultMaterial;
