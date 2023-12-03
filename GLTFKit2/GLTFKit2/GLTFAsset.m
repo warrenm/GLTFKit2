@@ -10,6 +10,10 @@
 #import <MobileCoreServices/MobileCoreServices.h>
 #endif
 
+#if __has_include(<UniformTypeIdentifiers/UniformTypeIdentifiers.h>)
+    #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#endif
+
 NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
 
 const float LumensPerCandela = 1.0 / (4.0 * M_PI);
@@ -115,8 +119,18 @@ static NSString *_Nullable GLTFCreateUTIForMediaType(NSString *mediaType) {
     if ([mediaType isEqualToString:GLTFMediaTypeKTX2]) {
         return @"org.khronos.ktx2";
     }
-    CFStringRef uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, (__bridge CFStringRef)mediaType, NULL);
-    return (__bridge_transfer NSString *)uti;
+#if defined(TARGET_OS_VISION) && TARGET_OS_VISION
+    UTType *_Nullable type = [UTType typeWithMIMEType:mediaType];
+    return type.identifier;
+#else
+    if (@available(macos 11.0, iOS 14.0, *)) {
+        UTType *_Nullable type = [UTType typeWithMIMEType:mediaType];
+        return type.identifier;
+    } else {
+        CFStringRef uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, (__bridge CFStringRef)mediaType, NULL);
+        return (__bridge_transfer NSString *)uti;
+    }
+#endif
 }
 
 NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaType) {

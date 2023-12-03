@@ -4,7 +4,7 @@ import Accelerate
 
 #if os(macOS)
 typealias PlatformColor = NSColor
-#elseif os(iOS) || os(tvOS)
+#elseif os(iOS) || os(tvOS) || os(visionOS)
 typealias PlatformColor = UIColor
 #endif
 
@@ -275,6 +275,19 @@ public class GLTFRealityKitLoader {
     let colorSpace = NSColorSpace(cgColorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)!
 #endif
 
+    public static func load(from url: URL) async throws -> RealityKit.Entity {
+        let asset = try GLTFAsset(url: url)
+        if let scene = asset.defaultScene {
+            return DispatchQueue.main.asyncAndWait {
+                return convert(scene: scene)
+            }
+        } else {
+            throw NSError(domain: GLTFErrorDomain,
+                          code: 1020,
+                          userInfo: [ NSLocalizedDescriptionKey : "The glTF asset did not specify a default scene" ])
+        }
+    }
+
     public static func convert(scene: GLTFScene) -> RealityKit.Entity {
         let instance = GLTFRealityKitLoader()
         return instance.convert(scene: scene)
@@ -311,6 +324,7 @@ public class GLTFRealityKitLoader {
             nodeEntity.components.set(meshComponent)
         }
 
+        #if !os(visionOS)
         if let gltfLight = gltfNode.light {
             switch gltfLight.type {
             case .directional:
@@ -323,6 +337,7 @@ public class GLTFRealityKitLoader {
                 break
             }
         }
+        #endif
 
         if let gltfCamera = gltfNode.camera, let cameraComponent = convert(camera: gltfCamera) {
             nodeEntity.components.set(cameraComponent)
@@ -483,6 +498,8 @@ public class GLTFRealityKitLoader {
         }
     }
 
+    #if !os(visionOS)
+
     func convert(spotLight gltfLight: GLTFLight) -> SpotLightComponent {
         let light = SpotLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                        intensity: gltfLight.intensity,
@@ -505,6 +522,8 @@ public class GLTFRealityKitLoader {
                                               isRealWorldProxy: false)
         return light
     }
+
+    #endif
 
     func convert(camera: GLTFCamera) -> PerspectiveCameraComponent? {
         if let perspectiveParams = camera.perspective {
