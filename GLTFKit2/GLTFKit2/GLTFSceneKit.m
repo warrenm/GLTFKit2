@@ -840,6 +840,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 }
             }
         }
+        scnMaterial.name = material.name;
         scnMaterial.doubleSided = material.isDoubleSided;
         scnMaterial.blendMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNBlendModeAlpha : SCNBlendModeReplace;
         scnMaterial.transparencyMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNTransparencyModeDualLayer : SCNTransparencyModeDefault;
