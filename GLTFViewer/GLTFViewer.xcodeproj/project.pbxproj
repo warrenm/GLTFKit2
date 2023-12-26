@@ -18,6 +18,12 @@
 		833684E226F154DA0057B9CA /* studio.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E026F154D40057B9CA /* studio.hdr */; };
 		833684E326F154DA0057B9CA /* studio.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E026F154D40057B9CA /* studio.hdr */; };
 		833684E426F154DD0057B9CA /* studio-ql.hdr in Resources */ = {isa = PBXBuildFile; fileRef = 833684E126F154D40057B9CA /* studio-ql.hdr */; };
+		834BEED42B1D041800F7E67A /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834BEED32B1D041800F7E67A /* App.swift */; };
+		834BEED62B1D041800F7E67A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834BEED52B1D041800F7E67A /* ContentView.swift */; };
+		834BEED82B1D041900F7E67A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 834BEED72B1D041900F7E67A /* Assets.xcassets */; };
+		834BEEE12B1D04B700F7E67A /* GLTFKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 834BEEE02B1D04B700F7E67A /* GLTFKit2.framework */; };
+		834BEEE22B1D04B700F7E67A /* GLTFKit2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 834BEEE02B1D04B700F7E67A /* GLTFKit2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		834BEEE42B1D0BED00F7E67A /* Models in Resources */ = {isa = PBXBuildFile; fileRef = 83AB9EA026D98BCF00FD9C95 /* Models */; };
 		8355C6B92AF2B9720076C9D4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8355C6B82AF2B9720076C9D4 /* Assets.xcassets */; };
 		8373775926F14D6400595C2A /* QuickLook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8373775826F14D6400595C2A /* QuickLook.framework */; };
 		83AB9EA126D98BEB00FD9C95 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = 83AB9EA026D98BCF00FD9C95 /* Models */; };
@@ -59,6 +65,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		834BEEE32B1D04B700F7E67A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				834BEEE22B1D04B700F7E67A /* GLTFKit2.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		83869A5725C671B4006CAFF1 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -93,6 +110,12 @@
 		833684D726F139840057B9CA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		833684E026F154D40057B9CA /* studio.hdr */ = {isa = PBXFileReference; lastKnownFileType = text; path = studio.hdr; sourceTree = "<group>"; };
 		833684E126F154D40057B9CA /* studio-ql.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; path = "studio-ql.hdr"; sourceTree = "<group>"; };
+		834BEECD2B1D041800F7E67A /* glTF Viewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "glTF Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		834BEED32B1D041800F7E67A /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		834BEED52B1D041800F7E67A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		834BEED72B1D041900F7E67A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		834BEEDC2B1D041900F7E67A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		834BEEE02B1D04B700F7E67A /* GLTFKit2.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = GLTFKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		8355C6B62AF2B5A80076C9D4 /* GLTFQuickLook.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GLTFQuickLook.entitlements; sourceTree = "<group>"; };
 		8355C6B72AF2B5D50076C9D4 /* GLTFViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GLTFViewer.entitlements; sourceTree = "<group>"; };
 		8355C6B82AF2B9720076C9D4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -126,6 +149,14 @@
 				83CFBF4826F2BE66003BEBFA /* GLTFKit2.framework in Frameworks */,
 				8373775926F14D6400595C2A /* QuickLook.framework in Frameworks */,
 				833684CC26F139840057B9CA /* Quartz.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		834BEECA2B1D041800F7E67A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				834BEEE12B1D04B700F7E67A /* GLTFKit2.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -170,9 +201,21 @@
 			path = Backgrounds;
 			sourceTree = "<group>";
 		};
+		834BEECE2B1D041800F7E67A /* visionOS */ = {
+			isa = PBXGroup;
+			children = (
+				834BEED52B1D041800F7E67A /* ContentView.swift */,
+				834BEED32B1D041800F7E67A /* App.swift */,
+				834BEED72B1D041900F7E67A /* Assets.xcassets */,
+				834BEEDC2B1D041900F7E67A /* Info.plist */,
+			);
+			path = visionOS;
+			sourceTree = "<group>";
+		};
 		83869A5325C671B4006CAFF1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				834BEEE02B1D04B700F7E67A /* GLTFKit2.framework */,
 				830C44B126F292C60075CCBF /* GLTFKit2.framework */,
 				8373775826F14D6400595C2A /* QuickLook.framework */,
 				833684CB26F139830057B9CA /* Quartz.framework */,
@@ -187,6 +230,7 @@
 				83AB9EA026D98BCF00FD9C95 /* Models */,
 				83D9950325C6573C00B5B234 /* macOS */,
 				83FFB68926CF0CF3008AE676 /* iOS */,
+				834BEECE2B1D041800F7E67A /* visionOS */,
 				833684CD26F139840057B9CA /* QuickLook */,
 				83D9950225C6573C00B5B234 /* Products */,
 				83869A5325C671B4006CAFF1 /* Frameworks */,
@@ -199,6 +243,7 @@
 				83D9950125C6573C00B5B234 /* glTF Viewer.app */,
 				83FFB68826CF0CF3008AE676 /* glTF Viewer.app */,
 				833684CA26F139830057B9CA /* GLTFQuickLook.appex */,
+				834BEECD2B1D041800F7E67A /* glTF Viewer.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -254,6 +299,26 @@
 			productReference = 833684CA26F139830057B9CA /* GLTFQuickLook.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		834BEECC2B1D041800F7E67A /* GLTFViewer-visionOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 834BEEDF2B1D041900F7E67A /* Build configuration list for PBXNativeTarget "GLTFViewer-visionOS" */;
+			buildPhases = (
+				834BEEC92B1D041800F7E67A /* Sources */,
+				834BEECA2B1D041800F7E67A /* Frameworks */,
+				834BEECB2B1D041800F7E67A /* Resources */,
+				834BEEE32B1D04B700F7E67A /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "GLTFViewer-visionOS";
+			packageProductDependencies = (
+			);
+			productName = "GLTFViewer-visionOS";
+			productReference = 834BEECD2B1D041800F7E67A /* glTF Viewer.app */;
+			productType = "com.apple.product-type.application";
+		};
 		83D9950025C6573C00B5B234 /* GLTFViewer-macOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 83D9951325C6573E00B5B234 /* Build configuration list for PBXNativeTarget "GLTFViewer-macOS" */;
@@ -299,11 +364,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastSwiftUpdateCheck = 1410;
-				LastUpgradeCheck = 1500;
+				LastSwiftUpdateCheck = 1510;
+				LastUpgradeCheck = 1510;
 				TargetAttributes = {
 					833684C926F139830057B9CA = {
 						CreatedOnToolsVersion = 13.0;
+					};
+					834BEECC2B1D041800F7E67A = {
+						CreatedOnToolsVersion = 15.1;
 					};
 					83D9950025C6573C00B5B234 = {
 						CreatedOnToolsVersion = 12.4;
@@ -328,6 +396,7 @@
 			targets = (
 				83D9950025C6573C00B5B234 /* GLTFViewer-macOS */,
 				83FFB68726CF0CF3008AE676 /* GLTFViewer-iOS */,
+				834BEECC2B1D041800F7E67A /* GLTFViewer-visionOS */,
 				833684C926F139830057B9CA /* GLTFQuickLook-macOS */,
 			);
 		};
@@ -341,6 +410,15 @@
 				833684D626F139840057B9CA /* PreviewViewController.xib in Resources */,
 				8355C6B92AF2B9720076C9D4 /* Assets.xcassets in Resources */,
 				833684E426F154DD0057B9CA /* studio-ql.hdr in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		834BEECB2B1D041800F7E67A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				834BEEE42B1D0BED00F7E67A /* Models in Resources */,
+				834BEED82B1D041900F7E67A /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -375,6 +453,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				833684D026F139840057B9CA /* GLTFPreviewViewController.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		834BEEC92B1D041800F7E67A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				834BEED62B1D041800F7E67A /* ContentView.swift in Sources */,
+				834BEED42B1D041800F7E67A /* App.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -507,6 +594,72 @@
 			};
 			name = Release;
 		};
+		834BEEDD2B1D041900F7E67A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = visionOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-visionos";
+				PRODUCT_NAME = "glTF Viewer";
+				SDKROOT = xros;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 1.0;
+			};
+			name = Debug;
+		};
+		834BEEDE2B1D041900F7E67A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = visionOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.metalbyexample.gltfkit2.viewer-visionos";
+				PRODUCT_NAME = "glTF Viewer";
+				SDKROOT = xros;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				VALIDATE_PRODUCT = YES;
+				XROS_DEPLOYMENT_TARGET = 1.0;
+			};
+			name = Release;
+		};
 		83D9951125C6573E00B5B234 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -568,6 +721,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Debug;
 		};
@@ -625,6 +779,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
+				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Release;
 		};
@@ -680,7 +835,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = iOS/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -700,7 +854,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = iOS/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -721,6 +874,15 @@
 			buildConfigurations = (
 				833684DC26F139840057B9CA /* Debug */,
 				833684DD26F139840057B9CA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		834BEEDF2B1D041900F7E67A /* Build configuration list for PBXNativeTarget "GLTFViewer-visionOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				834BEEDD2B1D041900F7E67A /* Debug */,
+				834BEEDE2B1D041900F7E67A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

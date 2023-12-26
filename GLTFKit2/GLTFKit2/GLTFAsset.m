@@ -10,6 +10,10 @@
 #import <MobileCoreServices/MobileCoreServices.h>
 #endif
 
+#if __has_include(<UniformTypeIdentifiers/UniformTypeIdentifiers.h>)
+    #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#endif
+
 NSString *const GLTFErrorDomain = @"com.metalbyexample.gltfkit2";
 
 const float LumensPerCandela = 1.0 / (4.0 * M_PI);
@@ -40,6 +44,8 @@ GLTFAnimationPath GLTFAnimationPathTranslation = @"translation";
 GLTFAnimationPath GLTFAnimationPathRotation = @"rotation";
 GLTFAnimationPath GLTFAnimationPathScale = @"scale";
 GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
+
+static NSString *const GLTFMediaTypeWebP = @"image/webp";
 
 float GLTFDegFromRad(float rad) {
     return rad * (180.0 / M_PI);
@@ -98,6 +104,11 @@ static NSString * _Nullable GLTFInferredMediaTypeForData(NSData *data) {
     if (data.length > 12 && (memcmp(bytes, ktx2Identifier, 12) == 0)) {
         return GLTFMediaTypeKTX2;
     }
+    uint8_t riffIdentifier[] = { 0x52, 0x49, 0x46, 0x46 };
+    uint8_t webpIdentifier[] = { 0x57, 0x45, 0x42, 0x50 };
+    if (data.length > 12 && (memcmp(bytes, riffIdentifier, 4) == 0) && (memcmp(bytes + 8, webpIdentifier, 4) == 0)) {
+        return GLTFMediaTypeWebP;
+    }
 
     return nil;
 }
@@ -108,8 +119,18 @@ static NSString *_Nullable GLTFCreateUTIForMediaType(NSString *mediaType) {
     if ([mediaType isEqualToString:GLTFMediaTypeKTX2]) {
         return @"org.khronos.ktx2";
     }
-    CFStringRef uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, (__bridge CFStringRef)mediaType, NULL);
-    return (__bridge_transfer NSString *)uti;
+#if defined(TARGET_OS_VISION) && TARGET_OS_VISION
+    UTType *_Nullable type = [UTType typeWithMIMEType:mediaType];
+    return type.identifier;
+#else
+    if (@available(macos 11.0, iOS 14.0, *)) {
+        UTType *_Nullable type = [UTType typeWithMIMEType:mediaType];
+        return type.identifier;
+    } else {
+        CFStringRef uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, (__bridge CFStringRef)mediaType, NULL);
+        return (__bridge_transfer NSString *)uti;
+    }
+#endif
 }
 
 NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaType) {

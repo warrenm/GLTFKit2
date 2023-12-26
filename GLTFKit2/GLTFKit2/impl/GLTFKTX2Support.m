@@ -18,7 +18,7 @@ static BOOL GLTFMetalDeviceSupportsETC(id<MTLDevice> device) {
                [device supportsFamily:MTLGPUFamilyApple3] ||
                [device supportsFamily:MTLGPUFamilyApple2];
     }
-#if TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE && (!defined(TARGET_OS_VISION) || !TARGET_OS_VISION)
     if (@available(iOS 12.0, *)) {
         return [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily5_v1] ||
                [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily4_v1] ||
@@ -40,7 +40,7 @@ static BOOL GLTFMetalDeviceSupportsASTC(id<MTLDevice> device) {
                [device supportsFamily:MTLGPUFamilyApple3] ||
                [device supportsFamily:MTLGPUFamilyApple2];
     }
-#if TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE && (!defined(TARGET_OS_VISION) || !TARGET_OS_VISION)
     if (@available(iOS 12.0, *)) {
         return [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily5_v1] ||
                [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily4_v1] ||
