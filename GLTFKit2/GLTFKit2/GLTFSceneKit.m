@@ -250,6 +250,26 @@ static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
     return name;
 }
 
+static NSString *GLTFAttributeNameForSCNGeometrySourceSemantic(SCNGeometrySourceSemantic semantic, int channel) {
+    if ([semantic isEqualToString:SCNGeometrySourceSemanticVertex]) {
+        return GLTFAttributeSemanticPosition;
+    } else if ([semantic isEqualToString:SCNGeometrySourceSemanticNormal]) {
+        return GLTFAttributeSemanticNormal;
+    } else if ([semantic isEqualToString:SCNGeometrySourceSemanticTangent]) {
+        return GLTFAttributeSemanticTangent;
+    } else if ([semantic isEqualToString:SCNGeometrySourceSemanticTexcoord]) {
+        return [NSString stringWithFormat:@"TEXCOORD_%d", channel];
+    } else if ([semantic isEqualToString:SCNGeometrySourceSemanticColor]) {
+        return [NSString stringWithFormat:@"COLOR_%d", channel];
+    } else if ([semantic isEqualToString:SCNGeometrySourceSemanticBoneIndices]) {
+        return [NSString stringWithFormat:@"JOINTS_%d", channel];
+    } else if ([semantic isEqualToString:SCNGeometrySourceSemanticBoneWeights]) {
+        return [NSString stringWithFormat:@"WEIGHTS_%d", channel];
+    }
+    // We can't meaningfully map SCNGeometrySourceSemanticVertexCrease or SCNGeometrySourceSemanticEdgeCrease
+    return semantic;
+}
+
 static void GLTFConfigureSCNMaterialProperty(SCNMaterialProperty *property, GLTFTextureParams *textureParams) {
     static GLTFTextureSampler *defaultSampler = nil;
     if (defaultSampler == nil) {
@@ -496,7 +516,7 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
             }
         }
     }
-    
+
     // Prior to macOS 14.0 and iOS 17.0, hit-testing against nodes whose bone indices were in ushort format
     // did not work for GPU-skinned meshes. On older platforms, we transform from ushort indices to uchar
     // indices iff the transform is lossless (i.e., if all indices are < 256).
@@ -937,12 +957,16 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             SCNGeometryElement *element = GLTFSCNGeometryElementForIndexData(indexData, indexCount, indexSize, primitive);
             geometryElementForIdentifiers[primitive.identifier] = element;
 
-            NSMutableArray *geometrySources = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
+            NSMutableArray *geometrySources = [NSMutableArray array];
             for (GLTFAttribute *attribute in primitive.attributes) {
                 // TODO: Retopologize geometry source if geometry element's data is `nil`.
                 // For primitive types not supported by SceneKit (line loops, line strips, triangle
                 // fans), we retopologize the primitive's indices. However, if they aren't present,
                 // we need to adjust the vertex data.
+                if ([attribute.name isEqual:@"WEIGHTS_0"] || [attribute.name isEqual:@"JOINTS_0"]) {
+                    // Omit joint indices and weights; these are stored later on the skinner
+                    continue;
+                }
                 [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name)];
             }
 
@@ -1089,47 +1113,45 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     }
 
                     SCNGeometryElement *element = geometryElementForIdentifiers[primitive.identifier];
-                    NSMutableArray<SCNGeometry *> *morphGeometries = [NSMutableArray array];
-                    int index = 0;
+                    NSMutableArray<SCNGeometry *> *morphGeometries = [NSMutableArray arrayWithCapacity:primitive.targets.count];
+                    int nameIndex = 0;
                     for (GLTFMorphTarget *target in primitive.targets) {
-                        // We assemble the list of geometry sources for each morph target by first
-                        // shallow-copying the sources of the base mesh, then replacing each source
-                        // as we encounter a corresponding key in the target's key list. In this way
-                        // we always have a 1:1 correspondence between base and target sources.
-                        NSMutableArray<SCNGeometrySource *> *sources = [geometryNode.geometry.geometrySources mutableCopy];
-                        for (NSString *key in target.allKeys) {
-                            GLTFAccessor *targetAccessor = target[key];
-                            __block NSInteger replacementIndex = NSNotFound;
-                            [sources enumerateObjectsUsingBlock:^(SCNGeometrySource *source, NSUInteger idx, BOOL * stop) {
-                                if ([source.semantic isEqualToString:GLTFSCNGeometrySourceSemanticForSemantic(key)]) {
-                                    replacementIndex = idx;
-                                    *stop = YES;
-                                }
-                            }];
-                            if (replacementIndex != NSNotFound) {
-                                [sources replaceObjectAtIndex:replacementIndex
-                                                   withObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
-                            } else {
-                                // Targeting a source that doesn't exist in the base mesh. This shouldn't happen.
-                                [sources addObject:GLTFSCNGeometrySourceForAccessor(targetAccessor, key)];
+                        NSInteger targetAttributeCount = geometryNode.geometry.geometrySources.count;
+                        NSMutableArray *targetSources = [NSMutableArray arrayWithCapacity:targetAttributeCount];
+                        int texCoordChannel = 0, colorChannel = 0;
+                        for (int j = 0; j < targetAttributeCount; ++j) {
+                            SCNGeometrySource *baseSource = geometryNode.geometry.geometrySources[j];
+                            NSString *sourceSemantic = baseSource.semantic;
+                            int mappingChannel = 0;
+                            if ([sourceSemantic isEqualToString:SCNGeometrySourceSemanticTexcoord]) {
+                                mappingChannel = texCoordChannel++;
+                            } else if ([sourceSemantic isEqualToString:SCNGeometrySourceSemanticColor]) {
+                                mappingChannel = colorChannel++;
                             }
-
+                            NSString *targetAttributeName = GLTFAttributeNameForSCNGeometrySourceSemantic(sourceSemantic,
+                                                                                                          mappingChannel);
+                            NSInteger targetAttributeIndex = NSNotFound;
+                            for (int k = 0; k < target.count; ++k) {
+                                if ([target[k].name isEqualToString:targetAttributeName]) {
+                                    targetAttributeIndex = k;
+                                    break;
+                                }
+                            }
+                            if (targetAttributeIndex != NSNotFound) {
+                                GLTFAccessor *targetAttributeAccessor = target[targetAttributeIndex].accessor;
+                                SCNGeometrySource *targetSource = GLTFSCNGeometrySourceForAccessor(targetAttributeAccessor,
+                                                                                                   targetAttributeName);
+                                [targetSources addObject:targetSource];
+                            }
                         }
-                        SCNGeometry *geom = [SCNGeometry geometryWithSources:sources
-                                                                    elements:@[element]];
 
-                        // If after creating the target geometry we don't have normals, use Model I/O to generate them
-                        if ([geom geometrySourcesForSemantic:SCNGeometrySourceSemanticNormal].count == 0) {
-                            MDLMesh *mdlMesh = [MDLMesh meshWithSCNGeometry:geom];
-                            [mdlMesh addNormalsWithAttributeNamed:MDLVertexAttributeNormal creaseThreshold:0.0];
-                            geom = [SCNGeometry geometryWithMDLMesh:mdlMesh];
-                        }
+                        SCNGeometry *targetGeometry = [SCNGeometry geometryWithSources:targetSources elements:@[element]];
 
-                        if (index < node.mesh.targetNames.count) {
-                            geom.name = node.mesh.targetNames[index];
+                        if (nameIndex < node.mesh.targetNames.count) {
+                            targetGeometry.name = node.mesh.targetNames[nameIndex];
                         }
-                        index++;
-                        [morphGeometries addObject:geom];
+                        ++nameIndex;
+                        [morphGeometries addObject:targetGeometry];
                     }
 
                     SCNMorpher *scnMorpher = [SCNMorpher new];
@@ -1149,9 +1171,15 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 [bones addObject:bone];
             }
             NSArray *ibmValues = GLTFSCNMatrix4ArrayFromAccessor(node.skin.inverseBindMatrices);
-            for (SCNNode *skinnedNode in geometryNodes) {
-                SCNGeometrySource *boneWeights = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneWeights].firstObject;
-                SCNGeometrySource *boneIndices = [skinnedNode.geometry geometrySourcesForSemantic:SCNGeometrySourceSemanticBoneIndices].firstObject;
+            for (int i = 0; i < geometryNodes.count; ++i) {
+                SCNNode *skinnedNode = geometryNodes[i];
+                GLTFPrimitive *sourcePrimitive = node.mesh.primitives[i];
+                GLTFAttribute *weightsAttribute = [sourcePrimitive attributeForName:GLTFAttributeSemanticWeights0];
+                SCNGeometrySource *boneWeights = GLTFSCNGeometrySourceForAccessor(weightsAttribute.accessor, 
+                                                                                  weightsAttribute.name);
+                GLTFAttribute *jointsAttribute = [sourcePrimitive attributeForName:GLTFAttributeSemanticJoints0];
+                SCNGeometrySource *boneIndices = GLTFSCNGeometrySourceForAccessor(jointsAttribute.accessor, 
+                                                                                  jointsAttribute.name);
                 if ((boneIndices.vectorCount != boneWeights.vectorCount) ||
                     ((boneIndices.data.length / boneIndices.vectorCount / boneIndices.bytesPerComponent) !=
                      (boneWeights.data.length / boneWeights.vectorCount / boneWeights.bytesPerComponent))) {

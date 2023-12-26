@@ -897,18 +897,19 @@ static dispatch_queue_t _loaderQueue;
                 size_t materialIndex = p->material - gltf->materials;
                 primitive.material = self.asset.materials[materialIndex];
             }
-            NSMutableArray *targets = [NSMutableArray array];
+            NSMutableArray<NSArray<GLTFAttribute *> *> *targets = [NSMutableArray array];
             for (int k = 0; k < p->targets_count; ++k) {
-                NSMutableDictionary *target = [NSMutableDictionary dictionary];
+                NSMutableArray<GLTFAttribute *> *target = [NSMutableArray array];
                 cgltf_morph_target *mt = p->targets + k;
                 for (int l = 0; l < mt->attributes_count; ++l) {
                     cgltf_attribute *a = mt->attributes + l;
                     NSString *attrName = [NSString stringWithUTF8String:a->name];
                     size_t attrIndex = a->data - gltf->accessors;
                     GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
-                    target[attrName] = attrAccessor;
+                    GLTFAttribute *attr = [[GLTFAttribute alloc] initWithName:attrName accessor:attrAccessor];
+                    [target addObject:attr];
                 }
-                [targets addObject:target];
+                [targets addObject:[target copy]];
             }
             if (p->mappings_count > 0) {
                 NSMutableArray *materialMappings = [NSMutableArray arrayWithCapacity:p->mappings_count];
