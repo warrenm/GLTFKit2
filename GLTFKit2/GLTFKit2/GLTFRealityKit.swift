@@ -1,10 +1,11 @@
+#if !os(tvOS)
 
 import RealityKit
 import Accelerate
 
 #if os(macOS)
 typealias PlatformColor = NSColor
-#elseif os(iOS) || os(tvOS) || os(visionOS)
+#elseif os(iOS) || os(visionOS)
 typealias PlatformColor = UIColor
 #endif
 
@@ -550,4 +551,6 @@ public class GLTFRealityKitLoader {
     }
 }
 
-#endif
+#endif // swift >=5.5
+
+#endif // !tvOS

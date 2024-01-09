@@ -123,7 +123,7 @@ static NSString *_Nullable GLTFCreateUTIForMediaType(NSString *mediaType) {
     UTType *_Nullable type = [UTType typeWithMIMEType:mediaType];
     return type.identifier;
 #else
-    if (@available(macos 11.0, iOS 14.0, *)) {
+    if (@available(macos 11.0, iOS 14.0, tvOS 14.0, *)) {
         UTType *_Nullable type = [UTType typeWithMIMEType:mediaType];
         return type.identifier;
     } else {

@@ -9,7 +9,7 @@ NSString *const GLTFMediaTypeKTX2 = @"image/ktx2";
 MTLPixelFormat GLTFMetalPixelFormatForVkFormat(int vkformat);
 
 static BOOL GLTFMetalDeviceSupportsETC(id<MTLDevice> device) {
-    if (@available(macos 10.15, iOS 13.0, *)) {
+    if (@available(macos 10.15, iOS 13.0, tvOS 13.0, *)) {
         return [device supportsFamily:MTLGPUFamilyApple8] ||
                [device supportsFamily:MTLGPUFamilyApple7] ||
                [device supportsFamily:MTLGPUFamilyApple6] ||
@@ -18,7 +18,7 @@ static BOOL GLTFMetalDeviceSupportsETC(id<MTLDevice> device) {
                [device supportsFamily:MTLGPUFamilyApple3] ||
                [device supportsFamily:MTLGPUFamilyApple2];
     }
-#if TARGET_OS_IPHONE && (!defined(TARGET_OS_VISION) || !TARGET_OS_VISION)
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
     if (@available(iOS 12.0, *)) {
         return [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily5_v1] ||
                [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily4_v1] ||
@@ -27,11 +27,17 @@ static BOOL GLTFMetalDeviceSupportsETC(id<MTLDevice> device) {
                [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v1];
     }
 #endif
+#if TARGET_OS_TV
+    if (@available(tvOS 12.0, *)) {
+        return [device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily1_v1] ||
+               [device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily2_v1];
+    }
+#endif
     return NO;
 }
 
 static BOOL GLTFMetalDeviceSupportsASTC(id<MTLDevice> device) {
-    if (@available(macos 10.15, iOS 13.0, *)) {
+    if (@available(macos 10.15, iOS 13.0, tvOS 13.0, *)) {
         return [device supportsFamily:MTLGPUFamilyApple8] ||
                [device supportsFamily:MTLGPUFamilyApple7] ||
                [device supportsFamily:MTLGPUFamilyApple6] ||
@@ -40,7 +46,7 @@ static BOOL GLTFMetalDeviceSupportsASTC(id<MTLDevice> device) {
                [device supportsFamily:MTLGPUFamilyApple3] ||
                [device supportsFamily:MTLGPUFamilyApple2];
     }
-#if TARGET_OS_IPHONE && (!defined(TARGET_OS_VISION) || !TARGET_OS_VISION)
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
     if (@available(iOS 12.0, *)) {
         return [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily5_v1] ||
                [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily4_v1] ||
@@ -48,15 +54,21 @@ static BOOL GLTFMetalDeviceSupportsASTC(id<MTLDevice> device) {
                [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v1];
     }
 #endif
+#if TARGET_OS_TV
+    if (@available(tvOS 12.0, *)) {
+        return [device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily1_v1] ||
+               [device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily2_v1];
+    }
+#endif
     return NO;
 }
 
 static BOOL GLTFMetalDeviceSupportsBC(id<MTLDevice> device) {
     BOOL hasRuntimeSupport = NO;
-    if (@available(macos 11.0, iOS 16.4, *)) {
+    if (@available(macos 11.0, iOS 16.4, tvOS 16.4, *)) {
         hasRuntimeSupport = [device supportsBCTextureCompression];
     }
-    if (@available(macos 10.15, iOS 13.0, *)) {
+    if (@available(macos 10.15, iOS 13.0, tvOS 13.0, *)) {
         return [device supportsFamily:MTLGPUFamilyMac2] || hasRuntimeSupport;
     } 
     return NO;
@@ -160,20 +172,14 @@ id<MTLTexture> GLTFCreateTextureFromKTX2Data(NSData *data, id<MTLDevice> device)
 
 MTLPixelFormat GLTFMetalPixelFormatForVkFormat(int vkformat) {
     switch (vkformat) {
-        case 2:          /* VK_FORMAT_R4G4B4A4_UNORM_PACK16 */       return MTLPixelFormatABGR4Unorm;
-        case 4:          /* VK_FORMAT_R5G6B5_UNORM_PACK16 */         return MTLPixelFormatB5G6R5Unorm;
-        case 6:          /* VK_FORMAT_R5G5B5A1_UNORM_PACK16 */       return MTLPixelFormatA1BGR5Unorm;
-        case 8:          /* VK_FORMAT_A1R5G5B5_UNORM_PACK16 */       return MTLPixelFormatBGR5A1Unorm;
         case 9:          /* VK_FORMAT_R8_UNORM */                    return MTLPixelFormatR8Unorm;
         case 10:         /* VK_FORMAT_R8_SNORM */                    return MTLPixelFormatR8Snorm;
         case 13:         /* VK_FORMAT_R8_UINT */                     return MTLPixelFormatR8Uint;
         case 14:         /* VK_FORMAT_R8_SINT */                     return MTLPixelFormatR8Sint;
-        case 15:         /* VK_FORMAT_R8_SRGB */                     return MTLPixelFormatR8Unorm_sRGB;
         case 16:         /* VK_FORMAT_R8G8_UNORM */                  return MTLPixelFormatRG8Unorm;
         case 17:         /* VK_FORMAT_R8G8_SNORM */                  return MTLPixelFormatRG8Snorm;
         case 20:         /* VK_FORMAT_R8G8_UINT */                   return MTLPixelFormatRG8Uint;
         case 21:         /* VK_FORMAT_R8G8_SINT */                   return MTLPixelFormatRG8Sint;
-        case 22:         /* VK_FORMAT_R8G8_SRGB */                   return MTLPixelFormatRG8Unorm_sRGB;
         case 37:         /* VK_FORMAT_R8G8B8A8_UNORM */              return MTLPixelFormatRGBA8Unorm;
         case 38:         /* VK_FORMAT_R8G8B8A8_SNORM */              return MTLPixelFormatRGBA8Snorm;
         case 41:         /* VK_FORMAT_R8G8B8A8_UINT */               return MTLPixelFormatRGBA8Uint;
@@ -212,54 +218,66 @@ MTLPixelFormat GLTFMetalPixelFormatForVkFormat(int vkformat) {
         case 123:        /* VK_FORMAT_E5B9G9R9_UFLOAT_PACK32 */      return MTLPixelFormatRGB9E5Float;
         case 126:        /* VK_FORMAT_D32_SFLOAT */                  return MTLPixelFormatDepth32Float;
         case 127:        /* VK_FORMAT_S8_UINT */                     return MTLPixelFormatStencil8;
-        case 147:        /* VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK */     return MTLPixelFormatETC2_RGB8;
-        case 148:        /* VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK */      return MTLPixelFormatETC2_RGB8_sRGB;
-        case 149:        /* VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK */   return MTLPixelFormatETC2_RGB8A1;
-        case 150:        /* VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK */    return MTLPixelFormatETC2_RGB8A1_sRGB;
-        case 151:        /* VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK */   return MTLPixelFormatEAC_RGBA8;
-        case 152:        /* VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK */    return MTLPixelFormatEAC_RGBA8_sRGB;
-        case 153:        /* VK_FORMAT_EAC_R11_UNORM_BLOCK */         return MTLPixelFormatEAC_R11Unorm;
-        case 154:        /* VK_FORMAT_EAC_R11_SNORM_BLOCK */         return MTLPixelFormatEAC_R11Snorm;
-        case 155:        /* VK_FORMAT_EAC_R11G11_UNORM_BLOCK */      return MTLPixelFormatEAC_RG11Unorm;
-        case 156:        /* VK_FORMAT_EAC_R11G11_SNORM_BLOCK */      return MTLPixelFormatEAC_RG11Snorm;
-        case 157:        /* VK_FORMAT_ASTC_4x4_UNORM_BLOCK */        return MTLPixelFormatASTC_4x4_LDR;
-        case 158:        /* VK_FORMAT_ASTC_4x4_SRGB_BLOCK */         return MTLPixelFormatASTC_4x4_sRGB;
-        case 159:        /* VK_FORMAT_ASTC_5x4_UNORM_BLOCK */        return MTLPixelFormatASTC_5x4_LDR;
-        case 160:        /* VK_FORMAT_ASTC_5x4_SRGB_BLOCK */         return MTLPixelFormatASTC_5x4_sRGB;
-        case 161:        /* VK_FORMAT_ASTC_5x5_UNORM_BLOCK */        return MTLPixelFormatASTC_5x5_LDR;
-        case 162:        /* VK_FORMAT_ASTC_5x5_SRGB_BLOCK */         return MTLPixelFormatASTC_5x5_sRGB;
-        case 163:        /* VK_FORMAT_ASTC_6x5_UNORM_BLOCK */        return MTLPixelFormatASTC_6x5_LDR;
-        case 164:        /* VK_FORMAT_ASTC_6x5_SRGB_BLOCK */         return MTLPixelFormatASTC_6x5_sRGB;
-        case 165:        /* VK_FORMAT_ASTC_6x6_UNORM_BLOCK */        return MTLPixelFormatASTC_6x6_LDR;
-        case 166:        /* VK_FORMAT_ASTC_6x6_SRGB_BLOCK */         return MTLPixelFormatASTC_6x6_sRGB;
-        case 167:        /* VK_FORMAT_ASTC_8x5_UNORM_BLOCK */        return MTLPixelFormatASTC_8x5_LDR;
-        case 168:        /* VK_FORMAT_ASTC_8x5_SRGB_BLOCK */         return MTLPixelFormatASTC_8x5_sRGB;
-        case 169:        /* VK_FORMAT_ASTC_8x6_UNORM_BLOCK */        return MTLPixelFormatASTC_8x6_LDR;
-        case 170:        /* VK_FORMAT_ASTC_8x6_SRGB_BLOCK */         return MTLPixelFormatASTC_8x6_sRGB;
-        case 171:        /* VK_FORMAT_ASTC_8x8_UNORM_BLOCK */        return MTLPixelFormatASTC_8x8_LDR;
-        case 172:        /* VK_FORMAT_ASTC_8x8_SRGB_BLOCK */         return MTLPixelFormatASTC_8x8_sRGB;
-        case 173:        /* VK_FORMAT_ASTC_10x5_UNORM_BLOCK */       return MTLPixelFormatASTC_10x5_LDR;
-        case 174:        /* VK_FORMAT_ASTC_10x5_SRGB_BLOCK */        return MTLPixelFormatASTC_10x5_sRGB;
-        case 175:        /* VK_FORMAT_ASTC_10x6_UNORM_BLOCK */       return MTLPixelFormatASTC_10x6_LDR;
-        case 176:        /* VK_FORMAT_ASTC_10x6_SRGB_BLOCK */        return MTLPixelFormatASTC_10x6_sRGB;
-        case 177:        /* VK_FORMAT_ASTC_10x8_UNORM_BLOCK */       return MTLPixelFormatASTC_10x8_LDR;
-        case 178:        /* VK_FORMAT_ASTC_10x8_SRGB_BLOCK */        return MTLPixelFormatASTC_10x8_sRGB;
-        case 179:        /* VK_FORMAT_ASTC_10x10_UNORM_BLOCK */      return MTLPixelFormatASTC_10x10_LDR;
-        case 180:        /* VK_FORMAT_ASTC_10x10_SRGB_BLOCK */       return MTLPixelFormatASTC_10x10_sRGB;
-        case 181:        /* VK_FORMAT_ASTC_12x10_UNORM_BLOCK */      return MTLPixelFormatASTC_12x10_LDR;
-        case 182:        /* VK_FORMAT_ASTC_12x10_SRGB_BLOCK */       return MTLPixelFormatASTC_12x10_sRGB;
-        case 183:        /* VK_FORMAT_ASTC_12x12_UNORM_BLOCK */      return MTLPixelFormatASTC_12x12_LDR;
-        case 184:        /* VK_FORMAT_ASTC_12x12_SRGB_BLOCK */       return MTLPixelFormatASTC_12x12_sRGB;
         case 1000156000: /* VK_FORMAT_G8B8G8R8_422_UNORM */          return MTLPixelFormatGBGR422;
         case 1000156001: /* VK_FORMAT_B8G8R8G8_422_UNORM */          return MTLPixelFormatBGRG422;
-        case 1000054000: /* VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG */ return MTLPixelFormatPVRTC_RGBA_2BPP;
-        case 1000054001: /* VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG */ return MTLPixelFormatPVRTC_RGBA_4BPP;
-        case 1000054004: /* VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG */  return MTLPixelFormatPVRTC_RGBA_2BPP_sRGB;
-        case 1000054005: /* VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG */  return MTLPixelFormatPVRTC_RGBA_4BPP_sRGB;
         default:
             break;
     }
-    if (@available(macos 10.11, iOS 16.4, *)) {
+    if (@available(macos 11.0, macCatalyst 14.0, *)) {
+        switch (vkformat) {
+            case 2:          /* VK_FORMAT_R4G4B4A4_UNORM_PACK16 */       return MTLPixelFormatABGR4Unorm;
+            case 4:          /* VK_FORMAT_R5G6B5_UNORM_PACK16 */         return MTLPixelFormatB5G6R5Unorm;
+            case 6:          /* VK_FORMAT_R5G5B5A1_UNORM_PACK16 */       return MTLPixelFormatA1BGR5Unorm;
+            case 8:          /* VK_FORMAT_A1R5G5B5_UNORM_PACK16 */       return MTLPixelFormatBGR5A1Unorm;
+            case 15:         /* VK_FORMAT_R8_SRGB */                     return MTLPixelFormatR8Unorm_sRGB;
+            case 22:         /* VK_FORMAT_R8G8_SRGB */                   return MTLPixelFormatRG8Unorm_sRGB;
+            case 147:        /* VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK */     return MTLPixelFormatETC2_RGB8;
+            case 148:        /* VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK */      return MTLPixelFormatETC2_RGB8_sRGB;
+            case 149:        /* VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK */   return MTLPixelFormatETC2_RGB8A1;
+            case 150:        /* VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK */    return MTLPixelFormatETC2_RGB8A1_sRGB;
+            case 151:        /* VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK */   return MTLPixelFormatEAC_RGBA8;
+            case 152:        /* VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK */    return MTLPixelFormatEAC_RGBA8_sRGB;
+            case 153:        /* VK_FORMAT_EAC_R11_UNORM_BLOCK */         return MTLPixelFormatEAC_R11Unorm;
+            case 154:        /* VK_FORMAT_EAC_R11_SNORM_BLOCK */         return MTLPixelFormatEAC_R11Snorm;
+            case 155:        /* VK_FORMAT_EAC_R11G11_UNORM_BLOCK */      return MTLPixelFormatEAC_RG11Unorm;
+            case 156:        /* VK_FORMAT_EAC_R11G11_SNORM_BLOCK */      return MTLPixelFormatEAC_RG11Snorm;
+            case 157:        /* VK_FORMAT_ASTC_4x4_UNORM_BLOCK */        return MTLPixelFormatASTC_4x4_LDR;
+            case 158:        /* VK_FORMAT_ASTC_4x4_SRGB_BLOCK */         return MTLPixelFormatASTC_4x4_sRGB;
+            case 159:        /* VK_FORMAT_ASTC_5x4_UNORM_BLOCK */        return MTLPixelFormatASTC_5x4_LDR;
+            case 160:        /* VK_FORMAT_ASTC_5x4_SRGB_BLOCK */         return MTLPixelFormatASTC_5x4_sRGB;
+            case 161:        /* VK_FORMAT_ASTC_5x5_UNORM_BLOCK */        return MTLPixelFormatASTC_5x5_LDR;
+            case 162:        /* VK_FORMAT_ASTC_5x5_SRGB_BLOCK */         return MTLPixelFormatASTC_5x5_sRGB;
+            case 163:        /* VK_FORMAT_ASTC_6x5_UNORM_BLOCK */        return MTLPixelFormatASTC_6x5_LDR;
+            case 164:        /* VK_FORMAT_ASTC_6x5_SRGB_BLOCK */         return MTLPixelFormatASTC_6x5_sRGB;
+            case 165:        /* VK_FORMAT_ASTC_6x6_UNORM_BLOCK */        return MTLPixelFormatASTC_6x6_LDR;
+            case 166:        /* VK_FORMAT_ASTC_6x6_SRGB_BLOCK */         return MTLPixelFormatASTC_6x6_sRGB;
+            case 167:        /* VK_FORMAT_ASTC_8x5_UNORM_BLOCK */        return MTLPixelFormatASTC_8x5_LDR;
+            case 168:        /* VK_FORMAT_ASTC_8x5_SRGB_BLOCK */         return MTLPixelFormatASTC_8x5_sRGB;
+            case 169:        /* VK_FORMAT_ASTC_8x6_UNORM_BLOCK */        return MTLPixelFormatASTC_8x6_LDR;
+            case 170:        /* VK_FORMAT_ASTC_8x6_SRGB_BLOCK */         return MTLPixelFormatASTC_8x6_sRGB;
+            case 171:        /* VK_FORMAT_ASTC_8x8_UNORM_BLOCK */        return MTLPixelFormatASTC_8x8_LDR;
+            case 172:        /* VK_FORMAT_ASTC_8x8_SRGB_BLOCK */         return MTLPixelFormatASTC_8x8_sRGB;
+            case 173:        /* VK_FORMAT_ASTC_10x5_UNORM_BLOCK */       return MTLPixelFormatASTC_10x5_LDR;
+            case 174:        /* VK_FORMAT_ASTC_10x5_SRGB_BLOCK */        return MTLPixelFormatASTC_10x5_sRGB;
+            case 175:        /* VK_FORMAT_ASTC_10x6_UNORM_BLOCK */       return MTLPixelFormatASTC_10x6_LDR;
+            case 176:        /* VK_FORMAT_ASTC_10x6_SRGB_BLOCK */        return MTLPixelFormatASTC_10x6_sRGB;
+            case 177:        /* VK_FORMAT_ASTC_10x8_UNORM_BLOCK */       return MTLPixelFormatASTC_10x8_LDR;
+            case 178:        /* VK_FORMAT_ASTC_10x8_SRGB_BLOCK */        return MTLPixelFormatASTC_10x8_sRGB;
+            case 179:        /* VK_FORMAT_ASTC_10x10_UNORM_BLOCK */      return MTLPixelFormatASTC_10x10_LDR;
+            case 180:        /* VK_FORMAT_ASTC_10x10_SRGB_BLOCK */       return MTLPixelFormatASTC_10x10_sRGB;
+            case 181:        /* VK_FORMAT_ASTC_12x10_UNORM_BLOCK */      return MTLPixelFormatASTC_12x10_LDR;
+            case 182:        /* VK_FORMAT_ASTC_12x10_SRGB_BLOCK */       return MTLPixelFormatASTC_12x10_sRGB;
+            case 183:        /* VK_FORMAT_ASTC_12x12_UNORM_BLOCK */      return MTLPixelFormatASTC_12x12_LDR;
+            case 184:        /* VK_FORMAT_ASTC_12x12_SRGB_BLOCK */       return MTLPixelFormatASTC_12x12_sRGB;
+            case 1000054000: /* VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG */ return MTLPixelFormatPVRTC_RGBA_2BPP;
+            case 1000054001: /* VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG */ return MTLPixelFormatPVRTC_RGBA_4BPP;
+            case 1000054004: /* VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG */  return MTLPixelFormatPVRTC_RGBA_2BPP_sRGB;
+            case 1000054005: /* VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG */  return MTLPixelFormatPVRTC_RGBA_4BPP_sRGB;
+            default:
+                break;
+        }
+    }
+    if (@available(macos 10.11, iOS 16.4, tvOS 16.4, *)) {
         switch (vkformat) {
             case 133:        /* VK_FORMAT_BC1_RGBA_UNORM_BLOCK */    return MTLPixelFormatBC1_RGBA;
             case 134:        /* VK_FORMAT_BC1_RGBA_SRGB_BLOCK */     return MTLPixelFormatBC1_RGBA_sRGB;
