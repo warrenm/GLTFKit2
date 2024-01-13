@@ -337,8 +337,6 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
         memset(bytes, 0, bufferLength);
     }
     if (accessor.sparse) {
-        assert(accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedShort ||
-               accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedInt);
         const void *baseSparseIndexBufferViewPtr = accessor.sparse.indices.buffer.data.bytes +
                                                    accessor.sparse.indices.offset;
         const void *baseSparseIndexAccessorPtr = baseSparseIndexBufferViewPtr + accessor.sparse.indexOffset;
@@ -349,18 +347,34 @@ static NSData *GLTFSCNPackedDataForAccessor(GLTFAccessor *accessor) {
 
         void *baseDestPtr = bytes;
 
-        if (accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedShort) {
-            const UInt16 *sparseIndices = (UInt16 *)baseSparseIndexAccessorPtr;
-            for (int i = 0; i < accessor.sparse.count; ++i) {
-                UInt16 sparseIndex = sparseIndices[i];
-                memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+        switch (accessor.sparse.indexComponentType) {
+            case GLTFComponentTypeUnsignedByte: {
+                const UInt8 *sparseIndices = (UInt8 *)baseSparseIndexAccessorPtr;
+                for (int i = 0; i < accessor.sparse.count; ++i) {
+                    UInt8 sparseIndex = sparseIndices[i];
+                    memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+                }
+                break;
             }
-        } else if (accessor.sparse.indexComponentType == GLTFComponentTypeUnsignedInt) {
-            const UInt32 *sparseIndices = (UInt32 *)baseSparseIndexAccessorPtr;
-            for (int i = 0; i < accessor.sparse.count; ++i) {
-                UInt32 sparseIndex = sparseIndices[i];
-                memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+            case GLTFComponentTypeUnsignedShort: {
+                const UInt16 *sparseIndices = (UInt16 *)baseSparseIndexAccessorPtr;
+                for (int i = 0; i < accessor.sparse.count; ++i) {
+                    UInt16 sparseIndex = sparseIndices[i];
+                    memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+                }
+                break;
             }
+            case GLTFComponentTypeUnsignedInt: {
+                const UInt32 *sparseIndices = (UInt32 *)baseSparseIndexAccessorPtr;
+                for (int i = 0; i < accessor.sparse.count; ++i) {
+                    UInt32 sparseIndex = sparseIndices[i];
+                    memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+                }
+                break;
+            }
+            default:
+                assert(!"Sparse accessor index type must be one of: unsigned byte, unsigned short, or unsigned int.");
+                break;
         }
     }
     return [NSData dataWithBytesNoCopy:bytes length:bufferLength freeWhenDone:YES];

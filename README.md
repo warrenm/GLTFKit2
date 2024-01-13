@@ -143,7 +143,7 @@ Below is a checklist of glTF features and their current level of support.
 - [x] Joint matrix calculation
 
 #### Sparse Accessors
-- [ ] Sparse accessors
+- [x] Sparse accessors
 
 #### Extensions
  - [x] EXT_meshopt_compression
