@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "839377232B4DDAD2006879CF"
-               BuildableName = "GLTFViewer-tvOS.app"
+               BuildableName = "glTF Viewer.app"
                BlueprintName = "GLTFViewer-tvOS"
                ReferencedContainer = "container:GLTFViewer.xcodeproj">
             </BuildableReference>
@@ -44,7 +44,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "839377232B4DDAD2006879CF"
-            BuildableName = "GLTFViewer-tvOS.app"
+            BuildableName = "glTF Viewer.app"
             BlueprintName = "GLTFViewer-tvOS"
             ReferencedContainer = "container:GLTFViewer.xcodeproj">
          </BuildableReference>
@@ -61,7 +61,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "839377232B4DDAD2006879CF"
-            BuildableName = "GLTFViewer-tvOS.app"
+            BuildableName = "glTF Viewer.app"
             BlueprintName = "GLTFViewer-tvOS"
             ReferencedContainer = "container:GLTFViewer.xcodeproj">
          </BuildableReference>
