@@ -187,7 +187,7 @@ extension MTLSamplerDescriptor {
 
 @available(macOS 12.0, iOS 15.0, *)
 class GLTFRealityKitResourceContext {
-    enum ColorMask {
+    enum ColorMask : Int {
         case red
         case green
         case blue
@@ -223,8 +223,13 @@ class GLTFRealityKitResourceContext {
         }
         var cgImage = cgImagesForImageIdentifiers[gltfImage.identifier]
         if cgImage == nil {
-            cgImage = gltfImage.newCGImage()?.takeRetainedValue() // TODO: Leak?
+            cgImage = gltfImage.newCGImage()?.takeRetainedValue()
             if cgImage != nil {
+                #if os(visionOS)
+                // Image decoding is not as robust on visionOS as on other platforms,
+                // so we "pre-decode" here into a known-good image layout.
+                cgImage = decodeCGImage(cgImage!)
+                #endif
                 cgImagesForImageIdentifiers[gltfImage.identifier] = cgImage
             }
         }
@@ -245,27 +250,58 @@ class GLTFRealityKitResourceContext {
     }
 
     func singleChannelImage(from cgImage: CGImage, channels: ColorMask) -> CGImage? {
+        guard (cgImage.colorSpace?.model == .rgb) else {
+            // Can't extract from a non-RGB[A] image with this method. Fall back to the input image hoping it's monochrome.
+            return cgImage
+        }
         guard let inputFormat = vImage_CGImageFormat(cgImage: cgImage) else { return nil }
         guard var inputBuffer = try? vImage_Buffer(cgImage: cgImage, format: inputFormat) else { return nil }
         var outputBuffer = vImage_Buffer()
         vImageBuffer_Init(&outputBuffer, inputBuffer.height, inputBuffer.width, inputFormat.bitsPerPixel, vImage_Flags())
         defer { outputBuffer.data.deallocate() }
-        let red: Float = (channels == .red) ? 1.0 : 0.0
-        let green: Float = (channels == .green) ? 1.0 : 0.0
-        let blue: Float = (channels == .blue) ? 1.0 : 0.0
-        let divisor: Int32 = 0x1000
-        let fDivisor = Float(divisor)
-        let coefficientMatrix = [ Int16(red * fDivisor), Int16(green * fDivisor), Int16(blue * fDivisor) ]
-        let preBias: [Int16] = [ 0, 0, 0, 0 ]
-        let postBias: Int32 = 0
-        vImageMatrixMultiply_ARGB8888ToPlanar8(&inputBuffer, &outputBuffer, coefficientMatrix, divisor,
-                                               preBias, postBias, vImage_Flags())
+        var channel = 0
+        switch (channels) { case .red: channel = 0; case .green: channel = 1; case .blue: channel = 2; default: break }
         let outputColorSpace = CGColorSpace(name: CGColorSpace.linearGray)!
         let outputFormat = vImage_CGImageFormat(bitsPerComponent: 8, bitsPerPixel: 8, colorSpace: outputColorSpace,
                                                 bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
                                                 renderingIntent: .defaultIntent)!
+        vImageExtractChannel_ARGB8888(&inputBuffer, &outputBuffer, channel, vImage_Flags())
         let outputImage = try? outputBuffer.createCGImage(format: outputFormat)
         return outputImage
+    }
+
+    func decodeCGImage(_ image: CGImage) -> CGImage? {
+        let isSingleChannel = (image.colorSpace?.model == .monochrome)
+        let wantsAlpha = ![CGImageAlphaInfo.none, CGImageAlphaInfo.noneSkipLast, CGImageAlphaInfo.noneSkipFirst].contains(image.alphaInfo)
+        let bitsPerComponent = 8
+        let width = image.width, height = image.height
+        let bytesPerPixel = isSingleChannel ? 1 : 4
+        let bytesPerRow = bytesPerPixel * width
+        let colorSpace = CGColorSpace(name: isSingleChannel ? CGColorSpace.genericGrayGamma2_2 : CGColorSpace.sRGB)!
+        var bitmapInfo = CGBitmapInfo.byteOrderDefault.rawValue
+        if (wantsAlpha) {
+            if (image.alphaInfo == .alphaOnly) {
+                bitmapInfo |= image.alphaInfo.rawValue
+            } else {
+                bitmapInfo |= CGImageAlphaInfo.premultipliedLast.rawValue
+            }
+        } else {
+            if (isSingleChannel) {
+                bitmapInfo |= CGImageAlphaInfo.none.rawValue
+            } else {
+                bitmapInfo |= CGImageAlphaInfo.noneSkipLast.rawValue
+            }
+        }
+        guard let context = CGContext(data: nil,
+                                      width: width,
+                                      height: height,
+                                      bitsPerComponent: bitsPerComponent,
+                                      bytesPerRow: bytesPerRow,
+                                      space: colorSpace,
+                                      bitmapInfo: bitmapInfo) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height), byTiling: false)
+        let image = context.makeImage()
+        return image
     }
 }
 
