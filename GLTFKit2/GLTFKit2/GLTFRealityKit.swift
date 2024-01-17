@@ -352,9 +352,12 @@ public class GLTFRealityKitLoader {
     }
 
     func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent? {
+        var primitiveMaterialIndex: UInt32 = 0
         let meshDescriptorAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (RealityKit.MeshDescriptor, RealityKit.Material)? in
-            if let meshDescriptor = try self.convert(primitive: primitive, context:context) {
+            if var meshDescriptor = try self.convert(primitive: primitive, context:context) {
                 let material = try self.convert(material: primitive.material, context: context)
+                meshDescriptor.materials = .allFaces(primitiveMaterialIndex)
+                primitiveMaterialIndex += 1
                 return (meshDescriptor, material)
             }
             // If we fail to create a mesh descriptor for a primitive, omit it from the list.
@@ -369,7 +372,7 @@ public class GLTFRealityKitLoader {
 
         let meshResource = try MeshResource.generate(from: meshDescriptorAndMaterials.map { $0.0 })
 
-        let model = ModelComponent(mesh: meshResource, materials: meshDescriptorAndMaterials.map { $0.1} )
+        let model = ModelComponent(mesh: meshResource, materials: meshDescriptorAndMaterials.map { $0.1 } )
 
         return model
     }
