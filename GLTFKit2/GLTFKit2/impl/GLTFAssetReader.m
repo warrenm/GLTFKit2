@@ -387,38 +387,48 @@ static dispatch_queue_t _loaderQueue;
         return;
     }
 
-    NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
-    if (internalData == nil) {
-        NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:nil];
-        handler(1.0, GLTFAssetStatusError, nil, error, &stop);
-        return;
-    }
+    @try {
+        NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
+        if (internalData == nil) {
+            NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:nil];
+            handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+            return;
+        }
 
-    cgltf_options parseOptions = {0};
-    parseOptions.file.read = self.assetDirectoryURL ? GLTFReadFileSecurityScoped : GLTFReadFile;
-    parseOptions.file.user_data = (__bridge void *)self;
-    cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
+        cgltf_options parseOptions = {0};
+        parseOptions.file.read = self.assetDirectoryURL ? GLTFReadFileSecurityScoped : GLTFReadFile;
+        parseOptions.file.user_data = (__bridge void *)self;
+        cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
 
-    if (result != cgltf_result_success) {
-        NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
-        handler(1.0, GLTFAssetStatusError, nil, error, &stop);
-    } else {
-        result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
         if (result != cgltf_result_success) {
             NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
             handler(1.0, GLTFAssetStatusError, nil, error, &stop);
         } else {
-            NSError *error = nil;
-            [self convertAsset:&error];
-            if (error == nil) {
-                handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
-            } else {
+            result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
+            if (result != cgltf_result_success) {
+                NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
                 handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+            } else {
+                NSError *error = nil;
+                [self convertAsset:&error];
+                if (error == nil) {
+                    handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
+                } else {
+                    handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+                }
             }
         }
     }
-
-    cgltf_free(gltf);
+    @catch (NSException *exception) {
+        NSString *description = [NSString stringWithFormat:@"An exception occurred when loading (%@)", exception.reason];
+        NSError *exceptionError = [NSError errorWithDomain:GLTFErrorDomain
+                                                      code:GLTFErrorCodeFailedToLoad
+                                                  userInfo:@{ NSLocalizedDescriptionKey : description }];
+        handler(1.0, GLTFAssetStatusError, nil, exceptionError, &stop);
+    }
+    @finally {
+        cgltf_free(gltf);
+    }
 }
 
 - (NSArray *)convertBuffers {
