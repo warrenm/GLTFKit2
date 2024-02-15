@@ -696,8 +696,6 @@ static dispatch_queue_t _loaderQueue;
         }
         params.transform = transform;
     }
-    params.extensions = GLTFConvertExtensions(tv->extensions, tv->extensions_count, nil);
-    params.extras = GLTFObjectFromExtras(gltf->json, tv->extras, nil);
     return params;
 }
 

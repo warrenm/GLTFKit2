@@ -169,6 +169,9 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
     SCNGeometryPrimitiveType primitiveType;
     int primitiveCount;
     switch (primitive.primitiveType) {
+        case GLTFPrimitiveTypeInvalid:
+            GLTFLogError(@"Encountered primitive with invalid type. Will not create geometry element");
+            return nil;
         case GLTFPrimitiveTypePoints:
             primitiveType = SCNGeometryPrimitiveTypePoint;
             primitiveCount = indexCount;

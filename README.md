@@ -146,6 +146,7 @@ Below is a checklist of glTF features and their current level of support.
 - [x] Sparse accessors
 
 #### Extensions
+ - [ ] EXT_mesh_gpu_instancing
  - [x] EXT_meshopt_compression
  - [x] KHR_draco_mesh_compression (via plug-in)
  - [x] KHR_lights_punctual
