@@ -89,6 +89,163 @@ int GLTFComponentCountForDimension(GLTFValueDimension dim) {
     return 0;
 }
 
+NSData *GLTFPackedDataForAccessor(GLTFAccessor *accessor) {
+    GLTFBufferView *bufferView = accessor.bufferView;
+    GLTFBuffer *buffer = bufferView.buffer;
+    size_t bytesPerComponent = GLTFBytesPerComponentForComponentType(accessor.componentType);
+    size_t componentCount = GLTFComponentCountForDimension(accessor.dimension);
+    size_t elementSize = bytesPerComponent * componentCount;
+    size_t bufferLength = elementSize * accessor.count;
+    void *bytes = malloc(bufferLength);
+    if (bufferView != nil) {
+        void *bufferViewBaseAddr = (void *)buffer.data.bytes + bufferView.offset;
+        if (bufferView.stride == 0 || bufferView.stride == elementSize) {
+            // Fast path
+            memcpy(bytes, bufferViewBaseAddr + accessor.offset, accessor.count * elementSize);
+        } else {
+            // Slow path, element by element
+            size_t sourceStride = bufferView.stride ?: elementSize;
+            for (int i = 0; i < accessor.count; ++i) {
+                void *src = bufferViewBaseAddr + (i * sourceStride) + accessor.offset;
+                void *dest = bytes + (i * elementSize);
+                memcpy(dest, src, elementSize);
+            }
+        }
+    } else {
+        // 3.6.2.3. Sparse Accessors
+        // When accessor.bufferView is undefined, the sparse accessor is initialized as
+        // an array of zeros of size (size of the accessor element) * (accessor.count) bytes.
+        // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#sparse-accessors
+        memset(bytes, 0, bufferLength);
+    }
+    if (accessor.sparse) {
+        const void *baseSparseIndexBufferViewPtr = accessor.sparse.indices.buffer.data.bytes +
+                                                   accessor.sparse.indices.offset;
+        const void *baseSparseIndexAccessorPtr = baseSparseIndexBufferViewPtr + accessor.sparse.indexOffset;
+
+        const void *baseValueBufferViewPtr = accessor.sparse.values.buffer.data.bytes + accessor.sparse.values.offset;
+        const void *baseSrcPtr = baseValueBufferViewPtr + accessor.sparse.valueOffset;
+        const size_t srcValueStride = accessor.sparse.values.stride ?: elementSize;
+
+        void *baseDestPtr = bytes;
+
+        switch (accessor.sparse.indexComponentType) {
+            case GLTFComponentTypeUnsignedByte: {
+                const UInt8 *sparseIndices = (UInt8 *)baseSparseIndexAccessorPtr;
+                for (int i = 0; i < accessor.sparse.count; ++i) {
+                    UInt8 sparseIndex = sparseIndices[i];
+                    memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+                }
+                break;
+            }
+            case GLTFComponentTypeUnsignedShort: {
+                const UInt16 *sparseIndices = (UInt16 *)baseSparseIndexAccessorPtr;
+                for (int i = 0; i < accessor.sparse.count; ++i) {
+                    UInt16 sparseIndex = sparseIndices[i];
+                    memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+                }
+                break;
+            }
+            case GLTFComponentTypeUnsignedInt: {
+                const UInt32 *sparseIndices = (UInt32 *)baseSparseIndexAccessorPtr;
+                for (int i = 0; i < accessor.sparse.count; ++i) {
+                    UInt32 sparseIndex = sparseIndices[i];
+                    memcpy(baseDestPtr + sparseIndex * elementSize, baseSrcPtr + (i * srcValueStride), elementSize);
+                }
+                break;
+            }
+            default:
+                assert(!"Sparse accessor index type must be one of: unsigned byte, unsigned short, or unsigned int.");
+                break;
+        }
+    }
+    return [NSData dataWithBytesNoCopy:bytes length:bufferLength freeWhenDone:YES];
+}
+
+NSData *GLTFTransformPackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceAccessor) {
+    if (sourceAccessor.componentType == GLTFComponentTypeFloat) {
+        return sourceData; // Nothing to do
+    }
+
+    if ((sourceAccessor.componentType != GLTFComponentTypeByte) &&
+        (sourceAccessor.componentType != GLTFComponentTypeUnsignedByte) &&
+        (sourceAccessor.componentType != GLTFComponentTypeShort) &&
+        (sourceAccessor.componentType != GLTFComponentTypeUnsignedShort))
+    {
+        NSLog(@"[GLTFKit2] Warning: Failed to convert unsupported normalized data. Returning source data.");
+        return sourceData;
+    }
+
+    size_t vectorCount = sourceAccessor.count;
+    size_t componentCount = sourceAccessor.dimension;
+    size_t elementCount = vectorCount * componentCount;
+
+    size_t outBufferSize = vectorCount * componentCount * sizeof(float);
+    float *dstBase = malloc(outBufferSize);
+    NSData *outData = [NSData dataWithBytesNoCopy:dstBase length:outBufferSize freeWhenDone:YES];
+
+    // "Implementations MUST use following equations to decode real floating-point value f from a normalized integer c"
+    // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations
+    switch (sourceAccessor.componentType) {
+        case GLTFComponentTypeByte: {
+            const int8_t *srcBase = sourceData.bytes;
+            if (sourceAccessor.isNormalized) {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = MAX(srcBase[i] / 127.0f, -1.0f); // max(c / 127.0, -1.0)
+                }
+            } else {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i];
+                }
+            }
+            break;
+        }
+        case GLTFComponentTypeUnsignedByte: {
+            const uint8_t *srcBase = sourceData.bytes;
+            if (sourceAccessor.isNormalized) {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i] / 255.0f; // f = c / 255.0
+                }
+            } else {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i];
+                }
+            }
+            break;
+        }
+        case GLTFComponentTypeShort: {
+            const int16_t *srcBase = sourceData.bytes;
+            if (sourceAccessor.isNormalized) {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = MAX(srcBase[i] / 32767.0f, -1.0f); // f = max(c / 32767.0, -1.0)
+                }
+            } else {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i];
+                }
+            }
+            break;
+        }
+        case GLTFComponentTypeUnsignedShort: {
+            const uint16_t *srcBase = sourceData.bytes;
+            if (sourceAccessor.isNormalized) {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i] / 65535.0f; // f = c / 65535.0
+                }
+            } else {
+                for (size_t i = 0; i < elementCount; ++i) {
+                    dstBase[i] = srcBase[i];
+                }
+            }
+            break;
+        }
+        default:
+            break; // Impossible.
+    }
+
+    return outData;
+}
+
 static NSString * _Nullable GLTFInferredMediaTypeForData(NSData *data) {
     const uint8_t *bytes = (const uint8_t *)data.bytes;
 

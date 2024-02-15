@@ -190,6 +190,9 @@ GLTFKIT2_EXPORT
 
 @end
 
+extern NSData *GLTFPackedDataForAccessor(GLTFAccessor * accessor);
+extern NSData *GLTFTransformPackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceAccessor);
+
 @class GLTFAnimationChannel;
 @class GLTFAnimationSampler;
 
