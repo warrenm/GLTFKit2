@@ -876,6 +876,91 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
 
 @end
 
+@interface GLTFMeshInstances ()
+@property (nonatomic, nullable, strong) NSData *cachedTransforms;
+@end
+
+@implementation GLTFMeshInstances
+
+- (NSInteger)instanceCount {
+    return self.attributes.firstObject.accessor.count;
+}
+
+- (nullable GLTFAttribute *)attributeForName:(NSString *)name {
+    for (GLTFAttribute *attrib in self.attributes) {
+        if ([attrib.name isEqualToString:name]) {
+            return attrib;
+        }
+    }
+    return nil;
+}
+
+- (simd_float4x4)transformAtIndex:(NSInteger)index {
+    if (_cachedTransforms == nil) {
+        NSData *_Nullable translationData = nil;
+        NSData *_Nullable rotationData = nil;
+        NSData *_Nullable scaleData = nil;
+        simd_float4x4 *transforms = NULL;
+        size_t transformDataLength = sizeof(simd_float4x4) * self.instanceCount;
+        posix_memalign((void **)&transforms, _Alignof(simd_float4x4), transformDataLength);
+        GLTFAttribute *_Nullable translationAttr = [self attributeForName:@"TRANSLATION"];
+        if (translationAttr && translationAttr.accessor) {
+            GLTFAccessor *translationAccessor = translationAttr.accessor;
+            if (translationAccessor.componentType == GLTFComponentTypeFloat && 
+                translationAccessor.dimension == GLTFValueDimensionVector3)
+            {
+                translationData = GLTFPackedDataForAccessor(translationAccessor);
+            } else {
+                GLTFLogWarning(@"Translation attribute was present on mesh instancing object, but was not of float VEC3 type");
+            }
+        }
+        GLTFAttribute *_Nullable rotationAttr = [self attributeForName:@"ROTATION"];
+        if (rotationAttr && rotationAttr.accessor) {
+            GLTFAccessor *rotationAccessor = rotationAttr.accessor;
+            NSData *packedRotationData = GLTFPackedDataForAccessor(rotationAccessor);
+            rotationData = GLTFTransformPackedDataToFloat(packedRotationData, rotationAccessor);
+        }
+        GLTFAttribute *_Nullable scaleAttr = [self attributeForName:@"SCALE"];
+        if (scaleAttr && scaleAttr.accessor) {
+            GLTFAccessor *scaleAccessor = scaleAttr.accessor;
+            if (scaleAccessor.componentType == GLTFComponentTypeFloat && 
+                scaleAccessor.dimension == GLTFValueDimensionVector3)
+            {
+                scaleData = GLTFPackedDataForAccessor(scaleAccessor);
+            } else {
+                GLTFLogWarning(@"Scale attribute was present on mesh instancing object, but was not of float VEC3 type");
+            }
+        }
+        for (int i = 0; i < self.instanceCount; ++i) {
+            simd_float4x4 M = matrix_identity_float4x4;
+            if (scaleData) {
+                float *scale = ((float *)scaleData.bytes) + (i * 3);
+                M.columns[0][0] = scale[0];
+                M.columns[1][1] = scale[1];
+                M.columns[2][2] = scale[2];
+            }
+            if (rotationData) {
+                simd_quatf rotation;
+                memcpy(&rotation, ((float *)rotationData.bytes) + (i * 4), sizeof(float) * 4);
+                M = simd_mul(simd_matrix4x4(rotation), M);
+            }
+            if (translationData) {
+                float *trans = ((float *)translationData.bytes) + (i * 3);
+                M.columns[3][0] = trans[0];
+                M.columns[3][1] = trans[1];
+                M.columns[3][2] = trans[2];
+            }
+            transforms[i] = M;
+        }
+        _cachedTransforms = [NSData dataWithBytesNoCopy:transforms length:transformDataLength freeWhenDone:YES];
+    }
+    NSAssert(index >= 0 && index < self.instanceCount, @"Could not access instance transform at index %d (of %d)",
+             (int)index, (int)self.instanceCount);
+    return ((simd_float4x4 *)self.cachedTransforms.bytes)[index];
+}
+
+@end
+
 @interface GLTFPrimitive ()
 @property (nonatomic, weak) GLTFMaterialMapping *cachedMapping;
 @end

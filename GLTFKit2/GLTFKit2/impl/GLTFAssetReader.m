@@ -1057,6 +1057,21 @@ static dispatch_queue_t _loaderQueue;
             node.matrix = transform;
         }
         // TODO: morph target weights
+        if (n->has_mesh_gpu_instancing) {
+            cgltf_mesh_gpu_instancing *mi = &n->mesh_gpu_instancing;
+            NSMutableArray *attributes = [NSMutableArray array];
+            for (int j = 0; j < mi->attributes_count; ++j) {
+                cgltf_attribute *a = mi->attributes + j;
+                NSString *attrName = [NSString stringWithUTF8String:a->name];
+                size_t attrIndex = a->data - gltf->accessors;
+                GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
+                GLTFAttribute *attr = [[GLTFAttribute alloc] initWithName:attrName accessor:attrAccessor];
+                [attributes addObject:attr];
+            }
+            GLTFMeshInstances *instances = [GLTFMeshInstances new];
+            instances.attributes = [attributes copy];
+            node.meshInstances = instances;
+        }
         node.name = n->name ? GLTFUnescapeJSONString(n->name)
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Node"];
         node.extensions = GLTFConvertExtensions(n->extensions, n->extensions_count, nil);

@@ -1057,6 +1057,22 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 skinnedNode.skinner = skinner;
             }
         }
+        if (node.meshInstances) {
+            NSMutableArray *instanceNodes = [NSMutableArray arrayWithCapacity:node.meshInstances.instanceCount];
+            for (int i = 0; i < node.meshInstances.instanceCount; ++i) {
+                SCNNode *instanceNode = [scnNode clone];
+                instanceNode.name = [NSString stringWithFormat:@"%@_instance%02d", scnNode.name, i];
+                instanceNode.simdTransform = [node.meshInstances transformAtIndex:i];
+                [instanceNodes addObject:instanceNode];
+            }
+            scnNode.geometry = nil;
+            while (scnNode.childNodes.count > 0) {
+                [scnNode.childNodes.firstObject removeFromParentNode];
+            }
+            for (int i = 0; i < instanceNodes.count; ++i) {
+                [scnNode addChildNode:instanceNodes[i]];
+            }
+        }
     }
 
     NSMutableArray<GLTFSCNAnimation *> *animationPlayers = [NSMutableArray arrayWithCapacity:self.asset.animations.count];

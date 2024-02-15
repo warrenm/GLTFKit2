@@ -514,6 +514,13 @@ GLTFKIT2_EXPORT
 typedef NSArray<GLTFAttribute *> GLTFMorphTarget;
 
 GLTFKIT2_EXPORT
+@interface GLTFMeshInstances : GLTFObject
+@property (nonatomic, copy) NSArray<GLTFAttribute *> *attributes;
+@property (nonatomic, readonly) NSInteger instanceCount;
+- (simd_float4x4)transformAtIndex:(NSInteger)index;
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFPrimitive : GLTFObject
 
 @property (nonatomic, copy) NSArray<GLTFAttribute *> *attributes;
@@ -552,6 +559,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, assign) simd_float3 scale;
 @property (nonatomic, assign) simd_float3 translation;
 @property (nonatomic, nullable, copy) NSArray<NSNumber *> *weights;
+@property (nonatomic, nullable, strong) GLTFMeshInstances *meshInstances;
 
 @end
 
