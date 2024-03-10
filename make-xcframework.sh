@@ -44,6 +44,6 @@ xcodebuild -create-xcframework \
 
 rm -rf $archiveDirectory
 
-zip -r GLTFKit2.xcframework.zip GLTFKit2.xcframework
+ditto -c -k --sequesterRsrc --keepParent GLTFKit2.xcframework GLTFKit2.xcframework.zip
 
 swift package compute-checksum GLTFKit2.xcframework.zip
