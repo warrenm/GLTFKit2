@@ -726,6 +726,9 @@ static dispatch_queue_t _loaderQueue;
         if (m->has_ior) {
             material.indexOfRefraction = @(m->ior.ior);
         }
+        if (m->has_dispersion) {
+            material.dispersion = @(m->dispersion.dispersion);
+        }
         if (m->has_pbr_metallic_roughness) {
             GLTFPBRMetallicRoughnessParams *pbr = [GLTFPBRMetallicRoughnessParams new];
             float *baseColor = m->pbr_metallic_roughness.base_color_factor;
@@ -827,6 +830,15 @@ static dispatch_queue_t _loaderQueue;
                 iridesence.iridescenceThicknessTexture = [self textureParamsFromTextureView:&m->iridescence.iridescence_thickness_texture];
             }
             material.iridescence = iridesence;
+        }
+        if (m->has_anisotropy) {
+            GLTFAnisotropyParams *anisotropy = [GLTFAnisotropyParams new];
+            anisotropy.strength = m->anisotropy.anisotropy_strength;
+            anisotropy.rotation = m->anisotropy.anisotropy_rotation;
+            if (m->anisotropy.anisotropy_texture.texture) {
+                anisotropy.anisotropyTexture = [self textureParamsFromTextureView:&m->anisotropy.anisotropy_texture];
+            }
+            material.anisotropy = anisotropy;
         }
         if (m->unlit) {
             material.unlit = YES;

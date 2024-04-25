@@ -149,9 +149,11 @@ Below is a checklist of glTF features and their current level of support.
  - [x] EXT_mesh_gpu_instancing
  - [x] EXT_meshopt_compression
  - [x] KHR_draco_mesh_compression (via plug-in)
- - [x] KHR_lights_punctual
- - [x] KHR_materials_clearcoat
  - [x] KHR_emissive_strength
+ - [x] KHR_lights_punctual
+ - [x] KHR_materials_anisotropy
+ - [x] KHR_materials_clearcoat
+ - [x] KHR_materials_dispersion
  - [x] KHR_materials_ior
  - [x] KHR_materials_iridescence
  - [x] KHR_materials_sheen

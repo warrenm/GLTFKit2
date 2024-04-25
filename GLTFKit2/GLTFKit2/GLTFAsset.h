@@ -467,6 +467,20 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFAnisotropyParams : NSObject
+
+/// The anisotropy strength. When `anisotropyTexture` is present, this value is multiplied by the blue channel.
+@property (nonatomic, assign) float strength;
+/// The rotation of the anisotropy in tangent, bitangent space, measured in radians counter-clockwise from the tangent.
+/// When `anisotropyTexture` is present, `rotation` provides additional rotation to the vectors in the texture.
+@property (nonatomic, assign) float rotation;
+/// The anisotropy texture. Red and green channels represent the anisotropy direction in [-1, 1] tangent, bitangent space,
+/// to be rotated by `rotation`. The blue channel contains strength as [0, 1] to be multiplied by `strength`.
+@property (nonatomic, nullable) GLTFTextureParams *anisotropyTexture;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFMaterial : GLTFObject
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
@@ -478,9 +492,14 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFSheenParams *sheen;
 @property (nonatomic, nullable) GLTFIridescence *iridescence;
+@property (nonatomic, nullable) GLTFAnisotropyParams *anisotropy;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
 @property (nonatomic, nullable) GLTFTextureParams *occlusionTexture;
 @property (nonatomic, nullable) NSNumber *indexOfRefraction;
+/// The strength of the dispersion effect, specified as 20 divided by the material's
+/// Abbe number. If nil or equal to 0, no disperson should be applied.
+/// Introduced by the KHR_materials_dispersion extension.
+@property (nonatomic, nullable) NSNumber *dispersion;
 @property (nonatomic, assign) GLTFAlphaMode alphaMode;
 @property (nonatomic, assign) float alphaCutoff;
 @property (nonatomic, assign, getter=isDoubleSided) BOOL doubleSided;

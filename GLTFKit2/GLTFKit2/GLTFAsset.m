@@ -836,6 +836,18 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
 
 @end
 
+@implementation GLTFAnisotropyParams : NSObject
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _strength = 0.0f;
+        _rotation = 0.0f;
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFMaterial
 
 - (instancetype)init {
