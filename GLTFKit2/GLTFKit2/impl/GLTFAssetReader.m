@@ -1214,14 +1214,20 @@ static dispatch_queue_t _loaderQueue;
 - (BOOL)validateRequiredExtensions:(NSError **)error {
     NSMutableArray *supportedExtensions = [NSMutableArray arrayWithObjects:
         GLTFExtensionEXTMeshoptCompression,
+        @"EXT_mesh_gpu_instancing",
         @"KHR_emissive_strength",
-        @"KHR_materials_ior",
         @"KHR_lights_punctual",
+        @"KHR_materials_anisotropy",
         @"KHR_materials_clearcoat",
+        @"KHR_materials_dispersion",
+        @"KHR_materials_ior",
+        @"KHR_materials_iridescence",
+        @"KHR_materials_sheen",
         @"KHR_materials_specular",
         @"KHR_materials_transmission",
         @"KHR_materials_unlit",
         @"KHR_materials_variants",
+        @"KHR_materials_volume",
         @"KHR_mesh_quantization",
         @"KHR_texture_transform",
         @"KHR_materials_pbrSpecularGlossiness", // deprecated
