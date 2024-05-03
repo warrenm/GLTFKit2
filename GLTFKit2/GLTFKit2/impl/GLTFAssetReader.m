@@ -388,9 +388,16 @@ static dispatch_queue_t _loaderQueue;
     }
 
     @try {
-        NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
+        NSError *internalError = nil;
+        NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL
+                                                             options:(NSDataReadingOptions)0
+                                                               error:&internalError];
         if (internalData == nil) {
-            NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:nil];
+            NSMutableDictionary *userInfo = [@{ NSLocalizedDescriptionKey : @"Failed to open file" } mutableCopy];
+            if (internalError) {
+                userInfo[NSUnderlyingErrorKey] = internalError;
+            }
+            NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:userInfo];
             handler(1.0, GLTFAssetStatusError, nil, error, &stop);
             return;
         }
