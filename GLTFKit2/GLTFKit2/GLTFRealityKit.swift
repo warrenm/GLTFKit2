@@ -202,6 +202,32 @@ func packedUShort4Array(for accessor: GLTFAccessor) -> [SIMD4<UInt16>]? {
     return vectors
 }
 
+func packedFloat4x4(for accessor: GLTFAccessor) -> [simd_float4x4]? {
+    if (accessor.componentType != .float) || (accessor.dimension != .matrix4) {
+        return nil
+    }
+    guard let bufferView = accessor.bufferView else { return nil }
+    guard let bufferData = bufferView.buffer.data else { return nil }
+
+    let sourceStride = bufferView.stride == 0 ? MemoryLayout<simd_float4x4>.stride : bufferView.stride
+    let offset = bufferView.offset + accessor.offset
+    let matrices = [simd_float4x4].init(unsafeUninitializedCapacity: accessor.count) { destPtr, initializedCount in
+        bufferData.withUnsafeBytes { sourceBase in
+            guard let accessorBase = sourceBase.baseAddress?.advanced(by: offset) else { initializedCount = 0; return }
+            if sourceStride == MemoryLayout<simd_float4x4>.stride {
+                memcpy(&destPtr[0], accessorBase, sourceStride * accessor.count)
+            } else {
+                for i in 0..<accessor.count {
+                    let srcMatrix = accessorBase.advanced(by: sourceStride * i)
+                    memcpy(&destPtr[i], srcMatrix, MemoryLayout<simd_float4x4>.size)
+                }
+            }
+            initializedCount = accessor.count;
+        }
+    }
+    return matrices
+}
+
 func convertMinMipFilters(from filter: GLTFMinMipFilter) -> (MTLSamplerMinMagFilter, MTLSamplerMipFilter) {
     switch filter {
     case .linear:
@@ -386,6 +412,14 @@ class GLTFRealityKitResourceContext {
     }
 }
 
+#if os(visionOS)
+typealias GLTFRKSkeleton = RealityKit.MeshResource.Skeleton
+#else
+struct GLTFRKSkeleton : Identifiable {
+    var id: String
+}
+#endif
+
 @available(macOS 12.0, iOS 15.0, *)
 public class GLTFRealityKitLoader {
 
@@ -440,8 +474,15 @@ public class GLTFRealityKitLoader {
 
         nodeEntity.transform = Transform(matrix: gltfNode.matrix) // TODO: Properly compose node's TRS properties
 
+        var skeleton: GLTFRKSkeleton?
+        #if os(visionOS)
+        if let skin = gltfNode.skin {
+            skeleton = convert(skin: skin, context: context)
+        }
+        #endif
+
         if let gltfMesh = gltfNode.mesh,
-           let meshComponent = try convert(mesh: gltfMesh, context: context) {
+           let meshComponent = try convert(mesh: gltfMesh, skeleton: skeleton, context: context) {
             nodeEntity.components.set(meshComponent)
         }
 
@@ -471,10 +512,40 @@ public class GLTFRealityKitLoader {
         return nodeEntity
     }
 
-    @MainActor func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent? {
+    #if os(visionOS)
+    func convert(skin gltfSkin: GLTFSkin, context: GLTFRealityKitResourceContext) -> MeshResource.Skeleton? {
+        let skeletonName = gltfSkin.name ?? nameGenerator.nextUniqueName(prefix: "Skin")
+        let jointNames = gltfSkin.joints.compactMap { return $0.name }
+
+        let jointParents = gltfSkin.joints.map { skeletonNode in
+            if let parent = skeletonNode.parent {
+                return gltfSkin.joints.firstIndex(of: parent)
+            } else {
+                return nil
+            }
+        }
+
+        let ibmMatrices = {
+            if let ibmAccessor = gltfSkin.inverseBindMatrices, let matrices = packedFloat4x4(for: ibmAccessor) {
+                return matrices
+            } else {
+                return [simd_float4x4](repeating: matrix_identity_float4x4, count: jointNames.count)
+            }
+        }()
+
+        return MeshResource.Skeleton(id: skeletonName, jointNames: jointNames,
+                                     inverseBindPoseMatrices: ibmMatrices, parentIndices: jointParents)
+    }
+    #endif
+
+    @MainActor func convert(mesh gltfMesh: GLTFMesh, skeleton: GLTFRKSkeleton? = nil,
+                            context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent?
+    {
         var primitiveMaterialIndex: Int = 0
-        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (RealityKit.MeshResource.Part, RealityKit.Material)? in
-            if let part = self.convert(primitive: primitive, materialIndex: primitiveMaterialIndex, context:context) {
+        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (MeshResource.Part, RealityKit.Material)? in
+            if let part = self.convert(primitive: primitive, materialIndex: primitiveMaterialIndex, 
+                                       skeletonID: skeleton?.id, context:context)
+            {
                 let material = try self.convert(material: primitive.material, context: context)
                 primitiveMaterialIndex += 1
                 return (part, material)
@@ -497,6 +568,11 @@ public class GLTFRealityKitLoader {
 
         var meshContents = MeshResource.Contents()
         meshContents.models = MeshModelCollection([model])
+        #if os(visionOS)
+        if let skeleton {
+            meshContents.skeletons = MeshSkeletonCollection([skeleton])
+        }
+        #endif
 
         let meshResource = try MeshResource.generate(from: meshContents)
         let modelComponent = ModelComponent(mesh: meshResource, materials: materials)
@@ -504,7 +580,7 @@ public class GLTFRealityKitLoader {
         return modelComponent
     }
 
-    func convert(primitive gltfPrimitive: GLTFPrimitive, materialIndex: Int = 0,
+    func convert(primitive gltfPrimitive: GLTFPrimitive, materialIndex: Int = 0, skeletonID: String? = nil,
                  context: GLTFRealityKitResourceContext) -> RealityKit.MeshResource.Part?
     {
         if gltfPrimitive.primitiveType != .triangles {
@@ -558,6 +634,7 @@ public class GLTFRealityKitLoader {
             let influences = jointInfluences(forJoints: jointsArray, weights: weightsArray)
             part.jointInfluences = MeshResource.JointInfluences(influences: MeshBuffers.JointInfluences(influences),
                                                                 influencesPerVertex: weightsPerVertex)
+            part.skeletonID = skeletonID
         }
         #endif
 
