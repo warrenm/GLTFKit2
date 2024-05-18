@@ -385,7 +385,7 @@ class GLTFRealityKitResourceContext {
         let bytesPerPixel = isSingleChannel ? 1 : 4
         let bytesPerRow = bytesPerPixel * width
         let colorSpace = CGColorSpace(name: isSingleChannel ? CGColorSpace.genericGrayGamma2_2 : CGColorSpace.sRGB)!
-        var bitmapInfo = CGBitmapInfo.byteOrderDefault.rawValue
+        var bitmapInfo: UInt32 = 0
         if (wantsAlpha) {
             if (image.alphaInfo == .alphaOnly) {
                 bitmapInfo |= image.alphaInfo.rawValue
@@ -569,7 +569,7 @@ public class GLTFRealityKitLoader {
         var meshContents = MeshResource.Contents()
         meshContents.models = MeshModelCollection([model])
         #if os(visionOS)
-        if let skeleton {
+        if let skeleton = skeleton {
             meshContents.skeletons = MeshSkeletonCollection([skeleton])
         }
         #endif
