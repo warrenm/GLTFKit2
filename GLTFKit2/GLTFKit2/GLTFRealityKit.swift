@@ -201,8 +201,8 @@ class GLTFRealityKitResourceContext {
         return RealityKit.SimpleMaterial(color: .init(white: 0.5, alpha: 1.0), isMetallic: false)
     }
 
-    func texture(for gltfTextureParams: GLTFTextureParams, channels: ColorMask,
-                 semantic: RealityKit.TextureResource.Semantic) -> RealityKit.PhysicallyBasedMaterial.Texture?
+    @MainActor func texture(for gltfTextureParams: GLTFTextureParams, channels: ColorMask,
+                            semantic: RealityKit.TextureResource.Semantic) -> RealityKit.PhysicallyBasedMaterial.Texture?
     {
         let gltfTexture = gltfTextureParams.texture
         guard let image = gltfTexture.source else { return nil }
@@ -214,8 +214,8 @@ class GLTFRealityKitResourceContext {
         return nil
     }
 
-    func textureResource(for gltfImage: GLTFImage, channels: ColorMask,
-                         semantic: RealityKit.TextureResource.Semantic) -> RealityKit.TextureResource?
+    @MainActor func textureResource(for gltfImage: GLTFImage, channels: ColorMask,
+                                    semantic: RealityKit.TextureResource.Semantic) -> RealityKit.TextureResource?
     {
         let existingResources = textureResourcesForImageIdentifiers[gltfImage.identifier]
         if let existingMatch = existingResources?.first(where: { $0.1 == channels })?.0 {
@@ -315,7 +315,7 @@ public class GLTFRealityKitLoader {
     public static func load(from url: URL) async throws -> RealityKit.Entity {
         let asset = try GLTFAsset(url: url)
         if let scene = asset.defaultScene {
-            return DispatchQueue.main.asyncAndWait {
+            return await MainActor.run {
                 return convert(scene: scene)
             }
         } else {
@@ -325,12 +325,12 @@ public class GLTFRealityKitLoader {
         }
     }
 
-    public static func convert(scene: GLTFScene) -> RealityKit.Entity {
+    @MainActor public static func convert(scene: GLTFScene) -> RealityKit.Entity {
         let instance = GLTFRealityKitLoader()
         return instance.convert(scene: scene)
     }
 
-    func convert(scene: GLTFScene) -> RealityKit.Entity {
+    @MainActor func convert(scene: GLTFScene) -> RealityKit.Entity {
         let context = GLTFRealityKitResourceContext()
 
         let rootEntity = Entity()
@@ -350,7 +350,7 @@ public class GLTFRealityKitLoader {
         return rootEntity
     }
 
-    func convert(node gltfNode: GLTFNode, context: GLTFRealityKitResourceContext) throws -> RealityKit.Entity {
+    @MainActor func convert(node gltfNode: GLTFNode, context: GLTFRealityKitResourceContext) throws -> RealityKit.Entity {
         let nodeEntity = Entity()
         nodeEntity.name = gltfNode.name ?? "(unnamed node)"
 
@@ -387,7 +387,7 @@ public class GLTFRealityKitLoader {
         return nodeEntity
     }
 
-    func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent? {
+    @MainActor func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent? {
         var primitiveMaterialIndex: UInt32 = 0
         let meshDescriptorAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (RealityKit.MeshDescriptor, RealityKit.Material)? in
             if var meshDescriptor = try self.convert(primitive: primitive, context:context) {
@@ -459,8 +459,8 @@ public class GLTFRealityKitLoader {
         return meshDescriptor
     }
 
-    func convert(material gltfMaterial: GLTFMaterial?,
-                 context: GLTFRealityKitResourceContext) throws -> RealityKit.Material
+    @MainActor func convert(material gltfMaterial: GLTFMaterial?,
+                            context: GLTFRealityKitResourceContext) throws -> RealityKit.Material
     {
         guard let gltfMaterial = gltfMaterial else { return context.defaultMaterial }
 
