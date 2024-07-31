@@ -662,6 +662,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFTextureSampler *sampler;
 @property (nonatomic, nullable, strong) GLTFImage *source;
 @property (nonatomic, nullable, strong) GLTFImage *basisUSource;
+@property (nonatomic, nullable, strong) GLTFImage *webpSource;
 
 - (instancetype)initWithSource:(nullable GLTFImage *)source;
 - (instancetype)initWithSource:(nullable GLTFImage *)source basisUSource:(nullable GLTFImage *)basisUSource NS_DESIGNATED_INITIALIZER;

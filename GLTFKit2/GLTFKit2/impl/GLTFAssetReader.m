@@ -661,7 +661,7 @@ static dispatch_queue_t _loaderQueue;
     NSMutableArray *textures = [NSMutableArray arrayWithCapacity:gltf->textures_count];
     for (int i = 0; i < gltf->textures_count; ++i) {
         cgltf_texture *t = gltf->textures + i;
-        GLTFImage *image = nil, *basisUImage = nil;
+        GLTFImage *image = nil, *basisUImage = nil, *webpImage = nil;
         GLTFTextureSampler *sampler = nil;
         if (t->image) {
             size_t imageIndex = t->image - gltf->images;
@@ -671,11 +671,18 @@ static dispatch_queue_t _loaderQueue;
             size_t imageIndex = t->basisu_image - gltf->images;
             basisUImage = self.asset.images[imageIndex];
         }
+        if (t->has_webp) {
+            size_t imageIndex = cgltf_image_index(gltf, t->webp_image);
+            webpImage = self.asset.images[imageIndex];
+        }
         if (t->sampler) {
             size_t samplerIndex = t->sampler - gltf->samplers;
             sampler = self.asset.samplers[samplerIndex];
         }
         GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image basisUSource:basisUImage];
+        if (webpImage) {
+            texture.webpSource = webpImage;
+        }
         texture.sampler = sampler;
         texture.name = t->name ? GLTFUnescapeJSONString(t->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Texture"];
@@ -1222,6 +1229,7 @@ static dispatch_queue_t _loaderQueue;
     NSMutableArray *supportedExtensions = [NSMutableArray arrayWithObjects:
         GLTFExtensionEXTMeshoptCompression,
         @"EXT_mesh_gpu_instancing",
+        @"EXT_texture_webp",
         @"KHR_emissive_strength",
         @"KHR_lights_punctual",
         @"KHR_materials_anisotropy",

@@ -312,7 +312,7 @@ class GLTFRealityKitResourceContext {
                             semantic: RealityKit.TextureResource.Semantic) -> RealityKit.PhysicallyBasedMaterial.Texture?
     {
         let gltfTexture = gltfTextureParams.texture
-        guard let image = gltfTexture.source else { return nil }
+        guard let image = (gltfTexture.webpSource ?? gltfTexture.source) else { return nil }
         if let resource = textureResource(for:image, channels: channels, semantic: semantic) {
             let descriptor = MTLSamplerDescriptor(from: gltfTexture.sampler ?? GLTFTextureSampler())
             let sampler = MaterialParameters.Texture.Sampler(descriptor)

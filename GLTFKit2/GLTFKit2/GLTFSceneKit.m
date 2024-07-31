@@ -555,6 +555,11 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         return metalTexture;
     }
 #endif
+    if (texture.webpSource) {
+        CGImageRef webpCGImage = [texture.webpSource newCGImage];
+        _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)webpCGImage;
+        return (__bridge id)webpCGImage;
+    }
     CGImageRef cgImage = [texture.source newCGImage];
     _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
     return (__bridge id)cgImage;
