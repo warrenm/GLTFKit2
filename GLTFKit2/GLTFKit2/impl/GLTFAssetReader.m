@@ -1307,6 +1307,8 @@ static dispatch_queue_t _loaderQueue;
     if(![self validateRequiredExtensions:error]) {
         return NO;
     }
+    self.asset.rootExtensions = GLTFConvertExtensions(gltf->data_extensions, gltf->data_extensions_count, nil);
+    self.asset.rootExtras = GLTFObjectFromExtras(gltf->json, gltf->extras, nil);
     self.asset.extensions = GLTFConvertExtensions(meta->extensions, meta->extensions_count, nil);
     self.asset.extras = GLTFObjectFromExtras(gltf->json, meta->extras, nil);
     self.asset.buffers = [self convertBuffers];

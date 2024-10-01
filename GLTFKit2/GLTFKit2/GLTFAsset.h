@@ -145,6 +145,8 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, copy) NSString *minVersion;
 @property (nonatomic, copy) NSArray<NSString *> *extensionsUsed;
 @property (nonatomic, copy) NSArray<NSString *> *extensionsRequired;
+@property (nonatomic, copy) NSDictionary<NSString *, id> *rootExtensions;
+@property (nonatomic, copy) id rootExtras;
 @property (nonatomic, copy) NSArray<GLTFAccessor *> *accessors;
 @property (nonatomic, copy) NSArray<GLTFAnimation *> *animations;
 @property (nonatomic, copy) NSArray<GLTFBuffer *> *buffers;
