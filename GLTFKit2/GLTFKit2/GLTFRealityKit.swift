@@ -304,7 +304,7 @@ class GLTFRealityKitResourceContext {
     private var cgImagesForImageIdentifiers = [UUID : CGImage]()
     private var textureResourcesForImageIdentifiers = [UUID : [(RealityKit.TextureResource, ColorMask)]]()
 
-    var defaultMaterial: Material {
+    var defaultMaterial: any Material {
         return RealityKit.SimpleMaterial(color: .init(white: 0.5, alpha: 1.0), isMetallic: false)
     }
 
@@ -542,7 +542,7 @@ public class GLTFRealityKitLoader {
                             context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent?
     {
         var primitiveMaterialIndex: Int = 0
-        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (MeshResource.Part, RealityKit.Material)? in
+        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (MeshResource.Part, any RealityKit.Material)? in
             if let part = self.convert(primitive: primitive, materialIndex: primitiveMaterialIndex, 
                                        skeletonID: skeleton?.id, context:context)
             {
@@ -652,7 +652,7 @@ public class GLTFRealityKitLoader {
     }
 
     @MainActor func convert(material gltfMaterial: GLTFMaterial?,
-                            context: GLTFRealityKitResourceContext) throws -> RealityKit.Material
+                            context: GLTFRealityKitResourceContext) throws -> any RealityKit.Material
     {
         guard let gltfMaterial = gltfMaterial else { return context.defaultMaterial }
 
