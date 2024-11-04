@@ -143,13 +143,17 @@ Below is a checklist of glTF features and their current level of support.
 - [x] Joint matrix calculation
 
 #### Sparse Accessors
-- [ ] Sparse accessors
+- [x] Sparse accessors
 
 #### Extensions
+ - [x] EXT_mesh_gpu_instancing
+ - [x] EXT_meshopt_compression
  - [x] KHR_draco_mesh_compression (via plug-in)
- - [x] KHR_lights_punctual
- - [x] KHR_materials_clearcoat
  - [x] KHR_emissive_strength
+ - [x] KHR_lights_punctual
+ - [x] KHR_materials_anisotropy
+ - [x] KHR_materials_clearcoat
+ - [x] KHR_materials_dispersion
  - [x] KHR_materials_ior
  - [x] KHR_materials_iridescence
  - [x] KHR_materials_sheen
@@ -158,12 +162,12 @@ Below is a checklist of glTF features and their current level of support.
  - [x] KHR_materials_unlit
  - [ ] KHR_materials_variants
  - [x] KHR_materials_volume
- - [ ] KHR_mesh_quantization
+ - [x] KHR_mesh_quantization
  - [x] KHR_texture_basisu
  - [x] KHR_texture_transform
  - [ ] KHR_xmp_json_ld
 
- Extension support indicates that an extension's features are available as first-class objects through the `GLTFAsset` API. Not all features are available after an asset is bridged to another framework (e.g. SceneKit) that does not have support for such features.
+ Extension support indicates that an extension's features are available as first-class objects through the `GLTFAsset` API. Not all features are available after an asset is bridged to another framework (e.g. SceneKit) that does not have support for such features. In particular, no Apple-provided rendering engine supports transmission or volume rendering at this time.
 
 ### Conformance
 
@@ -175,7 +179,7 @@ Pull requests are welcome, but will be audited strictly in order to maintain cod
 
 ## License
 
-    Copyright (c) 2021—2023 Warren Moore
+    Copyright (c) 2021—2024 Warren Moore
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
     documentation files (the "Software"), to deal in the Software without restriction, including without limitation the

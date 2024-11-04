@@ -16,6 +16,7 @@
 
 - (void)loadView {
     [super loadView];
+    self.sceneView.backgroundColor = [NSColor colorNamed:@"BackgroundColor"];
 }
 
 - (void)preparePreviewOfFileAtURL:(NSURL *)url completionHandler:(void (^)(NSError * _Nullable))handler {
@@ -30,6 +31,7 @@
             GLTFSCNAnimation *defaultAnimation = animations.firstObject;
             if (defaultAnimation) {
                 [self.sceneView.scene.rootNode addAnimationPlayer:defaultAnimation.animationPlayer forKey:nil];
+                [defaultAnimation.animationPlayer play];
             }
             self.sceneView.scene.lightingEnvironment.contents = @"studio-ql.hdr";
             self.sceneView.scene.lightingEnvironment.intensity = 1.5;
@@ -38,4 +40,3 @@
 }
 
 @end
-

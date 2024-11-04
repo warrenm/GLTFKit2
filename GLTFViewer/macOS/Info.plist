@@ -10,18 +10,53 @@
 			<key>CFBundleTypeExtensions</key>
 			<array>
 				<string>gltf</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string></string>
+			<key>CFBundleTypeIconSystemGenerated</key>
+			<integer>0</integer>
+			<key>CFBundleTypeMIMETypes</key>
+			<array>
+				<string>model/gltf+json</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>GL Transmission Format</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.gltf</string>
+			</array>
+			<key>LSTypeIsPackage</key>
+			<integer>0</integer>
+			<key>NSDocumentClass</key>
+			<string>$(PRODUCT_MODULE_NAME).GLTFDocument</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
 				<string>glb</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
 			<string></string>
 			<key>CFBundleTypeIconSystemGenerated</key>
-			<integer>1</integer>
+			<integer>0</integer>
+			<key>CFBundleTypeMIMETypes</key>
+			<array>
+				<string>model/gltf-binary</string>
+			</array>
 			<key>CFBundleTypeName</key>
-			<string>glTF Model</string>
+			<string>GL Transmission Format (Binary)</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
 			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.glb</string>
+			</array>
 			<key>LSTypeIsPackage</key>
 			<integer>0</integer>
 			<key>NSDocumentClass</key>
@@ -45,12 +80,12 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2021 Warren Moore. All rights reserved. glTF and the glTF logo are trademarks of the Khronos Group Inc.</string>
+	<string>Copyright © 2021–2023 Warren Moore. All rights reserved. glTF and the glTF logo are trademarks of the Khronos Group Inc.</string>
 	<key>NSMainStoryboardFile</key>
 	<string>Main</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<key>UTExportedTypeDeclarations</key>
+	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
 			<key>UTTypeConformsTo</key>
@@ -58,29 +93,53 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>glTF</string>
+			<string>GL Transmission Format</string>
 			<key>UTTypeIconFile</key>
 			<string></string>
 			<key>UTTypeIcons</key>
 			<dict>
 				<key>UTTypeIconBadgeName</key>
-				<string>AppIcon</string>
+				<string>document-icon</string>
 				<key>UTTypeIconText</key>
-				<string></string>
+				<string>GLTF</string>
 			</dict>
 			<key>UTTypeIdentifier</key>
-			<string>org.khronos.gltf</string>
+			<string>public.gltf</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://www.khronos.org/gltf/</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
 					<string>gltf</string>
-					<string>glb</string>
 				</array>
-				<key>public.mime-type</key>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>GL Transmission Format (Binary)</string>
+			<key>UTTypeIconFile</key>
+			<string></string>
+			<key>UTTypeIcons</key>
+			<dict>
+				<key>UTTypeIconBadgeName</key>
+				<string>document-icon</string>
+				<key>UTTypeIconText</key>
+				<string>GLB</string>
+			</dict>
+			<key>UTTypeIdentifier</key>
+			<string>public.glb</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://www.khronos.org/gltf/</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
 				<array>
-					<string>model/gltf+json</string>
-					<string>model/gltf-binary</string>
+					<string>glb</string>
 				</array>
 			</dict>
 		</dict>

@@ -29,6 +29,7 @@ typedef NS_ENUM(NSInteger, GLTFValueDimension) {
 };
 
 typedef NS_ENUM(NSInteger, GLTFPrimitiveType) {
+    GLTFPrimitiveTypeInvalid,
     GLTFPrimitiveTypePoints,
     GLTFPrimitiveTypeLines,
     GLTFPrimitiveTypeLineLoop,

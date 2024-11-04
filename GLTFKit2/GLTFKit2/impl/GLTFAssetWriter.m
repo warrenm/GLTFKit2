@@ -5,10 +5,6 @@
 #define CGLTF_WRITE_IMPLEMENTATION
 #import "cgltf_write.h"
 
-static const size_t GlbHeaderSize = 12;
-static const size_t GlbChunkHeaderSize = 8;
-static const uint32_t GlbMagic = 0x46546C67;
-static const uint32_t GlbVersion = 2;
 static const uint32_t GlbJsonChunkID = 0x4E4F534A;
 static const uint32_t GlbBinChunkID = 0x004E4942;
 

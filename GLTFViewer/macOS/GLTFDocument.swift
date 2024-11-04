@@ -15,10 +15,22 @@ class DocumentController : NSDocumentController {
     }
 }
 
-class GLTFDocument: NSDocument {
+class GLTFDocument: NSDocument, NSOpenSavePanelDelegate {
     enum GLTFDocumentSaveError : Error {
         case noAssetToWrite
     }
+
+    enum DocumentState {
+        case uninitialized
+        case opening
+        case requestingPermissions
+        case opened
+        case failed
+        case closed
+    }
+    public private(set) var state = DocumentState.uninitialized
+
+    private var parentDirectoryURL: URL?
 
     var asset: GLTFAsset? = GLTFAsset() {
         didSet {
@@ -36,22 +48,63 @@ class GLTFDocument: NSDocument {
         self.addWindowController(windowController as! NSWindowController)
     }
     
+    private var reopenAttempts = 0
     override func read(from url: URL, ofType typeName: String) throws {
-        GLTFAsset.load(with: url, options: [:]) { (progress, status, maybeAsset, maybeError, _) in
+        state = .opening
+        
+        var options = [GLTFAssetLoadingOption : Any]()
+        if let assetDirectoryURL = parentDirectoryURL {
+            options[.assetDirectoryURLKey] = assetDirectoryURL
+        }
+
+        GLTFAsset.load(with: url, options: options) { (progress, status, maybeAsset, maybeError, _) in
             DispatchQueue.main.async {
                 if status == .complete {
+                    self.state = .opened
                     self.asset = maybeAsset
                 } else if let error = maybeError {
-                    // Close the document window we created to display this asset and show an error dialog instead
-                    self.windowControllers.forEach {
-                        windowController in windowController.close()
+                    if (error as NSError).code == GLTFErrorCodeIOError && self.reopenAttempts == 0 {
+                        self.reopenAttempts += 1
+                        DispatchQueue.main.async {
+                            try? self.requestPermissionsAndRetryOpen(for: url.deletingLastPathComponent(), assetURL: url)
+                        }
+                    } else {
+                        self.state = .failed
+
+                        // Close the document window we created to display this asset and show an error dialog instead
+                        self.closeAllWindows()
+                        NSAlert(error: error).runModal()
                     }
-                    NSAlert(error: error).runModal()
                 }
             }
         }
     }
 
+    private func closeAllWindows() {
+        self.windowControllers.forEach {
+            windowController in windowController.close()
+        }
+    }
+
+    private func requestPermissionsAndRetryOpen(for requestedURL: URL, assetURL: URL) throws {
+        self.state = .requestingPermissions
+        let openPanel = NSOpenPanel()
+        openPanel.message = "glTF Viewer needs access to the directory containing this asset so it can open any files it references. Please click Open."
+        openPanel.canChooseDirectories = true
+        openPanel.canChooseFiles = false
+        openPanel.allowsMultipleSelection = false
+        openPanel.delegate = self
+        let result = openPanel.runModal()
+        if result == .OK {
+            if let grantedURL = openPanel.url {
+                self.parentDirectoryURL = grantedURL
+                try self.read(from: assetURL, ofType: "")
+            }
+        } else {
+            self.closeAllWindows()
+        }
+    }
+    
     var currentDestinationURL: URL?
 
     override func save(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType,

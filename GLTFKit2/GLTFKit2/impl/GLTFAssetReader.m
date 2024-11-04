@@ -386,38 +386,55 @@ static dispatch_queue_t _loaderQueue;
         return;
     }
 
-    NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
-    if (internalData == nil) {
-        NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:nil];
-        handler(1.0, GLTFAssetStatusError, nil, error, &stop);
-        return;
-    }
+    @try {
+        NSError *internalError = nil;
+        NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL
+                                                             options:(NSDataReadingOptions)0
+                                                               error:&internalError];
+        if (internalData == nil) {
+            NSMutableDictionary *userInfo = [@{ NSLocalizedDescriptionKey : @"Failed to open file" } mutableCopy];
+            if (internalError) {
+                userInfo[NSUnderlyingErrorKey] = internalError;
+            }
+            NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:userInfo];
+            handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+            return;
+        }
 
-    cgltf_options parseOptions = {0};
-    parseOptions.file.read = self.assetDirectoryURL ? GLTFReadFileSecurityScoped : GLTFReadFile;
-    parseOptions.file.user_data = (__bridge void *)self;
-    cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
+        cgltf_options parseOptions = {0};
+        parseOptions.file.read = self.assetDirectoryURL ? GLTFReadFileSecurityScoped : GLTFReadFile;
+        parseOptions.file.user_data = (__bridge void *)self;
+        cgltf_result result = cgltf_parse(&parseOptions, internalData.bytes, internalData.length, &gltf);
 
-    if (result != cgltf_result_success) {
-        NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
-        handler(1.0, GLTFAssetStatusError, nil, error, &stop);
-    } else {
-        result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
         if (result != cgltf_result_success) {
             NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
             handler(1.0, GLTFAssetStatusError, nil, error, &stop);
         } else {
-            NSError *error = nil;
-            [self convertAsset:&error];
-            if (error == nil) {
-                handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
-            } else {
+            result = cgltf_load_buffers(&parseOptions, gltf, assetURL.fileSystemRepresentation);
+            if (result != cgltf_result_success) {
+                NSError *error = GLTFErrorForCGLTFStatus(result, self.lastAccessedPath);
                 handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+            } else {
+                NSError *error = nil;
+                [self convertAsset:&error];
+                if (error == nil) {
+                    handler(1.0, GLTFAssetStatusComplete, self.asset, nil, &stop);
+                } else {
+                    handler(1.0, GLTFAssetStatusError, nil, error, &stop);
+                }
             }
         }
     }
-
-    cgltf_free(gltf);
+    @catch (NSException *exception) {
+        NSString *description = [NSString stringWithFormat:@"An exception occurred when loading (%@)", exception.reason];
+        NSError *exceptionError = [NSError errorWithDomain:GLTFErrorDomain
+                                                      code:GLTFErrorCodeFailedToLoad
+                                                  userInfo:@{ NSLocalizedDescriptionKey : description }];
+        handler(1.0, GLTFAssetStatusError, nil, exceptionError, &stop);
+    }
+    @finally {
+        cgltf_free(gltf);
+    }
 }
 
 - (NSArray *)convertBuffers {
@@ -647,7 +664,7 @@ static dispatch_queue_t _loaderQueue;
     NSMutableArray *textures = [NSMutableArray arrayWithCapacity:gltf->textures_count];
     for (int i = 0; i < gltf->textures_count; ++i) {
         cgltf_texture *t = gltf->textures + i;
-        GLTFImage *image = nil, *basisUImage = nil;
+        GLTFImage *image = nil, *basisUImage = nil, *webpImage = nil;
         GLTFTextureSampler *sampler = nil;
         if (t->image) {
             size_t imageIndex = t->image - gltf->images;
@@ -657,11 +674,18 @@ static dispatch_queue_t _loaderQueue;
             size_t imageIndex = t->basisu_image - gltf->images;
             basisUImage = self.asset.images[imageIndex];
         }
+        if (t->has_webp) {
+            size_t imageIndex = cgltf_image_index(gltf, t->webp_image);
+            webpImage = self.asset.images[imageIndex];
+        }
         if (t->sampler) {
             size_t samplerIndex = t->sampler - gltf->samplers;
             sampler = self.asset.samplers[samplerIndex];
         }
         GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image basisUSource:basisUImage];
+        if (webpImage) {
+            texture.webpSource = webpImage;
+        }
         texture.sampler = sampler;
         texture.name = t->name ? GLTFUnescapeJSONString(t->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Texture"];
@@ -689,8 +713,6 @@ static dispatch_queue_t _loaderQueue;
         }
         params.transform = transform;
     }
-    params.extensions = GLTFConvertExtensions(tv->extensions, tv->extensions_count, nil);
-    params.extras = GLTFObjectFromExtras(gltf->json, tv->extras, nil);
     return params;
 }
 
@@ -720,6 +742,9 @@ static dispatch_queue_t _loaderQueue;
         material.doubleSided = (BOOL)m->double_sided;
         if (m->has_ior) {
             material.indexOfRefraction = @(m->ior.ior);
+        }
+        if (m->has_dispersion) {
+            material.dispersion = @(m->dispersion.dispersion);
         }
         if (m->has_pbr_metallic_roughness) {
             GLTFPBRMetallicRoughnessParams *pbr = [GLTFPBRMetallicRoughnessParams new];
@@ -823,6 +848,15 @@ static dispatch_queue_t _loaderQueue;
             }
             material.iridescence = iridesence;
         }
+        if (m->has_anisotropy) {
+            GLTFAnisotropyParams *anisotropy = [GLTFAnisotropyParams new];
+            anisotropy.strength = m->anisotropy.anisotropy_strength;
+            anisotropy.rotation = m->anisotropy.anisotropy_rotation;
+            if (m->anisotropy.anisotropy_texture.texture) {
+                anisotropy.anisotropyTexture = [self textureParamsFromTextureView:&m->anisotropy.anisotropy_texture];
+            }
+            material.anisotropy = anisotropy;
+        }
         if (m->unlit) {
             material.unlit = YES;
         }
@@ -900,18 +934,19 @@ static dispatch_queue_t _loaderQueue;
                 size_t materialIndex = p->material - gltf->materials;
                 primitive.material = self.asset.materials[materialIndex];
             }
-            NSMutableArray *targets = [NSMutableArray array];
+            NSMutableArray<NSArray<GLTFAttribute *> *> *targets = [NSMutableArray array];
             for (int k = 0; k < p->targets_count; ++k) {
-                NSMutableDictionary *target = [NSMutableDictionary dictionary];
+                NSMutableArray<GLTFAttribute *> *target = [NSMutableArray array];
                 cgltf_morph_target *mt = p->targets + k;
                 for (int l = 0; l < mt->attributes_count; ++l) {
                     cgltf_attribute *a = mt->attributes + l;
                     NSString *attrName = [NSString stringWithUTF8String:a->name];
                     size_t attrIndex = a->data - gltf->accessors;
                     GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
-                    target[attrName] = attrAccessor;
+                    GLTFAttribute *attr = [[GLTFAttribute alloc] initWithName:attrName accessor:attrAccessor];
+                    [target addObject:attr];
                 }
-                [targets addObject:target];
+                [targets addObject:[target copy]];
             }
             if (p->mappings_count > 0) {
                 NSMutableArray *materialMappings = [NSMutableArray arrayWithCapacity:p->mappings_count];
@@ -1055,6 +1090,21 @@ static dispatch_queue_t _loaderQueue;
             node.matrix = transform;
         }
         // TODO: morph target weights
+        if (n->has_mesh_gpu_instancing) {
+            cgltf_mesh_gpu_instancing *mi = &n->mesh_gpu_instancing;
+            NSMutableArray *attributes = [NSMutableArray array];
+            for (int j = 0; j < mi->attributes_count; ++j) {
+                cgltf_attribute *a = mi->attributes + j;
+                NSString *attrName = [NSString stringWithUTF8String:a->name];
+                size_t attrIndex = a->data - gltf->accessors;
+                GLTFAccessor *attrAccessor = self.asset.accessors[attrIndex];
+                GLTFAttribute *attr = [[GLTFAttribute alloc] initWithName:attrName accessor:attrAccessor];
+                [attributes addObject:attr];
+            }
+            GLTFMeshInstances *instances = [GLTFMeshInstances new];
+            instances.attributes = [attributes copy];
+            node.meshInstances = instances;
+        }
         node.name = n->name ? GLTFUnescapeJSONString(n->name)
                             : [self.nameGenerator nextUniqueNameWithPrefix:@"Node"];
         node.extensions = GLTFConvertExtensions(n->extensions, n->extensions_count, nil);
@@ -1185,14 +1235,21 @@ static dispatch_queue_t _loaderQueue;
 - (BOOL)validateRequiredExtensions:(NSError **)error {
     NSMutableArray *supportedExtensions = [NSMutableArray arrayWithObjects:
         GLTFExtensionEXTMeshoptCompression,
+        @"EXT_mesh_gpu_instancing",
+        @"EXT_texture_webp",
         @"KHR_emissive_strength",
-        @"KHR_materials_ior",
         @"KHR_lights_punctual",
+        @"KHR_materials_anisotropy",
         @"KHR_materials_clearcoat",
+        @"KHR_materials_dispersion",
+        @"KHR_materials_ior",
+        @"KHR_materials_iridescence",
+        @"KHR_materials_sheen",
         @"KHR_materials_specular",
         @"KHR_materials_transmission",
         @"KHR_materials_unlit",
         @"KHR_materials_variants",
+        @"KHR_materials_volume",
         @"KHR_mesh_quantization",
         @"KHR_texture_transform",
         @"KHR_materials_pbrSpecularGlossiness", // deprecated
@@ -1257,6 +1314,8 @@ static dispatch_queue_t _loaderQueue;
     if(![self validateRequiredExtensions:error]) {
         return NO;
     }
+    self.asset.rootExtensions = GLTFConvertExtensions(gltf->data_extensions, gltf->data_extensions_count, nil);
+    self.asset.rootExtras = GLTFObjectFromExtras(gltf->json, gltf->extras, nil);
     self.asset.extensions = GLTFConvertExtensions(meta->extensions, meta->extensions_count, nil);
     self.asset.extras = GLTFObjectFromExtras(gltf->json, meta->extras, nil);
     self.asset.buffers = [self convertBuffers];

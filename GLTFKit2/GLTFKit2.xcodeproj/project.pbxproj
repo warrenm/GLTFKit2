@@ -11,6 +11,7 @@
 		8324CED927F26C8F003ACEDD /* GLTFAssetWriter.m in Sources */ = {isa = PBXBuildFile; fileRef = 8324CED727F26C8F003ACEDD /* GLTFAssetWriter.m */; };
 		83244B6B2ABA517F00ECA381 /* GLTFKTX2Support.h in Headers */ = {isa = PBXBuildFile; fileRef = 83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */; };
 		83244B6C2ABA517F00ECA381 /* GLTFKTX2Support.m in Sources */ = {isa = PBXBuildFile; fileRef = 83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */; };
+		833A50CD2BDEC39700184DA8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 833A50CC2BDEC39700184DA8 /* PrivacyInfo.xcprivacy */; };
 		834AD60A25E1A3960010608A /* GLTFSceneKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 834AD60825E1A3960010608A /* GLTFSceneKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		834AD60B25E1A3960010608A /* GLTFSceneKit.m in Sources */ = {isa = PBXBuildFile; fileRef = 834AD60925E1A3960010608A /* GLTFSceneKit.m */; };
 		834AD61025E1BD850010608A /* GLTFTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 834AD60F25E1BD500010608A /* GLTFTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -36,6 +37,7 @@
 		8324CED727F26C8F003ACEDD /* GLTFAssetWriter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GLTFAssetWriter.m; sourceTree = "<group>"; };
 		83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFKTX2Support.h; sourceTree = "<group>"; };
 		83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFKTX2Support.m; sourceTree = "<group>"; };
+		833A50CC2BDEC39700184DA8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		834AD60825E1A3960010608A /* GLTFSceneKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFSceneKit.h; sourceTree = "<group>"; };
 		834AD60925E1A3960010608A /* GLTFSceneKit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFSceneKit.m; sourceTree = "<group>"; };
 		834AD60F25E1BD500010608A /* GLTFTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFTypes.h; sourceTree = "<group>"; };
@@ -109,6 +111,7 @@
 				834AD60825E1A3960010608A /* GLTFSceneKit.h */,
 				834AD60925E1A3960010608A /* GLTFSceneKit.m */,
 				83DB5F502992BA9800B0190E /* GLTFRealityKit.swift */,
+				833A50CC2BDEC39700184DA8 /* PrivacyInfo.xcprivacy */,
 				834FF1C825C27938001887C2 /* Info.plist */,
 			);
 			path = GLTFKit2;
@@ -233,6 +236,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				833A50CD2BDEC39700184DA8 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -319,8 +323,10 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
+				TVOS_DEPLOYMENT_TARGET = 12.1;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
+				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Debug;
 		};
@@ -379,8 +385,10 @@
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_VERSION = 5.0;
+				TVOS_DEPLOYMENT_TARGET = 12.1;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
+				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Release;
 		};
@@ -412,10 +420,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = YES;
+				TARGETED_DEVICE_FAMILY = "1,2,3,7";
 			};
 			name = Debug;
 		};
@@ -447,9 +454,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.metalbyexample.gltfkit2;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				SUPPORTS_MACCATALYST = NO;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = YES;
+				TARGETED_DEVICE_FAMILY = "1,2,3,7";
 			};
 			name = Release;
 		};

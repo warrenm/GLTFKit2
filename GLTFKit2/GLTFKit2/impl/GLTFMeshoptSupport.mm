@@ -3,15 +3,28 @@
 #import <GLTFKit2/GLTFAsset.h>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <queue>
 
-static inline double hypot3(double x, double y, double z) {
-    return sqrt((x * x) + (y * y) + (z * z));
+namespace {
+
+#if _LIBCPP_STD_VER < 17
+template <typename Real_t>
+inline Real_t hypot(Real_t x, Real_t y, Real_t z) {
+    return std::sqrt((x * x) + (y * y) + (z * z));
+}
+#else
+using std::hypot;
+#endif
+
+template <typename UInt_t>
+inline typename std::make_unsigned<UInt_t>::type dezig(UInt_t v) {
+    return ((v & 1) != 0) ? ~(v >> 1) : v >> 1;
 }
 
-template <typename Int_t>
-Int_t consumeLEB128(const uint8_t *source, size_t &inOutOffset) {
-    Int_t n = 0;
+inline uint32_t consumeLEB128(const uint8_t *source, size_t &inOutOffset) {
+    uint32_t n = 0;
     for (int i = 0; ; i += 7) {
         const uint8_t b = source[inOutOffset++];
         n |= (b & 0x7F) << i;
@@ -22,19 +35,13 @@ Int_t consumeLEB128(const uint8_t *source, size_t &inOutOffset) {
     }
 }
 
-template <typename UInt_t>
-typename std::make_unsigned<UInt_t>::type dezig(UInt_t v) {
-    return ((v & 1) != 0) ? ~(v >> 1) : v >> 1;
-}
-
-template <typename Int_t>
-uint32_t decodeIndex(Int_t v, uint32_t &inOutLast) {
+inline uint32_t decodeIndex(uint32_t v, uint32_t &inOutLast) {
     return (inOutLast += dezig(v));
 }
 
-static BOOL GLTFMeshoptDecodeVertexBuffer(const uint8_t *source, size_t sourceLength,
-                                          size_t elementCount, size_t byteStride,
-                                          uint8_t *destination)
+BOOL GLTFMeshoptDecodeVertexBuffer(const uint8_t *source, size_t sourceLength,
+                                   size_t elementCount, size_t byteStride,
+                                   uint8_t *destination)
 {
     assert(source[0] == 0xA0);
 
@@ -69,8 +76,8 @@ static BOOL GLTFMeshoptDecodeVertexBuffer(const uint8_t *source, size_t sourceLe
                         break;
                     case 1: { // Deltas are using 2-bit sentinel encoding; the size of the encoded block is [4..20] bytes
                         const ssize_t srcBase = srcOffset;
-                        srcOffset += 0x04;
-                        for (int m = 0; m < 0x10; m++) {
+                        srcOffset += 4;
+                        for (int m = 0; m < 16; m++) {
                             // 0 = >>> 6, 1 = >>> 4, 2 = >>> 2, 3 = >>> 0
                             const int shift = (6 - ((m & 0x03) << 1));
                             int delta = (source[srcBase + (m >> 2)] >> shift) & 0x03;
@@ -118,8 +125,8 @@ static BOOL GLTFMeshoptDecodeVertexBuffer(const uint8_t *source, size_t sourceLe
     return YES;
 }
 
-static void GLTFApplyMeshoptFilter(uint8_t *destination, size_t elementCount, size_t stride,
-                                   GLTFMeshoptCompressionFilter filter)
+void GLTFMeshoptApplyFilter(uint8_t *destination, size_t elementCount, size_t stride,
+                            GLTFMeshoptCompressionFilter filter)
 {
     switch (filter) {
         case GLTFMeshoptCompressionFilterOctahedral: {
@@ -131,14 +138,14 @@ static void GLTFApplyMeshoptFilter(uint8_t *destination, size_t elementCount, si
                     int maxInt = 127;
 
                     for (int i = 0; i < 4 * elementCount; i += 4) {
-                        double x = dst[i + 0], y = dst[i + 1], one = dst[i + 2];
+                        float x = dst[i + 0], y = dst[i + 1], one = dst[i + 2];
                         x /= one;
                         y /= one;
-                        const double z = 1.0 - fabs(x) - fabs(y);
-                        const double t = MAX(-z, 0.0);
+                        const float z = 1.0 - fabs(x) - fabs(y);
+                        const float t = MAX(-z, 0.0);
                         x -= (x >= 0) ? t : -t;
                         y -= (y >= 0) ? t : -t;
-                        const double h = maxInt / hypot3(x, y, z);
+                        const float h = maxInt / hypot(x, y, z);
                         dst[i + 0] = round(x * h);
                         dst[i + 1] = round(y * h);
                         dst[i + 2] = round(z * h);
@@ -151,14 +158,14 @@ static void GLTFApplyMeshoptFilter(uint8_t *destination, size_t elementCount, si
                     int maxInt = 32767;
 
                     for (int i = 0; i < 4 * elementCount; i += 4) {
-                        double x = dst[i + 0], y = dst[i + 1], one = dst[i + 2];
+                        float x = dst[i + 0], y = dst[i + 1], one = dst[i + 2];
                         x /= one;
                         y /= one;
-                        const double z = 1.0 - fabs(x) - fabs(y);
-                        const double t = MAX(-z, 0.0);
+                        const float z = 1.0 - fabs(x) - fabs(y);
+                        const float t = MAX(-z, 0.0);
                         x -= (x >= 0) ? t : -t;
                         y -= (y >= 0) ? t : -t;
-                        const double h = maxInt / hypot3(x, y, z);
+                        const float h = maxInt / hypot(x, y, z);
                         dst[i + 0] = round(x * h);
                         dst[i + 1] = round(y * h);
                         dst[i + 2] = round(z * h);
@@ -180,10 +187,10 @@ static void GLTFApplyMeshoptFilter(uint8_t *destination, size_t elementCount, si
                 const int16_t inputW = dst[i + 3];
                 const int maxComponent = inputW & 0x03;
                 const float s = M_SQRT1_2 / (inputW | 0x03);
-                float x = dst[i + 0] * s;
-                float y = dst[i + 1] * s;
-                float z = dst[i + 2] * s;
-                float w = sqrtf(MAX(0.0, 1.0 - (x * x) - (y * y) - (z * z)));
+                const float x = dst[i + 0] * s;
+                const float y = dst[i + 1] * s;
+                const float z = dst[i + 2] * s;
+                const float w = sqrtf(MAX(0.0, 1.0 - (x * x) - (y * y) - (z * z)));
                 dst[i + (maxComponent + 1) % 4] = roundf(x * 32767);
                 dst[i + (maxComponent + 2) % 4] = roundf(y * 32767);
                 dst[i + (maxComponent + 3) % 4] = roundf(z * 32767);
@@ -198,8 +205,8 @@ static void GLTFApplyMeshoptFilter(uint8_t *destination, size_t elementCount, si
             float *dst = reinterpret_cast<float *>(destination); // Strict aliasing violation
 
             for (int i = 0; i < (stride * elementCount) / 4; ++i) {
-                int32_t v = src[i];
-                int8_t exp = v >> 24;
+                const int32_t v = src[i];
+                int32_t exp = v >> 24;
                 exp = MAX(-100, MIN(exp, 100));
                 // We do some gymnastics here to avoid performing a left shift on a negative number,
                 // which is technically UB, even though it works under Clang.
@@ -258,8 +265,7 @@ BOOL GLTFMeshoptDecodeIndexBuffer(const uint8_t *source, size_t sourceLength, si
                 c = ++last;
                 vertexfifo.push_front(c);
             } else if (b1 == 0x0F) {
-                size_t v = consumeLEB128<uint32_t>(source, dataOffset);
-                c = decodeIndex(v, last);
+                c = decodeIndex(consumeLEB128(source, dataOffset), last);
                 vertexfifo.push_front(c);
             }
 
@@ -273,66 +279,69 @@ BOOL GLTFMeshoptDecodeIndexBuffer(const uint8_t *source, size_t sourceLength, si
             uint32_t a, b, c;
 
             if (b1 < 0x0E) {
-                uint8_t e = source[tailOffset + b1];
-                uint8_t z = e >> 4;
-                uint8_t w = e & 0x0F;
+                const uint8_t e = source[tailOffset + b1];
+                const uint8_t z = e >> 4;
+                const uint8_t w = e & 0x0F;
 
                 a = next++;
 
-                if (z == 0x00) {
+                if (z == 0) {
                     b = next++;
                 } else {
                     b = vertexfifo[z - 1];
                 }
 
-                if (w == 0x00) {
+                if (w == 0) {
                     c = next++;
                 } else {
                     c = vertexfifo[w - 1];
                 }
 
                 vertexfifo.push_front(a);
-                if (z == 0x00) {
+                if (z == 0) {
                     vertexfifo.push_front(b);
                 }
-                if (w == 0x00) {
+                if (w == 0) {
                     vertexfifo.push_front(c);
                 }
             } else {
                 uint8_t e = source[dataOffset++];
-                if (e == 0x00)
+                if (e == 0) {
                     next = 0;
+                }
 
-                uint8_t z = e >> 4;
-                uint8_t w = e & 0x0F;
+                const uint8_t z = e >> 4;
+                const uint8_t w = e & 0x0F;
 
                 if (b1 == 0x0E) {
                     a = next++;
                 } else {
-                    a = decodeIndex(consumeLEB128<uint32_t>(source, dataOffset), last);
+                    a = decodeIndex(consumeLEB128(source, dataOffset), last);
                 }
 
-                if (z == 0x00) {
+                if (z == 0) {
                     b = next++;
                 } else if (z == 0x0F) {
-                    b = decodeIndex(consumeLEB128<uint32_t>(source, dataOffset), last);
+                    b = decodeIndex(consumeLEB128(source, dataOffset), last);
                 } else {
                     b = vertexfifo[z - 1];
                 }
 
-                if (w == 0x00) {
+                if (w == 0) {
                     c = next++;
                 } else if (w == 0x0F) {
-                    c = decodeIndex(consumeLEB128<uint32_t>(source, dataOffset), last);
+                    c = decodeIndex(consumeLEB128(source, dataOffset), last);
                 } else {
                     c = vertexfifo[w - 1];
                 }
 
                 vertexfifo.push_front(a);
-                if (z == 0x00 || z == 0x0F)
+                if (z == 0x00 || z == 0x0F) {
                     vertexfifo.push_front(b);
-                if (w == 0x00 || w == 0x0F)
+                }
+                if (w == 0x00 || w == 0x0F) {
                     vertexfifo.push_front(c);
+                }
             }
 
             edgefifo.push_front(a); edgefifo.push_front(b);
@@ -355,13 +364,15 @@ BOOL GLTFMeshoptDecodeIndexSequence(const uint8_t *source, size_t count, size_t 
     std::array<uint32_t, 2> last {};
     size_t dataOffset = 1;
     for (int i = 0; i < count; i++) {
-        uint32_t v = consumeLEB128<uint32_t>(source, dataOffset);
+        uint32_t v = consumeLEB128(source, dataOffset);
         int b = (v & 1);
         int32_t delta = dezig(v >> 1);
         dst[i] = (last[b] += delta);
     }
     return YES;
 }
+
+} // namespace
 
 BOOL GLTFMeshoptDecodeBufferView(GLTFBufferView *bufferView, uint8_t *destination, NSError **outError) {
     assert(bufferView.meshoptCompression != nil && "Cannot decode buffer view with no associated meshopt extension");
@@ -372,11 +383,17 @@ BOOL GLTFMeshoptDecodeBufferView(GLTFBufferView *bufferView, uint8_t *destinatio
     const uint8_t *source = sourceBufferBaseAddr + compression.offset;
     size_t sourceLength = compression.length;
 
+    if (outError) {
+        *outError = nil; // Not currently used to report errors
+    }
+
     switch (compression.mode) {
         case GLTFMeshoptCompressionModeAttributes: {
-            GLTFMeshoptDecodeVertexBuffer(source, sourceLength, compression.count, compression.stride, destination);
-            GLTFApplyMeshoptFilter(destination, compression.count, compression.stride, compression.filter);
-            return YES;
+            if (GLTFMeshoptDecodeVertexBuffer(source, sourceLength, compression.count, compression.stride, destination)) {
+                GLTFMeshoptApplyFilter(destination, compression.count, compression.stride, compression.filter);
+                return YES;
+            }
+            break;
         }
         case GLTFMeshoptCompressionModeTriangles: {
             switch (compression.stride) {
@@ -389,7 +406,7 @@ BOOL GLTFMeshoptDecodeBufferView(GLTFBufferView *bufferView, uint8_t *destinatio
                     return GLTFMeshoptDecodeIndexBuffer(source, sourceLength, compression.count, compression.stride, dst);
                 }
                 default:
-                    return NO;
+                    break;
             }
             break;
         }
@@ -404,7 +421,7 @@ BOOL GLTFMeshoptDecodeBufferView(GLTFBufferView *bufferView, uint8_t *destinatio
                     return GLTFMeshoptDecodeIndexSequence(source, compression.count, compression.stride, dst);
                 }
                 default:
-                    return NO;
+                    break;
             }
             break;
         }

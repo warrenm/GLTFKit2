@@ -193,6 +193,8 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, copy) NSString *minVersion;
 @property (nonatomic, copy) NSArray<NSString *> *extensionsUsed;
 @property (nonatomic, copy) NSArray<NSString *> *extensionsRequired;
+@property (nonatomic, copy) NSDictionary<NSString *, id> *rootExtensions;
+@property (nonatomic, copy) id rootExtras;
 @property (nonatomic, copy) NSArray<GLTFAccessor *> *accessors;
 @property (nonatomic, copy) NSArray<GLTFAnimation *> *animations;
 @property (nonatomic, copy) NSArray<GLTFBuffer *> *buffers;
@@ -237,6 +239,9 @@ GLTFKIT2_EXPORT
 - (instancetype)init NS_UNAVAILABLE;
 
 @end
+
+extern NSData *GLTFPackedDataForAccessor(GLTFAccessor * accessor);
+extern NSData *GLTFTransformPackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceAccessor);
 
 @class GLTFAnimationChannel;
 @class GLTFAnimationSampler;
@@ -523,6 +528,20 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFAnisotropyParams : NSObject
+
+/// The anisotropy strength. When `anisotropyTexture` is present, this value is multiplied by the blue channel.
+@property (nonatomic, assign) float strength;
+/// The rotation of the anisotropy in tangent, bitangent space, measured in radians counter-clockwise from the tangent.
+/// When `anisotropyTexture` is present, `rotation` provides additional rotation to the vectors in the texture.
+@property (nonatomic, assign) float rotation;
+/// The anisotropy texture. Red and green channels represent the anisotropy direction in [-1, 1] tangent, bitangent space,
+/// to be rotated by `rotation`. The blue channel contains strength as [0, 1] to be multiplied by `strength`.
+@property (nonatomic, nullable) GLTFTextureParams *anisotropyTexture;
+
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFMaterial : GLTFObject
 
 @property (nonatomic, nullable) GLTFPBRMetallicRoughnessParams *metallicRoughness;
@@ -534,9 +553,14 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFSheenParams *sheen;
 @property (nonatomic, nullable) GLTFIridescence *iridescence;
+@property (nonatomic, nullable) GLTFAnisotropyParams *anisotropy;
 @property (nonatomic, nullable) GLTFTextureParams *normalTexture;
 @property (nonatomic, nullable) GLTFTextureParams *occlusionTexture;
 @property (nonatomic, nullable) NSNumber *indexOfRefraction;
+/// The strength of the dispersion effect, specified as 20 divided by the material's
+/// Abbe number. If nil or equal to 0, no disperson should be applied.
+/// Introduced by the KHR_materials_dispersion extension.
+@property (nonatomic, nullable) NSNumber *dispersion;
 @property (nonatomic, assign) GLTFAlphaMode alphaMode;
 @property (nonatomic, assign) float alphaCutoff;
 @property (nonatomic, assign, getter=isDoubleSided) BOOL doubleSided;
@@ -557,8 +581,6 @@ GLTFKIT2_EXPORT
 
 @end
 
-typedef NSDictionary<NSString *, GLTFAccessor *> GLTFMorphTarget;
-
 GLTFKIT2_EXPORT
 @interface GLTFAttribute : GLTFObject
 @property (nonatomic, strong) GLTFAccessor *accessor;
@@ -567,6 +589,15 @@ GLTFKIT2_EXPORT
 
 - (instancetype)init NS_UNAVAILABLE;
 
+@end
+
+typedef NSArray<GLTFAttribute *> GLTFMorphTarget;
+
+GLTFKIT2_EXPORT
+@interface GLTFMeshInstances : GLTFObject
+@property (nonatomic, copy) NSArray<GLTFAttribute *> *attributes;
+@property (nonatomic, readonly) NSInteger instanceCount;
+- (simd_float4x4)transformAtIndex:(NSInteger)index;
 @end
 
 GLTFKIT2_EXPORT
@@ -608,6 +639,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, assign) simd_float3 scale;
 @property (nonatomic, assign) simd_float3 translation;
 @property (nonatomic, nullable, copy) NSArray<NSNumber *> *weights;
+@property (nonatomic, nullable, strong) GLTFMeshInstances *meshInstances;
 
 @end
 
@@ -691,6 +723,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFTextureSampler *sampler;
 @property (nonatomic, nullable, strong) GLTFImage *source;
 @property (nonatomic, nullable, strong) GLTFImage *basisUSource;
+@property (nonatomic, nullable, strong) GLTFImage *webpSource;
 
 - (instancetype)initWithSource:(nullable GLTFImage *)source;
 - (instancetype)initWithSource:(nullable GLTFImage *)source basisUSource:(nullable GLTFImage *)basisUSource NS_DESIGNATED_INITIALIZER;
