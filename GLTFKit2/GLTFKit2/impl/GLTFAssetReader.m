@@ -325,14 +325,14 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
     return extensionsMap;
 }
 
-static dispatch_queue_t _loaderQueue;
-
 @implementation GLTFAssetReader
 
 + (dispatch_queue_t)loaderQueue {
-    if (_loaderQueue == nil) {
+    static dispatch_once_t onceToken;
+    static dispatch_queue_t _loaderQueue;
+    dispatch_once(&onceToken, ^{
         _loaderQueue = dispatch_queue_create("com.metalbyexample.gltfkit2.asset-loader", DISPATCH_QUEUE_CONCURRENT);
-    }
+    });
     return _loaderQueue;
 }
 
