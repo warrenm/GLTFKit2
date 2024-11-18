@@ -44,7 +44,11 @@ class GLTFDocument: NSDocument, NSOpenSavePanelDelegate {
         let windowController = storyboard.instantiateController(withIdentifier: NSStoryboard.SceneIdentifier("GLTFWindowController"))
         self.addWindowController(windowController as! NSWindowController)
     }
-    
+
+    override class var autosavesInPlace: Bool {
+        return false
+    }
+
     private var reopenAttempts = 0
     override func read(from url: URL, ofType typeName: String) throws {
         state = .opening

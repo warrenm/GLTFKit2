@@ -23,7 +23,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ aNotification: Notification) {
     }
-    
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        return true
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             let _ = try? GLTFDocument(for: nil, withContentsOf: url, ofType: "model/gltf")
