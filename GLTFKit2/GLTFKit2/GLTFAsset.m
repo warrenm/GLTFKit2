@@ -331,52 +331,14 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
                               options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                                 error:(NSError **)error
 {
-    __block NSError *internalError = nil;
-    __block GLTFAsset *maybeAsset = nil;
-    dispatch_semaphore_t loadSemaphore = dispatch_semaphore_create(0);
-    [self loadAssetWithURL:url options:options handler:^(float progress,
-                                                         GLTFAssetStatus status,
-                                                         GLTFAsset *asset,
-                                                         NSError *loadingError,
-                                                         BOOL *stop)
-    {
-        if (status == GLTFAssetStatusError || status == GLTFAssetStatusComplete) {
-            internalError = loadingError;
-            maybeAsset = asset;
-            dispatch_semaphore_signal(loadSemaphore);
-        }
-    }];
-    dispatch_semaphore_wait(loadSemaphore, DISPATCH_TIME_FOREVER);
-    if (error) {
-        *error = internalError;
-    }
-    return maybeAsset;
+    return [GLTFAssetReader loadAssetWithURL:url options:options error:error];
 }
 
 + (nullable instancetype)assetWithData:(NSData *)data
                                options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
                                  error:(NSError **)error
 {
-    __block NSError *internalError = nil;
-    __block GLTFAsset *maybeAsset = nil;
-    dispatch_semaphore_t loadSemaphore = dispatch_semaphore_create(0);
-    [self loadAssetWithData:data options:options handler:^(float progress,
-                                                         GLTFAssetStatus status,
-                                                         GLTFAsset *asset,
-                                                         NSError *loadError,
-                                                         BOOL *stop)
-    {
-        if (status == GLTFAssetStatusError || status == GLTFAssetStatusComplete) {
-            internalError = loadError;
-            maybeAsset = asset;
-            dispatch_semaphore_signal(loadSemaphore);
-        }
-    }];
-    dispatch_semaphore_wait(loadSemaphore, DISPATCH_TIME_FOREVER);
-    if (error) {
-        *error = internalError;
-    }
-    return maybeAsset;
+    return [GLTFAssetReader loadAssetWithData:data options:options error:error];
 }
 
 + (void)loadAssetWithURL:(NSURL *)url

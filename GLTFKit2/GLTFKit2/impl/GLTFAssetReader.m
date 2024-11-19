@@ -356,6 +356,56 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
     });
 }
 
++ (GLTFAsset *)loadAssetWithURL:(NSURL *)url
+                        options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
+                          error:(NSError **)error
+{
+    __block GLTFAsset *asset = nil;
+    __block NSError *internalError = nil;
+    GLTFAssetReader *loader = [GLTFAssetReader new];
+    [loader syncLoadAssetWithURL:url data:nil options:options handler:^(float progress,
+                                                                        GLTFAssetStatus status,
+                                                                        GLTFAsset *maybeAsset,
+                                                                        NSError *maybeError,
+                                                                        BOOL *stop)
+    {
+        asset = maybeAsset;
+        internalError = maybeError;
+    }];
+    if (internalError != nil) {
+        if (error != nil) {
+            *error = internalError;
+        }
+        return nil;
+    }
+    return asset;
+}
+
++ (GLTFAsset *)loadAssetWithData:(NSData *)data
+                         options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
+                           error:(NSError **)error
+{
+    __block GLTFAsset *asset = nil;
+    __block NSError *internalError = nil;
+    GLTFAssetReader *loader = [GLTFAssetReader new];
+    [loader syncLoadAssetWithURL:nil data:data options:options handler:^(float progress,
+                                                                         GLTFAssetStatus status,
+                                                                         GLTFAsset *maybeAsset,
+                                                                         NSError *maybeError,
+                                                                         BOOL *stop)
+    {
+        asset = maybeAsset;
+        internalError = maybeError;
+    }];
+    if (internalError != nil) {
+        if (error != nil) {
+            *error = internalError;
+        }
+        return nil;
+    }
+    return asset;
+}
+
 - (instancetype)init {
     if (self = [super init]) {
         _nameGenerator = [GLTFUniqueNameGenerator new];
