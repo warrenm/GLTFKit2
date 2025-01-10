@@ -53,6 +53,21 @@ typedef NS_OPTIONS(long long, GLTFMDLColorMask) {
 }
 @end
 
+@implementation MDLMesh (GLTFCopyingExtensions)
+- (id)GLTF_copy {
+    // TODO: Should we recursively copy submeshes? Probably so if the underlying
+    // implementation assumes it's the exclusive owner of the passed-in objects.
+    MDLMesh *mesh = [[MDLMesh alloc] initWithVertexBuffers:self.vertexBuffers
+                                               vertexCount:self.vertexCount
+                                                descriptor:self.vertexDescriptor
+                                                 submeshes:self.submeshes];
+    mesh.name = self.name;
+    mesh.transform = self.transform;
+    // n.b. we explicitly don't copy child objects
+    return mesh;
+}
+@end
+
 static MDLMaterialTextureFilterMode GLTFMDLTextureFilterModeForMagFilter(GLTFMagFilter filter) {
     switch (filter) {
         case GLTFMagFilterNearest:
@@ -279,6 +294,17 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
     }
 }
 
+static NSData *GLTFPackedFloat2DataFlipVertical(NSData *data) {
+    const float *uvs = data.bytes;
+    float *flippedUVs = malloc(data.length);
+    NSUInteger elementCount = data.length / sizeof(float);
+    for (int i = 0; i < elementCount; i += 2) {
+        flippedUVs[i + 0] = uvs[i + 0];
+        flippedUVs[i + 1] = 1.0f - uvs[i + 1];
+    }
+    return [NSData dataWithBytesNoCopy:flippedUVs length:data.length freeWhenDone:YES];
+}
+
 @implementation MDLAsset (GLTFKit2)
 
 + (instancetype)assetWithGLTFAsset:(GLTFAsset *)asset {
@@ -361,6 +387,8 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             }
             baseColorSampler.mappingChannel = material.metallicRoughness.baseColorTexture.texCoord;
             func.baseColor.textureSamplerValue = baseColorSampler;
+        } else {
+            func.baseColor.float4Value = material.metallicRoughness.baseColorFactor;
         }
         if (material.metallicRoughness.metallicRoughnessTexture) {
             MDLTextureSampler *metallicRoughnessSampler = [textureSamplersForTextureIdentifiers[material.metallicRoughness.metallicRoughnessTexture.texture.identifier] GLTF_copy];
@@ -381,6 +409,9 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             roughnessSampler.mappingChannel = material.metallicRoughness.metallicRoughnessTexture.texCoord;
             roughnessSampler.textureComponents = GLTFMDLColorMaskGreen;
             func.roughness.textureSamplerValue = roughnessSampler;
+        } else {
+            func.metallic.floatValue = material.metallicRoughness.metallicFactor;
+            func.roughness.floatValue = material.metallicRoughness.roughnessFactor;
         }
         if (material.normalTexture) {
             MDLTextureSampler *normalSampler = [textureSamplersForTextureIdentifiers[material.normalTexture.texture.identifier] GLTF_copy];
@@ -397,9 +428,10 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             }
             emissiveSampler.mappingChannel = material.emissive.emissiveTexture.texCoord;
             func.emission.textureSamplerValue = emissiveSampler;
+        } else {
+            func.emission.float3Value = material.emissive.emissiveFactor;
         }
-        // TODO: How to represent base color/emissive factor, normal/occlusion strength, etc.?
-        if (material.indexOfRefraction) {
+        if (material.indexOfRefraction != nil) {
             func.interfaceIndexOfRefraction.floatValue = material.indexOfRefraction.floatValue;
         }
 
@@ -414,15 +446,12 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
         for (GLTFPrimitive *primitive in mesh.primitives) {
             GLTFAccessor *indexAccessor = primitive.indices;
             GLTFBufferView *indexBufferView = indexAccessor.bufferView;
-            GLTFBuffer *indexBuffer = indexBufferView.buffer;
-            
+
             assert(primitive.indices.componentType == GLTFComponentTypeUnsignedShort ||
                    primitive.indices.componentType == GLTFComponentTypeUnsignedInt);
             size_t indexSize = primitive.indices.componentType == GLTFComponentTypeUnsignedShort ? sizeof(UInt16) : sizeof(UInt32);
             assert(indexBufferView.stride == 0 || indexBufferView.stride == indexSize);
-            NSData *indexData = [NSData dataWithBytesNoCopy:(void *)indexBuffer.data.bytes + indexBufferView.offset + indexAccessor.offset
-                                                     length:primitive.indices.count * indexSize
-                                               freeWhenDone:NO];
+            NSData *indexData = GLTFPackedDataForAccessor(indexAccessor);
             id<MDLMeshBuffer> mdlIndexBuffer = [bufferAllocator newBufferWithData:indexData type:MDLMeshBufferTypeIndex];
             MDLMaterial *material = materialsForIdentifiers[primitive.material.identifier];
             MDLSubmesh *submesh = [[MDLSubmesh alloc] initWithName:primitive.name
@@ -438,13 +467,13 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             NSMutableArray *vertexBuffers = [NSMutableArray arrayWithCapacity:primitive.attributes.count];
             for (GLTFAttribute *attribute in primitive.attributes) {
                 GLTFAccessor *attrAccessor = attribute.accessor;
-                GLTFBufferView *attrBufferView = attrAccessor.bufferView;
-                GLTFBuffer *attrBuffer = attrBufferView.buffer;
                 MDLVertexFormat mdlFormat = GLTFMDLVertexFormatForAccessor(attrAccessor);
                 size_t formatSize = GLTFMDLSizeForVertexFormat(mdlFormat);
-                NSData *attrData = [NSData dataWithBytesNoCopy:(void *)attrBuffer.data.bytes + attrBufferView.offset + attrAccessor.offset
-                                                         length:attrAccessor.count * formatSize
-                                                   freeWhenDone:NO];
+                NSData *attrData = GLTFPackedDataForAccessor(attrAccessor);
+                if ([attribute.name hasPrefix:@"TEXCOORD_"]) {
+                    // Model I/O expects UV coordinates to have a bottom-left origin
+                    attrData = GLTFPackedFloat2DataFlipVertical(attrData);
+                }
                 id<MDLMeshBuffer> vertexBuffer = [bufferAllocator newBufferWithData:attrData type:MDLMeshBufferTypeVertex];
                 [vertexBuffers addObject:vertexBuffer];
                 vertexCount = (int)attrAccessor.count;
@@ -452,8 +481,7 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
                 vertexDescriptor.attributes[attrIndex].format = mdlFormat;
                 vertexDescriptor.attributes[attrIndex].name = GLTFMDLVertexAttributeNameForSemantic(attribute.name);
                 vertexDescriptor.attributes[attrIndex].offset = 0;
-                vertexDescriptor.layouts[attrIndex].stride = attrBufferView.stride ? attrBufferView.stride : formatSize;
-                assert(attrBufferView.stride == formatSize || attrBufferView.stride == 0);
+                vertexDescriptor.layouts[attrIndex].stride = formatSize;
                 ++attrIndex;
             }
 
@@ -515,16 +543,22 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
         lightsForIdentifiers[light.identifier] = mdlLight;
     }
     
-    // Node -> MDLNode
+    // Node -> MDLObject
     NSMutableDictionary<NSUUID *, MDLObject *> *nodesForIdentifiers = [NSMutableDictionary dictionary];
     for (GLTFNode *node in asset.nodes) {
-        MDLObject *mdlNode = [MDLObject new];
+        // We'd prefer to use MDLObject rather than MDLMesh for container nodes, but
+        // Model I/O's USD exporter currently exports MDLObject as a Scope instead of
+        // an Xform, which loses spatial hierarchy information (FB16254600). Using
+        // MDLMesh forces the exporter to emit a transform object instead of a scope.
+        MDLObject *mdlNode = [MDLMesh new];
         mdlNode.name = node.name;
         mdlNode.transform = [[MDLTransform alloc] initWithMatrix:node.matrix];
         if (node.mesh) {
             NSArray<MDLMesh *> *meshes = meshArraysForIdentifiers[node.mesh.identifier];
             for (MDLMesh *mdlMesh in meshes) {
-                [mdlNode addChild:mdlMesh];
+                // We would prefer not to copy here, but since each MDLObject can only have
+                // one parent, we have to do this to ensure every mesh instance is represented
+                [mdlNode addChild:[mdlMesh GLTF_copy]];
             }
         }
         if (node.light) {
@@ -537,16 +571,30 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
         }
         nodesForIdentifiers[node.identifier] = mdlNode;
     }
-    
+
+    for (GLTFNode *node in asset.nodes) {
+        if (node.childNodes.count > 0) {
+            MDLObject *mdlParent = nodesForIdentifiers[node.identifier];
+            for (GLTFNode *child in node.childNodes) {
+                MDLObject *mdlChild = nodesForIdentifiers[child.identifier];
+                [mdlParent addChild:mdlChild];
+            }
+        }
+    }
+
     // TODO: Convert skins and animations
 
     CFRelease(colorSpaceLinearSRGB);
 
     MDLAsset *mdlAsset = [[MDLAsset alloc] initWithBufferAllocator:bufferAllocator];
 
-    for (MDLObject *mdlNode in [nodesForIdentifiers allValues]) {
+    GLTFScene *defaultScene = asset.defaultScene ?: asset.scenes.firstObject;
+
+    for (GLTFNode *node in defaultScene.nodes) {
+        MDLObject *mdlNode = nodesForIdentifiers[node.identifier];
         [mdlAsset addObject:mdlNode];
     }
+
     return mdlAsset;
 }
 
