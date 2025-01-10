@@ -559,7 +559,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
     if (self = [super init]) {
         _perspective = perspective;
         _zNear = 1.0f;
-        _zFar = 100.0f; //  TODO: Handle infinite far projection
+        _zFar = 100.0f;
     }
     return self;
 }

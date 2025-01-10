@@ -471,8 +471,6 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
     for (GLTFCamera *camera in asset.cameras) {
         MDLCamera *mdlCamera = [MDLCamera new];
         mdlCamera.name = camera.name;
-        // TODO: Handle optional zfar and aspect ratio for perspective cameras.
-        // Waiting on cgltf pull request #141.
         mdlCamera.nearVisibilityDistance = camera.zNear;
         mdlCamera.farVisibilityDistance = camera.zFar;
         if (camera.orthographic) {
@@ -480,7 +478,9 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
             mdlCamera.sensorEnlargement = simd_make_float2(camera.orthographic.xMag, camera.orthographic.yMag);
         } else if (camera.perspective) {
             mdlCamera.projection = MDLCameraProjectionPerspective;
-            mdlCamera.sensorAspect = camera.perspective.aspectRatio;
+            if (camera.perspective.aspectRatio != 0.0) {
+                mdlCamera.sensorAspect = camera.perspective.aspectRatio;
+            }
             mdlCamera.fieldOfView = camera.perspective.yFOV;
         }
         camerasForIdentifiers[camera.identifier] = mdlCamera;
