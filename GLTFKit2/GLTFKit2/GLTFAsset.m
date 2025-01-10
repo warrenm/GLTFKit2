@@ -645,7 +645,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
     if (imageData) {
         if (maybeMediaType) {
             NSString *uti = GLTFCreateUTIForMediaType(maybeMediaType);
-            NSArray *supportedUTIs = (__bridge NSArray *)CGImageSourceCopyTypeIdentifiers();
+            NSArray *supportedUTIs = (__bridge_transfer NSArray *)CGImageSourceCopyTypeIdentifiers();
             // Check for support for this image type. Note that image loading can still fail if, for example,
             // the image file is a KTX2 container with an unsupported supercompression scheme like BasisU.
             if (![supportedUTIs containsObject:uti]) {

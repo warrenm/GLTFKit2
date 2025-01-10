@@ -114,7 +114,7 @@ static cgltf_result GLTFReadFile(const struct cgltf_memory_options *memory_optio
         NSNumber *fileSizeValue = nil;
         [fileURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
 
-        if (!fileSizeValue) {
+        if (fileSizeValue == nil) {
             return cgltf_result_io_error;
         }
 
@@ -194,7 +194,7 @@ static cgltf_result GLTFReadFileSecurityScoped(const struct cgltf_memory_options
             NSNumber *fileSizeValue = nil;
             [newURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
 
-            if (!fileSizeValue) {
+            if (fileSizeValue == nil) {
                 result = cgltf_result_io_error;
             }
 
