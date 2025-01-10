@@ -284,7 +284,7 @@ fileprivate class UniqueNameGenerator {
     func nextUniqueName(prefix: String) -> String {
         if let existingCount = countsForPrefixes[prefix] {
             countsForPrefixes[prefix] = existingCount + 1
-            return "\(prefix)\(existingCount)"
+            return "\(prefix)\(existingCount + 1)"
         } else {
             countsForPrefixes[prefix] = 1
             return "\(prefix)1"
