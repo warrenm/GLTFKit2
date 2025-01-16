@@ -53,6 +53,10 @@ typedef NS_OPTIONS(long long, GLTFMDLColorMask) {
 }
 @end
 
+@interface MDLMesh (GLTFCopyingExtensions)
+- (id)GLTF_copy;
+@end
+
 @implementation MDLMesh (GLTFCopyingExtensions)
 - (id)GLTF_copy {
     // TODO: Should we recursively copy submeshes? Probably so if the underlying
@@ -316,18 +320,7 @@ static NSData *GLTFPackedFloat2DataFlipVertical(NSData *data) {
     if (bufferAllocator == nil) {
         bufferAllocator = [MDLMeshBufferDataAllocator new];
     }
-    
-    //NSMutableDictionary<NSUUID *, id<MDLMeshBuffer>> *buffersForIdentifiers = [NSMutableDictionary dictionary];
-    //for (GLTFBuffer *buffer in asset.buffers) {
-    //    if (buffer.data) {
-    //        id<MDLMeshBuffer> mdlBuffer = [bufferAllocator newBufferWithData:buffer.data type:MDLMeshBufferTypeVertex];
-    //        buffersForIdentifiers[buffer.identifier] = mdlBuffer;
-    //    } else {
-    //        id<MDLMeshBuffer> mdlBuffer = [bufferAllocator newBuffer:buffer.length type:MDLMeshBufferTypeVertex];
-    //        buffersForIdentifiers[buffer.identifier] = mdlBuffer;
-    //    }
-    //}
-    
+
     NSMutableDictionary<NSUUID *, MDLTexture *> *texturesForImageIdenfiers = [NSMutableDictionary dictionary];
     for (GLTFImage *image in asset.images) {
         MDLTexture *mdlTexture = nil;
