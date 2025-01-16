@@ -756,6 +756,17 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
 @implementation GLTFTransmissionParams
 @end
 
+@implementation GLTFDiffuseTransmissionParams
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _diffuseTransmissionColorFactor = (simd_float3){ 1.0f, 1.0f, 1.0f };
+    }
+    return self;
+}
+
+@end
+
 @implementation GLTFVolumeParams
 
 - (instancetype)init {

@@ -431,6 +431,20 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFDiffuseTransmissionParams : NSObject
+/// A texture that defines the fraction of non-specularly reflected light that is diffusely transmitted
+/// through the surface, stored in the alpha (A) channel. Multiplied by the `diffuseTransmissionFactor`.
+@property (nonatomic, nullable) GLTFTextureParams *diffuseTransmissionTexture;
+/// The fraction of non-specularly reflected light that is diffusely transmitted through the surface. Defaults to 0.
+@property (nonatomic, assign) float diffuseTransmissionFactor;
+/// A texture that defines the color that modulates the diffusely transmitted light, stored in the RGB channels.
+/// This texture, if present, will be multiplied by `diffuseTransmissionColorFactor`.
+@property (nonatomic, nullable) GLTFTextureParams *diffuseTransmissionColorTexture;
+/// A set of linear multiplicative factors applied to the diffuse transmission color. Defaults to white ([1, 1, 1]).
+@property (nonatomic, assign) simd_float3 diffuseTransmissionColorFactor;
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFVolumeParams : GLTFObject
 
 @property (nonatomic, nullable) GLTFTextureParams *thicknessTexture;
@@ -495,6 +509,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFSpecularParams *specular;
 @property (nonatomic, nullable) GLTFEmissiveParams *emissive;
 @property (nonatomic, nullable) GLTFTransmissionParams *transmission;
+@property (nonatomic, nullable) GLTFDiffuseTransmissionParams *diffuseTransmission;
 @property (nonatomic, nullable) GLTFVolumeParams *volume;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFSheenParams *sheen;

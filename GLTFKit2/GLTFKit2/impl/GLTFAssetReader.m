@@ -842,6 +842,19 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
             }
             material.transmission = transmission;
         }
+        if (m->has_diffuse_transmission) {
+            GLTFDiffuseTransmissionParams *diffuseTransmission = [GLTFDiffuseTransmissionParams new];
+            if (m->diffuse_transmission.diffuse_transmission_texture.texture) {
+                diffuseTransmission.diffuseTransmissionTexture = [self textureParamsFromTextureView:&m->diffuse_transmission.diffuse_transmission_texture];
+            }
+            diffuseTransmission.diffuseTransmissionFactor = m->diffuse_transmission.diffuse_transmission_factor;
+            if (m->diffuse_transmission.diffuse_transmission_color_texture.texture) {
+                diffuseTransmission.diffuseTransmissionColorTexture = [self textureParamsFromTextureView:&m->diffuse_transmission.diffuse_transmission_color_texture];
+            }
+            const cgltf_float *colorFactorRGB = m->diffuse_transmission.diffuse_transmission_color_factor;
+            diffuseTransmission.diffuseTransmissionColorFactor = (simd_float3){ colorFactorRGB[0], colorFactorRGB[1], colorFactorRGB[2] };
+            material.diffuseTransmission = diffuseTransmission;
+        }
         if (m->has_volume) {
             GLTFVolumeParams *volume = [GLTFVolumeParams new];
             volume.thicknessFactor = m->volume.thickness_factor;
@@ -1290,6 +1303,7 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
         @"KHR_lights_punctual",
         @"KHR_materials_anisotropy",
         @"KHR_materials_clearcoat",
+        @"KHR_materials_diffuse_transmission",
         @"KHR_materials_dispersion",
         @"KHR_materials_ior",
         @"KHR_materials_iridescence",
