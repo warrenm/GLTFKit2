@@ -1,5 +1,6 @@
 
 #import "GLTFModelIO.h"
+#import "GLTFLogging.h"
 
 @interface MDLTextureFilter (GLTFCopyingExtensions)
 - (id)GLTF_copy;
@@ -301,6 +302,11 @@ static MDLLightType GLTFMDLLightTypeForLightType(GLTFLightType lightType) {
 static NSData *GLTFPackedFloat2DataFlipVertical(NSData *data) {
     const float *uvs = data.bytes;
     float *flippedUVs = malloc(data.length);
+    if (flippedUVs == NULL) {
+        GLTFLogError(@"[GLTFKit2] Failed to allocate %ld bytes for storing flipped uv coordinates. Returning empty data object.",
+                     (long)data.length);
+        return [NSData data];
+    }
     NSUInteger elementCount = data.length / sizeof(float);
     for (int i = 0; i < elementCount; i += 2) {
         flippedUVs[i + 0] = uvs[i + 0];

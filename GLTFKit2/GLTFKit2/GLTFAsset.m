@@ -97,6 +97,11 @@ NSData *GLTFPackedDataForAccessor(GLTFAccessor *accessor) {
     size_t elementSize = bytesPerComponent * componentCount;
     size_t bufferLength = elementSize * accessor.count;
     void *bytes = malloc(bufferLength);
+    if (bytes == NULL) {
+        GLTFLogError(@"[GLTFKit2] Failed to allocate %ld (= %ld * %ld * %ld * %ld) bytes for packed data storage.",
+                     (long)bufferLength, (long)elementSize, (long)componentCount, (long)bytesPerComponent, (long)accessor.count);
+        return [NSData data];
+    }
     if (bufferView != nil) {
         void *bufferViewBaseAddr = (void *)buffer.data.bytes + bufferView.offset;
         if (bufferView.stride == 0 || bufferView.stride == elementSize) {
@@ -172,7 +177,7 @@ NSData *GLTFTransformPackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceA
         (sourceAccessor.componentType != GLTFComponentTypeShort) &&
         (sourceAccessor.componentType != GLTFComponentTypeUnsignedShort))
     {
-        NSLog(@"[GLTFKit2] Warning: Failed to convert unsupported normalized data. Returning source data.");
+        GLTFLogWarning(@"[GLTFKit2] Failed to convert unsupported normalized data. Returning source data.");
         return sourceData;
     }
 
@@ -182,6 +187,11 @@ NSData *GLTFTransformPackedDataToFloat(NSData *sourceData, GLTFAccessor *sourceA
 
     size_t outBufferSize = vectorCount * componentCount * sizeof(float);
     float *dstBase = malloc(outBufferSize);
+    if (dstBase == NULL) {
+        GLTFLogError(@"[GLTFKit2] Failed to allocate %ld bytes for packed float data; returning empty data object.",
+                     (long)outBufferSize);
+        return [NSData data];
+    }
     NSData *outData = [NSData dataWithBytesNoCopy:dstBase length:outBufferSize freeWhenDone:YES];
 
     // "Implementations MUST use following equations to decode real floating-point value f from a normalized integer c"
@@ -896,7 +906,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
             {
                 translationData = GLTFPackedDataForAccessor(translationAccessor);
             } else {
-                GLTFLogWarning(@"Translation attribute was present on mesh instancing object, but was not of float VEC3 type");
+                GLTFLogWarning(@"[GLTFKit2] Translation attribute was present on mesh instancing object, but was not of float VEC3 type");
             }
         }
         GLTFAttribute *_Nullable rotationAttr = [self attributeForName:@"ROTATION"];
@@ -913,23 +923,23 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
             {
                 scaleData = GLTFPackedDataForAccessor(scaleAccessor);
             } else {
-                GLTFLogWarning(@"Scale attribute was present on mesh instancing object, but was not of float VEC3 type");
+                GLTFLogWarning(@"[GLTFKit2] Scale attribute was present on mesh instancing object, but was not of float VEC3 type");
             }
         }
         for (int i = 0; i < self.instanceCount; ++i) {
             simd_float4x4 M = matrix_identity_float4x4;
-            if (scaleData) {
+            if (scaleData && scaleData.bytes != NULL) {
                 float *scale = ((float *)scaleData.bytes) + (i * 3);
                 M.columns[0][0] = scale[0];
                 M.columns[1][1] = scale[1];
                 M.columns[2][2] = scale[2];
             }
-            if (rotationData) {
+            if (rotationData && rotationData.bytes != NULL) {
                 simd_quatf rotation;
                 memcpy(&rotation, ((float *)rotationData.bytes) + (i * 4), sizeof(float) * 4);
                 M = simd_mul(simd_matrix4x4(rotation), M);
             }
-            if (translationData) {
+            if (translationData && translationData.bytes != NULL) {
                 float *trans = ((float *)translationData.bytes) + (i * 3);
                 M.columns[3][0] = trans[0];
                 M.columns[3][1] = trans[1];

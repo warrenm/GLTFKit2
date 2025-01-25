@@ -170,7 +170,7 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
     int primitiveCount;
     switch (primitive.primitiveType) {
         case GLTFPrimitiveTypeInvalid:
-            GLTFLogError(@"Encountered primitive with invalid type. Will not create geometry element");
+            GLTFLogError(@"[GLTFKit2] Encountered primitive with invalid type. Will not create geometry element");
             return nil;
         case GLTFPrimitiveTypePoints:
             primitiveType = SCNGeometryPrimitiveTypePoint;
@@ -405,7 +405,7 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
                 bytesPerComponent = sizeof(uint8_t);
                 elementSize = bytesPerComponent * componentCount;
             } else {
-                GLTFLogWarning(@"Could not transform bone indices from ushort to uchar losslessly; hit-testing may not work as expected");
+                GLTFLogWarning(@"[GLTFKit2] Could not transform bone indices from ushort to uchar losslessly; hit-testing may not work as expected");
             }
         }
     }
@@ -839,7 +839,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             if (material.lightingModelName == SCNLightingModelPhysicallyBased && !hasNormals) {
                 static dispatch_once_t warnOnce;
                 dispatch_once(&warnOnce, ^{
-                    GLTFLogWarning(@"Primitive has a physically-based material but does not supply normals");
+                    GLTFLogWarning(@"[GLTFKit2] Primitive has a physically-based material but does not supply normals");
                 });
             }
 
@@ -1143,7 +1143,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else {
-                    GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
+                    GLTFLogError(@"[GLTFKit2] Unknown animation channel path: %@.", channel.target.path);
                     continue;
                 }
                 caAnimation.keyTimes = baseKeyTimes;
