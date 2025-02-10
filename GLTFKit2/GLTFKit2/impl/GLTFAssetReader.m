@@ -659,10 +659,10 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
     for (int i = 0; i < gltf->samplers_count; ++i) {
         cgltf_sampler *s = gltf->samplers + i;
         GLTFTextureSampler *sampler = [GLTFTextureSampler new];
-        sampler.magFilter = s->mag_filter;
-        sampler.minMipFilter = s->min_filter;
-        sampler.wrapS = s->wrap_s;
-        sampler.wrapT = s->wrap_t;
+        sampler.magFilter = (GLTFMagFilter)s->mag_filter;
+        sampler.minMipFilter = (GLTFMinMipFilter)s->min_filter;
+        sampler.wrapS = (GLTFAddressMode)s->wrap_s;
+        sampler.wrapT = (GLTFAddressMode)s->wrap_t;
         sampler.name = s->name ? GLTFUnescapeJSONString(s->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Sampler"];
         sampler.extensions = GLTFConvertExtensions(s->extensions, s->extensions_count, nil);
