@@ -299,8 +299,23 @@ class GLTFRealityKitResourceContext {
         case green
         case blue
         case all
+
+        var textureSwizzle: MTLTextureSwizzleChannels {
+            switch self {
+            case .red:
+                return MTLTextureSwizzleChannels(red: .red, green: .red, blue: .red, alpha: .alpha)
+            case .green:
+                return MTLTextureSwizzleChannels(red: .green, green: .green, blue: .green, alpha: .alpha)
+            case .blue:
+                return MTLTextureSwizzleChannels(red: .blue, green: .blue, blue: .blue, alpha: .alpha)
+            case .all:
+                return MTLTextureSwizzleChannels(red: .red, green: .green, blue: .blue, alpha: .alpha)
+            }
+        }
     }
 
+    let device: MTLDevice
+    let commandQueue: MTLCommandQueue
     private var cgImagesForImageIdentifiers = [UUID : CGImage]()
     private var textureResourcesForImageIdentifiers = [UUID : [(RealityKit.TextureResource, ColorMask)]]()
 
@@ -308,11 +323,19 @@ class GLTFRealityKitResourceContext {
         return RealityKit.SimpleMaterial(color: .init(white: 0.5, alpha: 1.0), isMetallic: false)
     }
 
+    init() {
+        guard let metalDevice = MTLCreateSystemDefaultDevice() else {
+            fatalError("Unable to create Metal system default device")
+        }
+        self.device = metalDevice
+        self.commandQueue = metalDevice.makeCommandQueue()!
+    }
+
     @MainActor func texture(for gltfTextureParams: GLTFTextureParams, channels: ColorMask,
                             semantic: RealityKit.TextureResource.Semantic) -> RealityKit.PhysicallyBasedMaterial.Texture?
     {
         let gltfTexture = gltfTextureParams.texture
-        guard let image = (gltfTexture.webpSource ?? gltfTexture.source) else { return nil }
+        guard let image = (gltfTexture.basisUSource ?? gltfTexture.webpSource ?? gltfTexture.source) else { return nil }
         if let resource = textureResource(for:image, channels: channels, semantic: semantic) {
             let descriptor = MTLSamplerDescriptor(from: gltfTexture.sampler ?? GLTFTextureSampler())
             let sampler = MaterialParameters.Texture.Sampler(descriptor)
@@ -328,6 +351,44 @@ class GLTFRealityKitResourceContext {
         if let existingMatch = existingResources?.first(where: { $0.1 == channels })?.0 {
             return existingMatch
         }
+
+        if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+            if gltfImage.inferMediaType() == GLTFMediaTypeKTX2 {
+                let mtlTexture = gltfImage.newTexture(with: device)
+                guard let sourceTexture = mtlTexture else { return nil }
+                do {
+                    let lowLevelDesc = LowLevelTexture.Descriptor(textureType: sourceTexture.textureType,
+                                                                  pixelFormat: sourceTexture.pixelFormat,
+                                                                  width: sourceTexture.width,
+                                                                  height: sourceTexture.height,
+                                                                  depth: sourceTexture.depth,
+                                                                  mipmapLevelCount: sourceTexture.mipmapLevelCount,
+                                                                  arrayLength: sourceTexture.arrayLength,
+                                                                  textureUsage: [.shaderRead],
+                                                                  swizzle: channels.textureSwizzle)
+                    let lowLevelTexture = try LowLevelTexture(descriptor: lowLevelDesc)
+                    if let commandBuffer = commandQueue.makeCommandBuffer() {
+                        let targetTexture = lowLevelTexture.replace(using: commandBuffer)
+                        if let blitEncoder = commandBuffer.makeBlitCommandEncoder() {
+                            blitEncoder.copy(from: sourceTexture, to: targetTexture)
+                            blitEncoder.endEncoding()
+                        }
+                        commandBuffer.commit()
+                    }
+                    let resource = try TextureResource(from: lowLevelTexture)
+                    if textureResourcesForImageIdentifiers[gltfImage.identifier] != nil {
+                        textureResourcesForImageIdentifiers[gltfImage.identifier]!.append((resource, channels))
+                    } else {
+                        textureResourcesForImageIdentifiers[gltfImage.identifier] = [(resource, channels)]
+                    }
+                    return resource
+                } catch {
+                    print("[GLTFKit2] Error occurred when converting KTX2 texture to RealityKit TextureResource: \(error)")
+                    return nil
+                }
+            }
+        }
+
         var cgImage = cgImagesForImageIdentifiers[gltfImage.identifier]
         if cgImage == nil {
             cgImage = gltfImage.newCGImage()?.takeRetainedValue()

@@ -322,6 +322,22 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
     return nil;
 }
 
+NSString *GLTFMediaTypeFromDataURI(NSString *uriData) {
+    NSString *prefix = @"data:";
+    if ([uriData hasPrefix:prefix]) {
+        NSInteger prefixEnd = prefix.length;
+        NSInteger firstComma = [uriData rangeOfString:@","].location;
+        if (firstComma != NSNotFound) {
+            NSString *mediaTypeAndTokenString = [uriData substringWithRange:NSMakeRange(prefixEnd, firstComma - prefixEnd)];
+            NSArray *mediaTypeAndToken = [mediaTypeAndTokenString componentsSeparatedByString:@";"];
+            if (mediaTypeAndToken.count > 0) {
+                return mediaTypeAndToken[0];
+            }
+        }
+    }
+    return nil;
+}
+
 @implementation GLTFObject
 
 - (instancetype)init {
@@ -644,6 +660,47 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
     return data;
 }
 
+- (nullable NSString *)inferMediaType {
+    // If we already have a MIME type, assume it is correct.
+    if (self.mimeType) {
+        return self.mimeType;
+    }
+    BOOL isAccessingSecurityScoped = NO;
+    __block NSString *mediaType = nil;
+    if (self.bufferView) {
+        // According to the spec, if an image refers to a buffer view, it MUST also include a MIME type.
+        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#images
+        return self.mimeType;
+    } else if (self.uri) {
+        if ([self.uri.scheme isEqual:@"data"]) {
+            mediaType = GLTFMediaTypeFromDataURI(self.uri.absoluteString);
+        } else {
+            isAccessingSecurityScoped = [self.assetDirectoryURL startAccessingSecurityScopedResource];
+            NSError *coordinationError = nil;
+            NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
+            [coordinator coordinateReadingItemAtURL:_uri options:0 error:&coordinationError byAccessor:^(NSURL *newURL) {
+                NSInputStream *fileStream = [[NSInputStream alloc] initWithURL:newURL];
+                [fileStream open];
+                const size_t kHeaderByteCount = 16;
+                uint8_t headerBytes[kHeaderByteCount];
+                if ([fileStream read:headerBytes maxLength:kHeaderByteCount] == kHeaderByteCount) {
+                    NSData *headerData = [NSData dataWithBytesNoCopy:headerBytes length:kHeaderByteCount freeWhenDone:NO];
+                    mediaType = GLTFInferredMediaTypeForData(headerData);
+                }
+                [fileStream close];
+            }];
+        }
+    }
+    if (isAccessingSecurityScoped) {
+        [self.assetDirectoryURL stopAccessingSecurityScopedResource];
+    }
+    if (mediaType) {
+        // If we got a result, cache it so we can return it in the future without hitting disk.
+        self.mimeType = mediaType;
+    }
+    return mediaType;
+}
+
 - (nullable CGImageRef)newCGImage {
     if (self.cachedImage) {
         return CGImageRetain(_cachedImage);
@@ -657,7 +714,7 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
             NSString *uti = GLTFCreateUTIForMediaType(maybeMediaType);
             NSArray *supportedUTIs = (__bridge_transfer NSArray *)CGImageSourceCopyTypeIdentifiers();
             // Check for support for this image type. Note that image loading can still fail if, for example,
-            // the image file is a KTX2 container with an unsupported supercompression scheme like BasisU.
+            // the image file is a KTX2 container with an unsupported compression scheme like BasisU.
             if (![supportedUTIs containsObject:uti]) {
                 GLTFLogWarning(@"[GLTFKit2] Unrecognized type identifier for image media type %@", maybeMediaType);
             }
@@ -681,8 +738,8 @@ NSData *GLTFCreateImageDataFromDataURI(NSString *uriData, NSString **outMediaTyp
     NSData *imageData = [self newImageDataReturningInferredMediaType:&maybeMediaType];
 
     if (imageData && [maybeMediaType isEqualToString:GLTFMediaTypeKTX2]) {
-        id<MTLTexture> texture = GLTFCreateTextureFromKTX2Data(imageData, device);
-        return texture;
+        self.cachedTexture = GLTFCreateTextureFromKTX2Data(imageData, device);
+        return self.cachedTexture;
     }
 #else
     GLTFLogError(@"[GLTFKit2] Texture was requested from a GLTFImage, but GLTFKit2 was compiled without KTX2 support");

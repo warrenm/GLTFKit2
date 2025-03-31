@@ -547,12 +547,18 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 }
 
 - (nullable id)materialPropertyContentsForTexture:(GLTFTexture *)texture {
+    static id<MTLDevice> device = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        device = MTLCreateSystemDefaultDevice();
+    });
+
     if (_materialPropertyContentsCache[texture.identifier] != nil) {
         return _materialPropertyContentsCache[texture.identifier];
     }
 #ifdef GLTF_BUILD_WITH_KTX2
     if (texture.basisUSource) {
-        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:MTLCreateSystemDefaultDevice()];
+        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:device];
         _materialPropertyContentsCache[texture.identifier] = metalTexture;
         return metalTexture;
     }
@@ -563,8 +569,19 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         return (__bridge id)webpCGImage;
     }
     CGImageRef cgImage = [texture.source newCGImage];
-    _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
-    return (__bridge id)cgImage;
+    if (cgImage) {
+        _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
+        return (__bridge id)cgImage;
+    } else {
+        GLTFLogWarning(@"[GLTFKit2] Warning: Failed to create CGImage for material property. Will try to load as KTX2 as a last resort...");
+        if ([[texture.source inferMediaType] isEqual:GLTFMediaTypeKTX2]) {
+            id<MTLTexture> imageTexture = [texture.source newTextureWithDevice:device];
+            _materialPropertyContentsCache[texture.identifier] = imageTexture;
+            return imageTexture;
+        }
+    }
+    GLTFLogWarning(@"[GLTFKit2] Error: Failed to create material property contents for texture.");
+    return nil;
 }
 
 - (void)convertAsset {

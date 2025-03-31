@@ -26,6 +26,8 @@ enum {
 
 typedef NSInteger GLTFErrorCode;
 
+extern NSString *const GLTFMediaTypeKTX2;
+
 extern const float LumensPerCandela;
 
 typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
@@ -359,6 +361,11 @@ GLTFKIT2_EXPORT
 
 - (nullable CGImageRef)newCGImage;
 - (nullable id<MTLTexture>)newTextureWithDevice:(id<MTLDevice>)device;
+
+/// Makes a best-effort guess at the MIME type of the image. If the asset is valid
+/// and the image is backed by a buffer view, this will return the type provided in
+/// the asset. Otherwise the contents of the image are tested for known image types.
+- (nullable NSString *)inferMediaType;
 
 @end
 
