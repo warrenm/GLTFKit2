@@ -363,8 +363,10 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
     // TODO: Support multiple sets of weights, assuring that sum of weights across
     // all weight sets is 1.
     if ([semanticName isEqualToString:GLTFAttributeSemanticWeights0]) {
-        assert(floatComponents && (componentCount == 4) &&
-                 "Accessor for joint weights must be of float4 type; other data types are not currently supported");
+        if (componentCount != 4) {
+            GLTFLogError(@"[GLTFKit2] Accessor for joint weights must be of VEC4 type");
+            return nil;
+        }
         for (int i = 0; i < accessor.count; ++i) {
             float *weights = (float *)(attrData.bytes + i * elementSize);
             float sum = weights[0] + weights[1] + weights[2] + weights[3];
