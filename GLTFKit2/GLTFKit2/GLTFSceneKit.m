@@ -358,6 +358,11 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
         floatComponents = YES;
     }
 
+    if (attrData == nil || attrData.length == 0 || attrData.bytes == NULL) {
+        GLTFLogWarning(@"[GLTFKit2] Not producing geometry source for empty accessor");
+        return nil;
+    }
+
     // Ensure linear sum of weights is equal to 1; this is required by the spec,
     // and SceneKit relies on this invariant as of iOS 12 and macOS Mojave.
     // TODO: Support multiple sets of weights, assuring that sum of weights across
