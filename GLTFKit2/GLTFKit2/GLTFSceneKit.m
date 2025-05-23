@@ -851,7 +851,12 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     // Omit joint indices and weights; these are stored later on the skinner
                     continue;
                 }
-                [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name)];
+                SCNGeometrySource *geometrySource = GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name);
+                if (geometrySource) {
+                    [geometrySources addObject:geometrySource];
+                } else {
+                    GLTFLogWarning(@"[GLTFKit2] Omitting invalid primitive attribute named %@", attribute.name);
+                }
             }
 
             bool hasNormals = [primitive attributeForName:GLTFAttributeSemanticNormal];
