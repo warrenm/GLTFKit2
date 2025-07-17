@@ -52,6 +52,10 @@ static NSString *_Nullable GLTFUnescapeJSONString(char *str) {
     return [NSString stringWithUTF8String:str];
 }
 
+static NSString *_Nullable GLTFURLDecodeString(NSString *str) {
+    return [str stringByRemovingPercentEncoding];
+}
+
 static GLTFComponentType GLTFComponentTypeForType(cgltf_component_type type) {
     return (GLTFComponentType)type;
 }
@@ -689,7 +693,7 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
                 image = [[GLTFImage alloc] initWithURI:[NSURL URLWithString:[NSString stringWithUTF8String:img->uri]]];
             } else {
                 NSURL *baseURI = [self.asset.url URLByDeletingLastPathComponent];
-                NSURL *imageURI = [baseURI URLByAppendingPathComponent:GLTFUnescapeJSONString(img->uri)];
+                NSURL *imageURI = [baseURI URLByAppendingPathComponent:GLTFURLDecodeString(GLTFUnescapeJSONString(img->uri))];
                 image = [[GLTFImage alloc] initWithURI:imageURI];
             }
         }
