@@ -424,6 +424,7 @@ class GLTFRealityKitResourceContext {
         }
         guard let inputFormat = vImage_CGImageFormat(cgImage: cgImage) else { return nil }
         guard var inputBuffer = try? vImage_Buffer(cgImage: cgImage, format: inputFormat) else { return nil }
+        defer { inputBuffer.free() }
         var outputBuffer = vImage_Buffer()
         vImageBuffer_Init(&outputBuffer, inputBuffer.height, inputBuffer.width, inputFormat.bitsPerPixel, vImage_Flags())
         defer { outputBuffer.data.deallocate() }
