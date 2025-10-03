@@ -5,19 +5,20 @@ import Accelerate
 
 #if os(macOS)
 typealias PlatformColor = NSColor
-#elseif os(iOS) || os(visionOS)
+#else
 typealias PlatformColor = UIColor
 #endif
 
 func degreesFromRadians(_ rad: Float) -> Float { return rad * (180 / .pi) }
 
 // Omit support for RealityKit entirely on platforms (such as macOS 11 Big Sur)
-// that don't have the required API features from RealityKit 2. We would, of course,
-// prefer to use a check that actually corresponds to the minimum supported SDKs
-// (macOS 12 Monterey, iOS 15, etc.), but we lack the tools necessary to do so,
-// so we fall back on language version.
+// that don't have the required API or language features from the RealityKit 2
+// era.
+// We would, of course, prefer to use a check that actually corresponds to the
+// minimum supported SDKs (macOS 12 Monterey, iOS 15, etc.), but we lack the
+// tools necessary to do so, so we fall back on compiler version.
 // https://forums.swift.org/t/do-we-need-something-like-if-available/40349/34
-#if swift(>=5.5)
+#if compiler(>=5.6)
 
 func packedStride(for accessor: GLTFAccessor) -> Int {
     var size = 0
@@ -352,6 +353,7 @@ class GLTFRealityKitResourceContext {
             return existingMatch
         }
 
+        #if compiler(>=6.0)
         if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
             if gltfImage.inferMediaType() == GLTFMediaTypeKTX2 {
                 let mtlTexture = gltfImage.newTexture(with: device)
@@ -388,6 +390,7 @@ class GLTFRealityKitResourceContext {
                 }
             }
         }
+        #endif
 
         var cgImage = cgImagesForImageIdentifiers[gltfImage.identifier]
         if cgImage == nil {
@@ -474,14 +477,6 @@ class GLTFRealityKitResourceContext {
     }
 }
 
-#if os(visionOS)
-typealias GLTFRKSkeleton = RealityKit.MeshResource.Skeleton
-#else
-struct GLTFRKSkeleton : Identifiable {
-    var id: String
-}
-#endif
-
 @available(macOS 12.0, iOS 15.0, *)
 public class GLTFRealityKitLoader {
 
@@ -536,10 +531,12 @@ public class GLTFRealityKitLoader {
 
         nodeEntity.transform = Transform(matrix: gltfNode.matrix) // TODO: Properly compose node's TRS properties
 
-        var skeleton: GLTFRKSkeleton?
-        #if os(visionOS)
-        if let skin = gltfNode.skin {
-            skeleton = convert(skin: skin, context: context)
+        var skeleton: Any?
+        #if compiler(>=6.0)
+        if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+            if let skin = gltfNode.skin {
+                skeleton = convert(skin: skin, context: context)
+            }
         }
         #endif
 
@@ -548,20 +545,20 @@ public class GLTFRealityKitLoader {
             nodeEntity.components.set(meshComponent)
         }
 
-        #if !os(visionOS)
-        if let gltfLight = gltfNode.light {
-            switch gltfLight.type {
-            case .directional:
-                nodeEntity.components.set(convert(directionalLight: gltfLight))
-            case .point:
-                nodeEntity.components.set(convert(pointLight: gltfLight))
-            case .spot:
-                nodeEntity.components.set(convert(spotLight: gltfLight))
-            default:
-                break
+        if #available(visionOS 2.0, *) {
+            if let gltfLight = gltfNode.light {
+                switch gltfLight.type {
+                case .directional:
+                    nodeEntity.components.set(convert(directionalLight: gltfLight))
+                case .point:
+                    nodeEntity.components.set(convert(pointLight: gltfLight))
+                case .spot:
+                    nodeEntity.components.set(convert(spotLight: gltfLight))
+                default:
+                    break
+                }
             }
         }
-        #endif
 
         if let gltfCamera = gltfNode.camera, let cameraComponent = convert(camera: gltfCamera) {
             nodeEntity.components.set(cameraComponent)
@@ -574,7 +571,8 @@ public class GLTFRealityKitLoader {
         return nodeEntity
     }
 
-    #if os(visionOS)
+    #if compiler(>=6.0) || os(visionOS)
+    @available(macOS 15.0, iOS 18.0, visionOS 2.0, *)
     func convert(skin gltfSkin: GLTFSkin, context: GLTFRealityKitResourceContext) -> MeshResource.Skeleton? {
         let skeletonName = gltfSkin.name ?? nameGenerator.nextUniqueName(prefix: "Skin")
         let jointNames = gltfSkin.joints.compactMap { return $0.name }
@@ -600,13 +598,23 @@ public class GLTFRealityKitLoader {
     }
     #endif
 
-    @MainActor func convert(mesh gltfMesh: GLTFMesh, skeleton: GLTFRKSkeleton? = nil,
+    @MainActor func convert(mesh gltfMesh: GLTFMesh, skeleton: Any? = nil,
                             context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent?
     {
+        var skeletonID: String?
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let skeleton = skeleton as? MeshResource.Skeleton {
+                skeletonID = skeleton.id
+            }
+        }
+        #endif
+
+        typealias PartMaterialPair = (MeshResource.Part, any RealityKit.Material)
         var primitiveMaterialIndex: Int = 0
-        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (MeshResource.Part, any RealityKit.Material)? in
+        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> PartMaterialPair? in
             if let part = self.convert(primitive: primitive, materialIndex: primitiveMaterialIndex, 
-                                       skeletonID: skeleton?.id, context:context)
+                                       skeletonID: skeletonID, context:context)
             {
                 let material = try self.convert(material: primitive.material, context: context)
                 primitiveMaterialIndex += 1
@@ -630,9 +638,11 @@ public class GLTFRealityKitLoader {
 
         var meshContents = MeshResource.Contents()
         meshContents.models = MeshModelCollection([model])
-        #if os(visionOS)
-        if let skeleton = skeleton {
-            meshContents.skeletons = MeshSkeletonCollection([skeleton])
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let skeleton = skeleton as? MeshResource.Skeleton {
+                meshContents.skeletons = MeshSkeletonCollection([skeleton])
+            }
         }
         #endif
 
@@ -676,27 +686,29 @@ public class GLTFRealityKitLoader {
             part[MeshBuffers.textureCoordinates] = MeshBuffers.TextureCoordinates(texCoordsArray)
         }
 
-        #if os(visionOS)
-        if let joints0Attribute = gltfPrimitive.attribute(forName: "JOINTS_0"),
-           let weights0Attribute = gltfPrimitive.attribute(forName: "WEIGHTS_0"),
-           let jointsArray = packedUShort4Array(for: joints0Attribute.accessor),
-           let weightsArray = packedFloat4Array(for: weights0Attribute.accessor)
-        {
-            let weightsPerVertex = 4
-            func jointInfluences(forJoints joints: [SIMD4<UInt16>], weights: [SIMD4<Float>]) -> [MeshJointInfluence] {
-                return zip(joints, weights).reduce(into: [MeshJointInfluence]()) { partialResult, jointsAndWeights in
-                    let joints = jointsAndWeights.0; let weights = jointsAndWeights.1
-                    partialResult.append(MeshJointInfluence(jointIndex: Int(joints[0]), weight: weights[0]))
-                    partialResult.append(MeshJointInfluence(jointIndex: Int(joints[1]), weight: weights[1]))
-                    partialResult.append(MeshJointInfluence(jointIndex: Int(joints[2]), weight: weights[2]))
-                    partialResult.append(MeshJointInfluence(jointIndex: Int(joints[3]), weight: weights[3]))
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let joints0Attribute = gltfPrimitive.attribute(forName: "JOINTS_0"),
+               let weights0Attribute = gltfPrimitive.attribute(forName: "WEIGHTS_0"),
+               let jointsArray = packedUShort4Array(for: joints0Attribute.accessor),
+               let weightsArray = packedFloat4Array(for: weights0Attribute.accessor)
+            {
+                let weightsPerVertex = 4
+                func jointInfluences(forJoints joints: [SIMD4<UInt16>], weights: [SIMD4<Float>]) -> [MeshJointInfluence] {
+                    return zip(joints, weights).reduce(into: [MeshJointInfluence]()) { partialResult, jointsAndWeights in
+                        let joints = jointsAndWeights.0; let weights = jointsAndWeights.1
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[0]), weight: weights[0]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[1]), weight: weights[1]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[2]), weight: weights[2]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[3]), weight: weights[3]))
+                    }
                 }
-            }
 
-            let influences = jointInfluences(forJoints: jointsArray, weights: weightsArray)
-            part.jointInfluences = MeshResource.JointInfluences(influences: MeshBuffers.JointInfluences(influences),
-                                                                influencesPerVertex: weightsPerVertex)
-            part.skeletonID = skeletonID
+                let influences = jointInfluences(forJoints: jointsArray, weights: weightsArray)
+                part.jointInfluences = MeshResource.JointInfluences(influences: MeshBuffers.JointInfluences(influences),
+                                                                    influencesPerVertex: weightsPerVertex)
+                part.skeletonID = skeletonID
+            }
         }
         #endif
 
@@ -792,8 +804,7 @@ public class GLTFRealityKitLoader {
         }
     }
 
-    #if !os(visionOS)
-
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(spotLight gltfLight: GLTFLight) -> SpotLightComponent {
         let light = SpotLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                        intensity: gltfLight.intensity,
@@ -803,6 +814,7 @@ public class GLTFRealityKitLoader {
         return light
     }
 
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(pointLight gltfLight: GLTFLight) -> PointLightComponent {
         let light = PointLightComponent(color:platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                         intensity: gltfLight.intensity,
@@ -810,14 +822,18 @@ public class GLTFRealityKitLoader {
         return light
     }
 
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(directionalLight gltfLight: GLTFLight) -> DirectionalLightComponent {
+        #if os(visionOS)
+        let light = DirectionalLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
+                                              intensity: gltfLight.intensity)
+        #else
         let light = DirectionalLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                               intensity: gltfLight.intensity,
                                               isRealWorldProxy: false)
+        #endif
         return light
     }
-
-    #endif
 
     func convert(camera: GLTFCamera) -> PerspectiveCameraComponent? {
         if let perspectiveParams = camera.perspective {
@@ -843,6 +859,6 @@ public class GLTFRealityKitLoader {
     }
 }
 
-#endif // swift >=5.5
+#endif // compiler >= 5.6
 
 #endif // !tvOS
