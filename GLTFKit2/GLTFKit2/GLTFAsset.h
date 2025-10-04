@@ -26,6 +26,8 @@ enum {
 
 typedef NSInteger GLTFErrorCode;
 
+extern NSString *const GLTFMediaTypeKTX2;
+
 extern const float LumensPerCandela;
 
 typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
@@ -145,6 +147,8 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, copy) NSString *minVersion;
 @property (nonatomic, copy) NSArray<NSString *> *extensionsUsed;
 @property (nonatomic, copy) NSArray<NSString *> *extensionsRequired;
+@property (nonatomic, copy) NSDictionary<NSString *, id> *rootExtensions;
+@property (nonatomic, copy) id rootExtras;
 @property (nonatomic, copy) NSArray<GLTFAccessor *> *accessors;
 @property (nonatomic, copy) NSArray<GLTFAnimation *> *animations;
 @property (nonatomic, copy) NSArray<GLTFBuffer *> *buffers;
@@ -315,7 +319,9 @@ GLTFKIT2_EXPORT
 GLTFKIT2_EXPORT
 @interface GLTFPerspectiveProjectionParams : GLTFObject
 
+/// The desired aspect ratio for the camera. If 0, the aspect ratio of the viewport should be used.
 @property (nonatomic, assign) float aspectRatio;
+
 @property (nonatomic, assign) float yFOV;
 
 @end
@@ -325,7 +331,10 @@ GLTFKIT2_EXPORT
 
 @property (nonatomic, nullable, strong) GLTFOrthographicProjectionParams *orthographic;
 @property (nonatomic, nullable, strong) GLTFPerspectiveProjectionParams *perspective;
+
+/// The distance to the near viewing plane
 @property (nonatomic, assign) float zNear;
+/// The distance to the far viewing plane. May be infinite if the source asset does not specify a far viewing distance.
 @property (nonatomic, assign) float zFar;
 
 - (instancetype)initWithOrthographicProjection:(GLTFOrthographicProjectionParams *)orthographic;
@@ -352,6 +361,11 @@ GLTFKIT2_EXPORT
 
 - (nullable CGImageRef)newCGImage;
 - (nullable id<MTLTexture>)newTextureWithDevice:(id<MTLDevice>)device;
+
+/// Makes a best-effort guess at the MIME type of the image. If the asset is valid
+/// and the image is backed by a buffer view, this will return the type provided in
+/// the asset. Otherwise the contents of the image are tested for known image types.
+- (nullable NSString *)inferMediaType;
 
 @end
 
@@ -424,6 +438,20 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFDiffuseTransmissionParams : NSObject
+/// A texture that defines the fraction of non-specularly reflected light that is diffusely transmitted
+/// through the surface, stored in the alpha (A) channel. Multiplied by the `diffuseTransmissionFactor`.
+@property (nonatomic, nullable) GLTFTextureParams *diffuseTransmissionTexture;
+/// The fraction of non-specularly reflected light that is diffusely transmitted through the surface. Defaults to 0.
+@property (nonatomic, assign) float diffuseTransmissionFactor;
+/// A texture that defines the color that modulates the diffusely transmitted light, stored in the RGB channels.
+/// This texture, if present, will be multiplied by `diffuseTransmissionColorFactor`.
+@property (nonatomic, nullable) GLTFTextureParams *diffuseTransmissionColorTexture;
+/// A set of linear multiplicative factors applied to the diffuse transmission color. Defaults to white ([1, 1, 1]).
+@property (nonatomic, assign) simd_float3 diffuseTransmissionColorFactor;
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFVolumeParams : GLTFObject
 
 @property (nonatomic, nullable) GLTFTextureParams *thicknessTexture;
@@ -488,6 +516,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFSpecularParams *specular;
 @property (nonatomic, nullable) GLTFEmissiveParams *emissive;
 @property (nonatomic, nullable) GLTFTransmissionParams *transmission;
+@property (nonatomic, nullable) GLTFDiffuseTransmissionParams *diffuseTransmission;
 @property (nonatomic, nullable) GLTFVolumeParams *volume;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFSheenParams *sheen;
@@ -662,6 +691,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFTextureSampler *sampler;
 @property (nonatomic, nullable, strong) GLTFImage *source;
 @property (nonatomic, nullable, strong) GLTFImage *basisUSource;
+@property (nonatomic, nullable, strong) GLTFImage *webpSource;
 
 - (instancetype)initWithSource:(nullable GLTFImage *)source;
 - (instancetype)initWithSource:(nullable GLTFImage *)source basisUSource:(nullable GLTFImage *)basisUSource NS_DESIGNATED_INITIALIZER;

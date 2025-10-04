@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		83244B6B2ABA517F00ECA381 /* GLTFKTX2Support.h in Headers */ = {isa = PBXBuildFile; fileRef = 83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */; };
 		83244B6C2ABA517F00ECA381 /* GLTFKTX2Support.m in Sources */ = {isa = PBXBuildFile; fileRef = 83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */; };
+		833A50CD2BDEC39700184DA8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 833A50CC2BDEC39700184DA8 /* PrivacyInfo.xcprivacy */; };
 		834AD60A25E1A3960010608A /* GLTFSceneKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 834AD60825E1A3960010608A /* GLTFSceneKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		834AD60B25E1A3960010608A /* GLTFSceneKit.m in Sources */ = {isa = PBXBuildFile; fileRef = 834AD60925E1A3960010608A /* GLTFSceneKit.m */; };
 		834AD61025E1BD850010608A /* GLTFTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 834AD60F25E1BD500010608A /* GLTFTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -32,6 +33,7 @@
 /* Begin PBXFileReference section */
 		83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFKTX2Support.h; sourceTree = "<group>"; };
 		83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFKTX2Support.m; sourceTree = "<group>"; };
+		833A50CC2BDEC39700184DA8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		834AD60825E1A3960010608A /* GLTFSceneKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFSceneKit.h; sourceTree = "<group>"; };
 		834AD60925E1A3960010608A /* GLTFSceneKit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFSceneKit.m; sourceTree = "<group>"; };
 		834AD60F25E1BD500010608A /* GLTFTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFTypes.h; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 				834AD60825E1A3960010608A /* GLTFSceneKit.h */,
 				834AD60925E1A3960010608A /* GLTFSceneKit.m */,
 				83DB5F502992BA9800B0190E /* GLTFRealityKit.swift */,
+				833A50CC2BDEC39700184DA8 /* PrivacyInfo.xcprivacy */,
 				834FF1C825C27938001887C2 /* Info.plist */,
 			);
 			path = GLTFKit2;
@@ -226,6 +229,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				833A50CD2BDEC39700184DA8 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

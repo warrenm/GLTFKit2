@@ -153,6 +153,7 @@ Below is a checklist of glTF features and their current level of support.
  - [x] KHR_lights_punctual
  - [x] KHR_materials_anisotropy
  - [x] KHR_materials_clearcoat
+ - [x] KHR_materials_diffuse_transmission
  - [x] KHR_materials_dispersion
  - [x] KHR_materials_ior
  - [x] KHR_materials_iridescence

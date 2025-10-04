@@ -1,19 +1,5 @@
-
 import Cocoa
 import GLTFKit2
-
-class DocumentController : NSDocumentController {
-    var didReopenDocument = false
-
-    override func reopenDocument(for urlOrNil: URL?, withContentsOf contentsURL: URL, display displayDocument: Bool,
-                                 completionHandler: @escaping (NSDocument?, Bool, Error?) -> Void)
-    {
-        // Note that we reopened document(s) so we can present an Open dialog later if we didn't
-        didReopenDocument = true
-        super.reopenDocument(for: urlOrNil, withContentsOf: contentsURL, display: displayDocument,
-                             completionHandler: completionHandler)
-    }
-}
 
 class GLTFDocument: NSDocument, NSOpenSavePanelDelegate {
 
@@ -44,7 +30,11 @@ class GLTFDocument: NSDocument, NSOpenSavePanelDelegate {
         let windowController = storyboard.instantiateController(withIdentifier: NSStoryboard.SceneIdentifier("GLTFWindowController"))
         self.addWindowController(windowController as! NSWindowController)
     }
-    
+
+    override class var autosavesInPlace: Bool {
+        return false
+    }
+
     private var reopenAttempts = 0
     override func read(from url: URL, ofType typeName: String) throws {
         state = .opening

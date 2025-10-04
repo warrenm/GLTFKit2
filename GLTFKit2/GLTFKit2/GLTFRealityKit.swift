@@ -5,19 +5,20 @@ import Accelerate
 
 #if os(macOS)
 typealias PlatformColor = NSColor
-#elseif os(iOS) || os(visionOS)
+#else
 typealias PlatformColor = UIColor
 #endif
 
 func degreesFromRadians(_ rad: Float) -> Float { return rad * (180 / .pi) }
 
 // Omit support for RealityKit entirely on platforms (such as macOS 11 Big Sur)
-// that don't have the required API features from RealityKit 2. We would, of course,
-// prefer to use a check that actually corresponds to the minimum supported SDKs
-// (macOS 12 Monterey, iOS 15, etc.), but we lack the tools necessary to do so,
-// so we fall back on language version.
+// that don't have the required API or language features from the RealityKit 2
+// era.
+// We would, of course, prefer to use a check that actually corresponds to the
+// minimum supported SDKs (macOS 12 Monterey, iOS 15, etc.), but we lack the
+// tools necessary to do so, so we fall back on compiler version.
 // https://forums.swift.org/t/do-we-need-something-like-if-available/40349/34
-#if swift(>=5.5)
+#if compiler(>=5.6)
 
 fileprivate func lerp(_ a: Float, _ b: Float, _ t: Float) -> Float {
     return a + t * (b - a)
@@ -153,6 +154,30 @@ func packedQuatfArray(for accessor: GLTFAccessor) -> [simd_quatf]? {
     return vectors
 }
 
+func packedFloat4Array(for accessor: GLTFAccessor) -> [SIMD4<Float>]? {
+    if accessor.componentType != .float || (accessor.dimension != .vector4) {
+        return nil
+    }
+
+    guard let bufferView = accessor.bufferView else { return nil }
+    guard let bufferData = bufferView.buffer.data else { return nil }
+
+    let vertexCount = accessor.count
+    let offset = bufferView.offset + accessor.offset
+    let elementStride = (bufferView.stride != 0) ? bufferView.stride : packedStride(for: accessor)
+    let vectors = [SIMD4<Float>](unsafeUninitializedCapacity: vertexCount) { buffer, initializedCount in
+        bufferData.withUnsafeBytes { rawPtr in
+            guard let basePtr = rawPtr.baseAddress?.advanced(by: offset) else { initializedCount = 0; return }
+            for v in 0..<vertexCount {
+                let elementPtr = basePtr.advanced(by: elementStride * v).bindMemory(to: Float.self, capacity: 4)
+                buffer[v] = SIMD4(elementPtr[0], elementPtr[1], elementPtr[2], elementPtr[3])
+            }
+            initializedCount = vertexCount
+        }
+    }
+    return vectors
+}
+
 func packedUInt32Array(for accessor: GLTFAccessor) -> [UInt32]? {
     guard let bufferView = accessor.bufferView else { return nil }
     guard let bufferData = bufferView.buffer.data else { return nil }
@@ -189,6 +214,75 @@ func packedUInt32Array(for accessor: GLTFAccessor) -> [UInt32]? {
         })
     }
     return indices
+}
+
+func packedUShort4Array(for accessor: GLTFAccessor) -> [SIMD4<UInt16>]? {
+    if (accessor.componentType != .unsignedByte && accessor.componentType != .unsignedShort) || (accessor.dimension != .vector4) {
+        return nil
+    }
+    guard let bufferView = accessor.bufferView else { return nil }
+    guard let bufferData = bufferView.buffer.data else { return nil }
+
+    let vectorCount = accessor.count
+    let offset = bufferView.offset + accessor.offset
+    let vectors = [SIMD4<UInt16>](unsafeUninitializedCapacity: vectorCount) { destPtr, initializedCount in
+        bufferData.withUnsafeBytes({ sourcePtr in
+            initializedCount = 0
+            guard let accessorBase = sourcePtr.baseAddress?.advanced(by: offset) else { return }
+            switch accessor.componentType {
+            case .unsignedByte:
+                let sourceStride = (bufferView.stride == 0) ? MemoryLayout<SIMD4<UInt8>>.stride : bufferView.stride
+                for i in 0..<vectorCount {
+                    let components = accessorBase.advanced(by: sourceStride * i).bindMemory(to: UInt8.self, capacity: 4)
+                    destPtr[i] = SIMD4<UInt16>(UInt16(components[0]), UInt16(components[1]), UInt16(components[2]), UInt16(components[3]))
+                }
+                initializedCount = vectorCount
+            case .unsignedShort:
+                let sourceStride = (bufferView.stride == 0) ? MemoryLayout<SIMD4<UInt16>>.stride : bufferView.stride
+                if sourceStride == MemoryLayout<SIMD4<UInt16>>.stride {
+                    // Source buffer view is packed; copy everything in one shot
+                    memcpy(UnsafeMutableRawPointer(destPtr.baseAddress!), accessorBase, sourceStride * vectorCount)
+                    initializedCount = vectorCount
+                } else {
+                    // We're not packed, so copy each vector individually
+                    for i in 0..<vectorCount {
+                        let components = accessorBase.advanced(by: sourceStride * i).bindMemory(to: UInt16.self, capacity: 4)
+                        destPtr[i] = SIMD4<UInt16>(components[0], components[1], components[2], components[3])
+                    }
+                    initializedCount = vectorCount
+                }
+            default:
+                break
+            }
+        })
+    }
+    return vectors
+}
+
+func packedFloat4x4(for accessor: GLTFAccessor) -> [simd_float4x4]? {
+    if (accessor.componentType != .float) || (accessor.dimension != .matrix4) {
+        return nil
+    }
+    guard let bufferView = accessor.bufferView else { return nil }
+    guard let bufferData = bufferView.buffer.data else { return nil }
+
+    let sourceStride = bufferView.stride == 0 ? MemoryLayout<simd_float4x4>.stride : bufferView.stride
+    let offset = bufferView.offset + accessor.offset
+    let matrices = [simd_float4x4].init(unsafeUninitializedCapacity: accessor.count) { destPtr, initializedCount in
+        bufferData.withUnsafeBytes { sourceBase in
+            guard let accessorBase = sourceBase.baseAddress?.advanced(by: offset) else { initializedCount = 0; return }
+            if sourceStride == MemoryLayout<simd_float4x4>.stride {
+                memcpy(&destPtr[0], accessorBase, sourceStride * accessor.count)
+            } else {
+                for i in 0..<accessor.count {
+                    let srcMatrix = accessorBase.advanced(by: sourceStride * i)
+                    memcpy(&destPtr[i], srcMatrix, MemoryLayout<simd_float4x4>.size)
+                }
+            }
+            initializedCount = accessor.count;
+        }
+    }
+    return matrices
 }
 
 func convertMinMipFilters(from filter: GLTFMinMipFilter) -> (MTLSamplerMinMagFilter, MTLSamplerMipFilter) {
@@ -241,6 +335,20 @@ extension MTLSamplerDescriptor {
     }
 }
 
+fileprivate class UniqueNameGenerator {
+    private var countsForPrefixes = [String : Int]()
+
+    func nextUniqueName(prefix: String) -> String {
+        if let existingCount = countsForPrefixes[prefix] {
+            countsForPrefixes[prefix] = existingCount + 1
+            return "\(prefix)\(existingCount + 1)"
+        } else {
+            countsForPrefixes[prefix] = 1
+            return "\(prefix)1"
+        }
+    }
+}
+
 @available(macOS 12.0, iOS 15.0, *)
 class GLTFRealityKitResourceContext {
     enum ColorMask : Int {
@@ -248,20 +356,43 @@ class GLTFRealityKitResourceContext {
         case green
         case blue
         case all
+
+        var textureSwizzle: MTLTextureSwizzleChannels {
+            switch self {
+            case .red:
+                return MTLTextureSwizzleChannels(red: .red, green: .red, blue: .red, alpha: .alpha)
+            case .green:
+                return MTLTextureSwizzleChannels(red: .green, green: .green, blue: .green, alpha: .alpha)
+            case .blue:
+                return MTLTextureSwizzleChannels(red: .blue, green: .blue, blue: .blue, alpha: .alpha)
+            case .all:
+                return MTLTextureSwizzleChannels(red: .red, green: .green, blue: .blue, alpha: .alpha)
+            }
+        }
     }
 
+    let device: MTLDevice
+    let commandQueue: MTLCommandQueue
     private var cgImagesForImageIdentifiers = [UUID : CGImage]()
     private var textureResourcesForImageIdentifiers = [UUID : [(RealityKit.TextureResource, ColorMask)]]()
 
-    var defaultMaterial: Material {
+    var defaultMaterial: any Material {
         return RealityKit.SimpleMaterial(color: .init(white: 0.5, alpha: 1.0), isMetallic: false)
     }
 
-    func texture(for gltfTextureParams: GLTFTextureParams, channels: ColorMask,
-                 semantic: RealityKit.TextureResource.Semantic) -> RealityKit.PhysicallyBasedMaterial.Texture?
+    init() {
+        guard let metalDevice = MTLCreateSystemDefaultDevice() else {
+            fatalError("Unable to create Metal system default device")
+        }
+        self.device = metalDevice
+        self.commandQueue = metalDevice.makeCommandQueue()!
+    }
+
+    @MainActor func texture(for gltfTextureParams: GLTFTextureParams, channels: ColorMask,
+                            semantic: RealityKit.TextureResource.Semantic) -> RealityKit.PhysicallyBasedMaterial.Texture?
     {
         let gltfTexture = gltfTextureParams.texture
-        guard let image = gltfTexture.source else { return nil }
+        guard let image = (gltfTexture.basisUSource ?? gltfTexture.webpSource ?? gltfTexture.source) else { return nil }
         if let resource = textureResource(for:image, channels: channels, semantic: semantic) {
             let descriptor = MTLSamplerDescriptor(from: gltfTexture.sampler ?? GLTFTextureSampler())
             let sampler = MaterialParameters.Texture.Sampler(descriptor)
@@ -270,13 +401,53 @@ class GLTFRealityKitResourceContext {
         return nil
     }
 
-    func textureResource(for gltfImage: GLTFImage, channels: ColorMask,
-                         semantic: RealityKit.TextureResource.Semantic) -> RealityKit.TextureResource?
+    @MainActor func textureResource(for gltfImage: GLTFImage, channels: ColorMask,
+                                    semantic: RealityKit.TextureResource.Semantic) -> RealityKit.TextureResource?
     {
         let existingResources = textureResourcesForImageIdentifiers[gltfImage.identifier]
         if let existingMatch = existingResources?.first(where: { $0.1 == channels })?.0 {
             return existingMatch
         }
+
+        #if compiler(>=6.0)
+        if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+            if gltfImage.inferMediaType() == GLTFMediaTypeKTX2 {
+                let mtlTexture = gltfImage.newTexture(with: device)
+                guard let sourceTexture = mtlTexture else { return nil }
+                do {
+                    let lowLevelDesc = LowLevelTexture.Descriptor(textureType: sourceTexture.textureType,
+                                                                  pixelFormat: sourceTexture.pixelFormat,
+                                                                  width: sourceTexture.width,
+                                                                  height: sourceTexture.height,
+                                                                  depth: sourceTexture.depth,
+                                                                  mipmapLevelCount: sourceTexture.mipmapLevelCount,
+                                                                  arrayLength: sourceTexture.arrayLength,
+                                                                  textureUsage: [.shaderRead],
+                                                                  swizzle: channels.textureSwizzle)
+                    let lowLevelTexture = try LowLevelTexture(descriptor: lowLevelDesc)
+                    if let commandBuffer = commandQueue.makeCommandBuffer() {
+                        let targetTexture = lowLevelTexture.replace(using: commandBuffer)
+                        if let blitEncoder = commandBuffer.makeBlitCommandEncoder() {
+                            blitEncoder.copy(from: sourceTexture, to: targetTexture)
+                            blitEncoder.endEncoding()
+                        }
+                        commandBuffer.commit()
+                    }
+                    let resource = try TextureResource(from: lowLevelTexture)
+                    if textureResourcesForImageIdentifiers[gltfImage.identifier] != nil {
+                        textureResourcesForImageIdentifiers[gltfImage.identifier]!.append((resource, channels))
+                    } else {
+                        textureResourcesForImageIdentifiers[gltfImage.identifier] = [(resource, channels)]
+                    }
+                    return resource
+                } catch {
+                    print("[GLTFKit2] Error occurred when converting KTX2 texture to RealityKit TextureResource: \(error)")
+                    return nil
+                }
+            }
+        }
+        #endif
+
         var cgImage = cgImagesForImageIdentifiers[gltfImage.identifier]
         if cgImage == nil {
             cgImage = gltfImage.newCGImage()?.takeRetainedValue()
@@ -312,6 +483,7 @@ class GLTFRealityKitResourceContext {
         }
         guard let inputFormat = vImage_CGImageFormat(cgImage: cgImage) else { return nil }
         guard var inputBuffer = try? vImage_Buffer(cgImage: cgImage, format: inputFormat) else { return nil }
+        defer { inputBuffer.free() }
         var outputBuffer = vImage_Buffer()
         vImageBuffer_Init(&outputBuffer, inputBuffer.height, inputBuffer.width, inputFormat.bitsPerPixel, vImage_Flags())
         defer { outputBuffer.data.deallocate() }
@@ -334,7 +506,7 @@ class GLTFRealityKitResourceContext {
         let bytesPerPixel = isSingleChannel ? 1 : 4
         let bytesPerRow = bytesPerPixel * width
         let colorSpace = CGColorSpace(name: isSingleChannel ? CGColorSpace.genericGrayGamma2_2 : CGColorSpace.sRGB)!
-        var bitmapInfo = CGBitmapInfo.byteOrderDefault.rawValue
+        var bitmapInfo: UInt32 = 0
         if (wantsAlpha) {
             if (image.alphaInfo == .alphaOnly) {
                 bitmapInfo |= image.alphaInfo.rawValue
@@ -367,6 +539,7 @@ public class GLTFRealityKitLoader {
 #if os(macOS)
     let colorSpace = NSColorSpace(cgColorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)!
 #endif
+    private let nameGenerator = UniqueNameGenerator()
 
     public static func load(from url: URL) async throws -> RealityKit.Entity {
         let asset = try GLTFAsset(url: url)
@@ -381,7 +554,7 @@ public class GLTFRealityKitLoader {
         }
     }
 
-    public static func convert(scene: GLTFScene) -> RealityKit.Entity {
+    @MainActor public static func convert(scene: GLTFScene) -> RealityKit.Entity {
         let instance = GLTFRealityKitLoader()
         return instance.convert(scene: scene, asset: nil)
     }
@@ -415,31 +588,42 @@ public class GLTFRealityKitLoader {
         return rootEntity
     }
 
-    func convert(node gltfNode: GLTFNode, context: GLTFRealityKitResourceContext) throws -> RealityKit.Entity {
-        let nodeEntity = Entity()
-        nodeEntity.name = gltfNode.name ?? "(unnamed node)"
+    @MainActor func convert(node gltfNode: GLTFNode, context: GLTFRealityKitResourceContext) throws -> RealityKit.Entity {
+        let nodeEntity = ModelEntity()
+
+        // TODO: This only ensures uniqueness for unnamed nodes; the asset could still contain duplicate names.
+        nodeEntity.name = gltfNode.name ?? nameGenerator.nextUniqueName(prefix: "Node")
 
         nodeEntity.transform = Transform(matrix: gltfNode.matrix) // TODO: Properly compose node's TRS properties
 
-        if let gltfMesh = gltfNode.mesh,
-           let meshComponent = try convert(mesh: gltfMesh, context: context) {
-            nodeEntity.components.set(meshComponent)
-        }
-
-        #if !os(visionOS)
-        if let gltfLight = gltfNode.light {
-            switch gltfLight.type {
-            case .directional:
-                nodeEntity.components.set(convert(directionalLight: gltfLight))
-            case .point:
-                nodeEntity.components.set(convert(pointLight: gltfLight))
-            case .spot:
-                nodeEntity.components.set(convert(spotLight: gltfLight))
-            default:
-                break
+        var skeleton: Any?
+        #if compiler(>=6.0)
+        if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+            if let skin = gltfNode.skin {
+                skeleton = convert(skin: skin, context: context)
             }
         }
         #endif
+
+        if let gltfMesh = gltfNode.mesh,
+           let meshComponent = try convert(mesh: gltfMesh, skeleton: skeleton, context: context) {
+            nodeEntity.components.set(meshComponent)
+        }
+
+        if #available(visionOS 2.0, *) {
+            if let gltfLight = gltfNode.light {
+                switch gltfLight.type {
+                case .directional:
+                    nodeEntity.components.set(convert(directionalLight: gltfLight))
+                case .point:
+                    nodeEntity.components.set(convert(pointLight: gltfLight))
+                case .spot:
+                    nodeEntity.components.set(convert(spotLight: gltfLight))
+                default:
+                    break
+                }
+            }
+        }
 
         if let gltfCamera = gltfNode.camera, let cameraComponent = convert(camera: gltfCamera) {
             nodeEntity.components.set(cameraComponent)
@@ -452,80 +636,162 @@ public class GLTFRealityKitLoader {
         return nodeEntity
     }
 
-    func convert(mesh gltfMesh: GLTFMesh, context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent? {
-        var primitiveMaterialIndex: UInt32 = 0
-        let meshDescriptorAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (RealityKit.MeshDescriptor, RealityKit.Material)? in
-            if var meshDescriptor = try self.convert(primitive: primitive, context:context) {
-                let material = try self.convert(material: primitive.material, context: context)
-                meshDescriptor.materials = .allFaces(primitiveMaterialIndex)
-                primitiveMaterialIndex += 1
-                return (meshDescriptor, material)
+    #if compiler(>=6.0) || os(visionOS)
+    @available(macOS 15.0, iOS 18.0, visionOS 2.0, *)
+    func convert(skin gltfSkin: GLTFSkin, context: GLTFRealityKitResourceContext) -> MeshResource.Skeleton? {
+        let skeletonName = gltfSkin.name ?? nameGenerator.nextUniqueName(prefix: "Skin")
+        let jointNames = gltfSkin.joints.compactMap { return $0.name }
+
+        let jointParents = gltfSkin.joints.map { skeletonNode in
+            if let parent = skeletonNode.parent {
+                return gltfSkin.joints.firstIndex(of: parent)
+            } else {
+                return nil
             }
-            // If we fail to create a mesh descriptor for a primitive, omit it from the list.
+        }
+
+        let ibmMatrices = {
+            if let ibmAccessor = gltfSkin.inverseBindMatrices, let matrices = packedFloat4x4(for: ibmAccessor) {
+                return matrices
+            } else {
+                return [simd_float4x4](repeating: matrix_identity_float4x4, count: jointNames.count)
+            }
+        }()
+
+        return MeshResource.Skeleton(id: skeletonName, jointNames: jointNames,
+                                     inverseBindPoseMatrices: ibmMatrices, parentIndices: jointParents)
+    }
+    #endif
+
+    @MainActor func convert(mesh gltfMesh: GLTFMesh, skeleton: Any? = nil,
+                            context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent?
+    {
+        var skeletonID: String?
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let skeleton = skeleton as? MeshResource.Skeleton {
+                skeletonID = skeleton.id
+            }
+        }
+        #endif
+
+        typealias PartMaterialPair = (MeshResource.Part, any RealityKit.Material)
+        var primitiveMaterialIndex: Int = 0
+        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> PartMaterialPair? in
+            if let part = self.convert(primitive: primitive, materialIndex: primitiveMaterialIndex, 
+                                       skeletonID: skeletonID, context:context)
+            {
+                let material = try self.convert(material: primitive.material, context: context)
+                primitiveMaterialIndex += 1
+                return (part, material)
+            }
+            // If we fail to create a part from a primitive, omit it from the list.
             return nil
         }
 
-        if meshDescriptorAndMaterials.count == 0 {
-            // If we weren't able to successfully build any mesh descriptors for our primitives,
-            // don't bother generating a mesh.
+        if partsAndMaterials.count == 0 {
+            // If we weren't able to successfully build any parts for our primitives, don't bother generating a mesh.
             return nil
         }
 
-        let meshResource = try MeshResource.generate(from: meshDescriptorAndMaterials.map { $0.0 })
+        let parts = partsAndMaterials.map { $0.0 }
+        let materials = partsAndMaterials.map { $0.1 }
+        
+        // TODO: This only ensures uniqueness for unnamed meshes; the asset could still contain duplicate names.
+        let modelName = gltfMesh.name ?? nameGenerator.nextUniqueName(prefix: "Mesh")
+        let model = MeshResource.Model(id: modelName, parts: parts)
 
-        let model = ModelComponent(mesh: meshResource, materials: meshDescriptorAndMaterials.map { $0.1 } )
+        var meshContents = MeshResource.Contents()
+        meshContents.models = MeshModelCollection([model])
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let skeleton = skeleton as? MeshResource.Skeleton {
+                meshContents.skeletons = MeshSkeletonCollection([skeleton])
+            }
+        }
+        #endif
 
-        return model
+        let meshResource = try MeshResource.generate(from: meshContents)
+        let modelComponent = ModelComponent(mesh: meshResource, materials: materials)
+
+        return modelComponent
     }
 
-    func convert(primitive gltfPrimitive: GLTFPrimitive,
-                 context: GLTFRealityKitResourceContext) throws -> RealityKit.MeshDescriptor?
+    func convert(primitive gltfPrimitive: GLTFPrimitive, materialIndex: Int = 0, skeletonID: String? = nil,
+                 context: GLTFRealityKitResourceContext) -> RealityKit.MeshResource.Part?
     {
         if gltfPrimitive.primitiveType != .triangles {
             return nil
         }
 
-        var meshDescriptor = MeshDescriptor(name: gltfPrimitive.name ?? "(unnamed prim)") // TODO: Unique names
+        let partName = nameGenerator.nextUniqueName(prefix: "Primitive")
+        var part = MeshResource.Part(id: partName, materialIndex: materialIndex)
 
         if let positionAttribute = gltfPrimitive.attribute(forName: "POSITION"),
            let positionArray = packedFloat3Array(for: positionAttribute.accessor)
         {
-            meshDescriptor.positions = MeshBuffers.Positions(positionArray)
+            part[MeshBuffers.positions] = MeshBuffers.Positions(positionArray)
         }
 
         if let normalAttribute = gltfPrimitive.attribute(forName: "NORMAL"),
            let normalArray = packedFloat3Array(for: normalAttribute.accessor)
         {
-            meshDescriptor.normals = MeshBuffers.Normals(normalArray)
+            part[MeshBuffers.normals] = MeshBuffers.Normals(normalArray)
         }
 
         if let tangentAttribute = gltfPrimitive.attribute(forName: "TANGENT"),
            let tangentArray = packedFloat3Array(for: tangentAttribute.accessor)
         {
-            meshDescriptor.tangents = MeshBuffers.Tangents(tangentArray)
+            part[MeshBuffers.tangents] = MeshBuffers.Tangents(tangentArray)
         }
 
         if let texCoords0Attribute = gltfPrimitive.attribute(forName: "TEXCOORD_0"),
            let texCoordsArray = packedFloat2Array(for: texCoords0Attribute.accessor, flipVertically: true)
         {
-            meshDescriptor.textureCoordinates = MeshBuffers.TextureCoordinates(texCoordsArray)
+            part[MeshBuffers.textureCoordinates] = MeshBuffers.TextureCoordinates(texCoordsArray)
         }
+
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let joints0Attribute = gltfPrimitive.attribute(forName: "JOINTS_0"),
+               let weights0Attribute = gltfPrimitive.attribute(forName: "WEIGHTS_0"),
+               let jointsArray = packedUShort4Array(for: joints0Attribute.accessor),
+               let weightsArray = packedFloat4Array(for: weights0Attribute.accessor)
+            {
+                let weightsPerVertex = 4
+                func jointInfluences(forJoints joints: [SIMD4<UInt16>], weights: [SIMD4<Float>]) -> [MeshJointInfluence] {
+                    return zip(joints, weights).reduce(into: [MeshJointInfluence]()) { partialResult, jointsAndWeights in
+                        let joints = jointsAndWeights.0; let weights = jointsAndWeights.1
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[0]), weight: weights[0]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[1]), weight: weights[1]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[2]), weight: weights[2]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[3]), weight: weights[3]))
+                    }
+                }
+
+                let influences = jointInfluences(forJoints: jointsArray, weights: weightsArray)
+                part.jointInfluences = MeshResource.JointInfluences(influences: MeshBuffers.JointInfluences(influences),
+                                                                    influencesPerVertex: weightsPerVertex)
+                part.skeletonID = skeletonID
+            }
+        }
+        #endif
 
         // TODO: Support explicit bitangents and other user attributes?
 
         if let indexAccessor = gltfPrimitive.indices, let indices = packedUInt32Array(for: indexAccessor) {
-            meshDescriptor.primitives = .triangles(indices)
+            part.triangleIndices = MeshBuffers.TriangleIndices(indices)
         } else {
             let vertexCount = gltfPrimitive.attribute(forName: "POSITION")?.accessor.count ?? 0
             let indices = [UInt32](UInt32(0)..<UInt32(vertexCount))
-            meshDescriptor.primitives = .triangles(indices)
+            part.triangleIndices = MeshBuffers.TriangleIndices(indices)
         }
 
-        return meshDescriptor
+        return part
     }
 
-    func convert(material gltfMaterial: GLTFMaterial?,
-                 context: GLTFRealityKitResourceContext) throws -> RealityKit.Material
+    @MainActor func convert(material gltfMaterial: GLTFMaterial?,
+                            context: GLTFRealityKitResourceContext) throws -> any RealityKit.Material
     {
         guard let gltfMaterial = gltfMaterial else { return context.defaultMaterial }
 
@@ -603,8 +869,7 @@ public class GLTFRealityKitLoader {
         }
     }
 
-    #if !os(visionOS)
-
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(spotLight gltfLight: GLTFLight) -> SpotLightComponent {
         let light = SpotLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                        intensity: gltfLight.intensity,
@@ -614,6 +879,7 @@ public class GLTFRealityKitLoader {
         return light
     }
 
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(pointLight gltfLight: GLTFLight) -> PointLightComponent {
         let light = PointLightComponent(color:platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                         intensity: gltfLight.intensity,
@@ -621,21 +887,24 @@ public class GLTFRealityKitLoader {
         return light
     }
 
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(directionalLight gltfLight: GLTFLight) -> DirectionalLightComponent {
+        #if os(visionOS)
+        let light = DirectionalLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
+                                              intensity: gltfLight.intensity)
+        #else
         let light = DirectionalLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                               intensity: gltfLight.intensity,
                                               isRealWorldProxy: false)
+        #endif
         return light
     }
-
-    #endif
 
     func convert(camera: GLTFCamera) -> PerspectiveCameraComponent? {
         if let perspectiveParams = camera.perspective {
             let camera = PerspectiveCameraComponent(near: camera.zNear,
                                                     far: camera.zFar,
                                                     fieldOfViewInDegrees: degreesFromRadians(perspectiveParams.yFOV))
-            // TODO: Correctly handle infinite far clip distance (camera.zFar == 0)
             return camera
         }
         return nil

@@ -52,6 +52,10 @@ static NSString *_Nullable GLTFUnescapeJSONString(char *str) {
     return [NSString stringWithUTF8String:str];
 }
 
+static NSString *_Nullable GLTFURLDecodeString(NSString *str) {
+    return [str stringByRemovingPercentEncoding];
+}
+
 static GLTFComponentType GLTFComponentTypeForType(cgltf_component_type type) {
     return (GLTFComponentType)type;
 }
@@ -114,7 +118,7 @@ static cgltf_result GLTFReadFile(const struct cgltf_memory_options *memory_optio
         NSNumber *fileSizeValue = nil;
         [fileURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
 
-        if (!fileSizeValue) {
+        if (fileSizeValue == nil) {
             return cgltf_result_io_error;
         }
 
@@ -194,7 +198,7 @@ static cgltf_result GLTFReadFileSecurityScoped(const struct cgltf_memory_options
             NSNumber *fileSizeValue = nil;
             [newURL getResourceValue:&fileSizeValue forKey:NSURLFileSizeKey error:nil];
 
-            if (!fileSizeValue) {
+            if (fileSizeValue == nil) {
                 result = cgltf_result_io_error;
             }
 
@@ -325,14 +329,14 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
     return extensionsMap;
 }
 
-static dispatch_queue_t _loaderQueue;
-
 @implementation GLTFAssetReader
 
 + (dispatch_queue_t)loaderQueue {
-    if (_loaderQueue == nil) {
+    static dispatch_once_t onceToken;
+    static dispatch_queue_t _loaderQueue;
+    dispatch_once(&onceToken, ^{
         _loaderQueue = dispatch_queue_create("com.metalbyexample.gltfkit2.asset-loader", DISPATCH_QUEUE_CONCURRENT);
-    }
+    });
     return _loaderQueue;
 }
 
@@ -354,6 +358,56 @@ static dispatch_queue_t _loaderQueue;
         GLTFAssetReader *loader = [GLTFAssetReader new];
         [loader syncLoadAssetWithURL:nil data:data options:options handler:handler];
     });
+}
+
++ (GLTFAsset *)loadAssetWithURL:(NSURL *)url
+                        options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
+                          error:(NSError **)error
+{
+    __block GLTFAsset *asset = nil;
+    __block NSError *internalError = nil;
+    GLTFAssetReader *loader = [GLTFAssetReader new];
+    [loader syncLoadAssetWithURL:url data:nil options:options handler:^(float progress,
+                                                                        GLTFAssetStatus status,
+                                                                        GLTFAsset *maybeAsset,
+                                                                        NSError *maybeError,
+                                                                        BOOL *stop)
+    {
+        asset = maybeAsset;
+        internalError = maybeError;
+    }];
+    if (internalError != nil) {
+        if (error != nil) {
+            *error = internalError;
+        }
+        return nil;
+    }
+    return asset;
+}
+
++ (GLTFAsset *)loadAssetWithData:(NSData *)data
+                         options:(NSDictionary<GLTFAssetLoadingOption, id> *)options
+                           error:(NSError **)error
+{
+    __block GLTFAsset *asset = nil;
+    __block NSError *internalError = nil;
+    GLTFAssetReader *loader = [GLTFAssetReader new];
+    [loader syncLoadAssetWithURL:nil data:data options:options handler:^(float progress,
+                                                                         GLTFAssetStatus status,
+                                                                         GLTFAsset *maybeAsset,
+                                                                         NSError *maybeError,
+                                                                         BOOL *stop)
+    {
+        asset = maybeAsset;
+        internalError = maybeError;
+    }];
+    if (internalError != nil) {
+        if (error != nil) {
+            *error = internalError;
+        }
+        return nil;
+    }
+    return asset;
 }
 
 - (instancetype)init {
@@ -388,9 +442,16 @@ static dispatch_queue_t _loaderQueue;
     }
 
     @try {
-        NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL];
+        NSError *internalError = nil;
+        NSData *internalData = data ?: [NSData dataWithContentsOfURL:assetURL
+                                                             options:(NSDataReadingOptions)0
+                                                               error:&internalError];
         if (internalData == nil) {
-            NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:nil];
+            NSMutableDictionary *userInfo = [@{ NSLocalizedDescriptionKey : @"Failed to open file" } mutableCopy];
+            if (internalError) {
+                userInfo[NSUnderlyingErrorKey] = internalError;
+            }
+            NSError *error = [NSError errorWithDomain:GLTFErrorDomain code:GLTFErrorCodeFailedToLoad userInfo:userInfo];
             handler(1.0, GLTFAssetStatusError, nil, error, &stop);
             return;
         }
@@ -602,10 +663,10 @@ static dispatch_queue_t _loaderQueue;
     for (int i = 0; i < gltf->samplers_count; ++i) {
         cgltf_sampler *s = gltf->samplers + i;
         GLTFTextureSampler *sampler = [GLTFTextureSampler new];
-        sampler.magFilter = s->mag_filter;
-        sampler.minMipFilter = s->min_filter;
-        sampler.wrapS = s->wrap_s;
-        sampler.wrapT = s->wrap_t;
+        sampler.magFilter = (GLTFMagFilter)s->mag_filter;
+        sampler.minMipFilter = (GLTFMinMipFilter)s->min_filter;
+        sampler.wrapS = (GLTFAddressMode)s->wrap_s;
+        sampler.wrapT = (GLTFAddressMode)s->wrap_t;
         sampler.name = s->name ? GLTFUnescapeJSONString(s->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Sampler"];
         sampler.extensions = GLTFConvertExtensions(s->extensions, s->extensions_count, nil);
@@ -632,7 +693,7 @@ static dispatch_queue_t _loaderQueue;
                 image = [[GLTFImage alloc] initWithURI:[NSURL URLWithString:[NSString stringWithUTF8String:img->uri]]];
             } else {
                 NSURL *baseURI = [self.asset.url URLByDeletingLastPathComponent];
-                NSURL *imageURI = [baseURI URLByAppendingPathComponent:GLTFUnescapeJSONString(img->uri)];
+                NSURL *imageURI = [baseURI URLByAppendingPathComponent:GLTFURLDecodeString(GLTFUnescapeJSONString(img->uri))];
                 image = [[GLTFImage alloc] initWithURI:imageURI];
             }
         }
@@ -654,7 +715,7 @@ static dispatch_queue_t _loaderQueue;
     NSMutableArray *textures = [NSMutableArray arrayWithCapacity:gltf->textures_count];
     for (int i = 0; i < gltf->textures_count; ++i) {
         cgltf_texture *t = gltf->textures + i;
-        GLTFImage *image = nil, *basisUImage = nil;
+        GLTFImage *image = nil, *basisUImage = nil, *webpImage = nil;
         GLTFTextureSampler *sampler = nil;
         if (t->image) {
             size_t imageIndex = t->image - gltf->images;
@@ -664,11 +725,18 @@ static dispatch_queue_t _loaderQueue;
             size_t imageIndex = t->basisu_image - gltf->images;
             basisUImage = self.asset.images[imageIndex];
         }
+        if (t->has_webp) {
+            size_t imageIndex = cgltf_image_index(gltf, t->webp_image);
+            webpImage = self.asset.images[imageIndex];
+        }
         if (t->sampler) {
             size_t samplerIndex = t->sampler - gltf->samplers;
             sampler = self.asset.samplers[samplerIndex];
         }
         GLTFTexture *texture = [[GLTFTexture alloc] initWithSource:image basisUSource:basisUImage];
+        if (webpImage) {
+            texture.webpSource = webpImage;
+        }
         texture.sampler = sampler;
         texture.name = t->name ? GLTFUnescapeJSONString(t->name)
                                : [self.nameGenerator nextUniqueNameWithPrefix:@"Texture"];
@@ -777,6 +845,19 @@ static dispatch_queue_t _loaderQueue;
                 transmission.transmissionTexture = [self textureParamsFromTextureView:&m->transmission.transmission_texture];
             }
             material.transmission = transmission;
+        }
+        if (m->has_diffuse_transmission) {
+            GLTFDiffuseTransmissionParams *diffuseTransmission = [GLTFDiffuseTransmissionParams new];
+            if (m->diffuse_transmission.diffuse_transmission_texture.texture) {
+                diffuseTransmission.diffuseTransmissionTexture = [self textureParamsFromTextureView:&m->diffuse_transmission.diffuse_transmission_texture];
+            }
+            diffuseTransmission.diffuseTransmissionFactor = m->diffuse_transmission.diffuse_transmission_factor;
+            if (m->diffuse_transmission.diffuse_transmission_color_texture.texture) {
+                diffuseTransmission.diffuseTransmissionColorTexture = [self textureParamsFromTextureView:&m->diffuse_transmission.diffuse_transmission_color_texture];
+            }
+            const cgltf_float *colorFactorRGB = m->diffuse_transmission.diffuse_transmission_color_factor;
+            diffuseTransmission.diffuseTransmissionColorFactor = (simd_float3){ colorFactorRGB[0], colorFactorRGB[1], colorFactorRGB[2] };
+            material.diffuseTransmission = diffuseTransmission;
         }
         if (m->has_volume) {
             GLTFVolumeParams *volume = [GLTFVolumeParams new];
@@ -990,10 +1071,16 @@ static dispatch_queue_t _loaderQueue;
         } else if (c->type == cgltf_camera_type_perspective) {
             GLTFPerspectiveProjectionParams *params = [GLTFPerspectiveProjectionParams new];
             params.yFOV = c->data.perspective.yfov;
-            params.aspectRatio = c->data.perspective.aspect_ratio;
+            if (c->data.perspective.has_aspect_ratio) {
+                params.aspectRatio = c->data.perspective.aspect_ratio;
+            }
             camera = [[GLTFCamera alloc] initWithPerspectiveProjection:params];
             camera.zNear = c->data.perspective.znear;
-            camera.zFar = c->data.perspective.zfar;
+            if (c->data.perspective.has_zfar) {
+                camera.zFar = c->data.perspective.zfar;
+            } else {
+                camera.zFar = INFINITY;
+            }
         } else {
             camera = [GLTFCamera new]; // Got an invalid camera, so just make a dummy to occupy the slot
         }
@@ -1214,14 +1301,22 @@ static dispatch_queue_t _loaderQueue;
 - (BOOL)validateRequiredExtensions:(NSError **)error {
     NSMutableArray *supportedExtensions = [NSMutableArray arrayWithObjects:
         GLTFExtensionEXTMeshoptCompression,
+        @"EXT_mesh_gpu_instancing",
+        @"EXT_texture_webp",
         @"KHR_emissive_strength",
-        @"KHR_materials_ior",
         @"KHR_lights_punctual",
+        @"KHR_materials_anisotropy",
         @"KHR_materials_clearcoat",
+        @"KHR_materials_diffuse_transmission",
+        @"KHR_materials_dispersion",
+        @"KHR_materials_ior",
+        @"KHR_materials_iridescence",
+        @"KHR_materials_sheen",
         @"KHR_materials_specular",
         @"KHR_materials_transmission",
         @"KHR_materials_unlit",
         @"KHR_materials_variants",
+        @"KHR_materials_volume",
         @"KHR_mesh_quantization",
         @"KHR_texture_transform",
         @"KHR_materials_pbrSpecularGlossiness", // deprecated
@@ -1286,6 +1381,8 @@ static dispatch_queue_t _loaderQueue;
     if(![self validateRequiredExtensions:error]) {
         return NO;
     }
+    self.asset.rootExtensions = GLTFConvertExtensions(gltf->data_extensions, gltf->data_extensions_count, nil);
+    self.asset.rootExtras = GLTFObjectFromExtras(gltf->json, gltf->extras, nil);
     self.asset.extensions = GLTFConvertExtensions(meta->extensions, meta->extensions_count, nil);
     self.asset.extras = GLTFObjectFromExtras(gltf->json, meta->extras, nil);
     self.asset.buffers = [self convertBuffers];

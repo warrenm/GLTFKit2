@@ -170,7 +170,7 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
     int primitiveCount;
     switch (primitive.primitiveType) {
         case GLTFPrimitiveTypeInvalid:
-            GLTFLogError(@"Encountered primitive with invalid type. Will not create geometry element");
+            GLTFLogError(@"[GLTFKit2] Encountered primitive with invalid type. Will not create geometry element");
             return nil;
         case GLTFPrimitiveTypePoints:
             primitiveType = SCNGeometryPrimitiveTypePoint;
@@ -358,13 +358,20 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
         floatComponents = YES;
     }
 
+    if (attrData == nil || attrData.length == 0 || attrData.bytes == NULL) {
+        GLTFLogWarning(@"[GLTFKit2] Not producing geometry source for empty accessor");
+        return nil;
+    }
+
     // Ensure linear sum of weights is equal to 1; this is required by the spec,
     // and SceneKit relies on this invariant as of iOS 12 and macOS Mojave.
     // TODO: Support multiple sets of weights, assuring that sum of weights across
     // all weight sets is 1.
     if ([semanticName isEqualToString:GLTFAttributeSemanticWeights0]) {
-        assert(floatComponents && (componentCount == 4) &&
-                 "Accessor for joint weights must be of float4 type; other data types are not currently supported");
+        if (componentCount != 4) {
+            GLTFLogError(@"[GLTFKit2] Accessor for joint weights must be of VEC4 type");
+            return nil;
+        }
         for (int i = 0; i < accessor.count; ++i) {
             float *weights = (float *)(attrData.bytes + i * elementSize);
             float sum = weights[0] + weights[1] + weights[2] + weights[3];
@@ -405,7 +412,7 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
                 bytesPerComponent = sizeof(uint8_t);
                 elementSize = bytesPerComponent * componentCount;
             } else {
-                GLTFLogWarning(@"Could not transform bone indices from ushort to uchar losslessly; hit-testing may not work as expected");
+                GLTFLogWarning(@"[GLTFKit2] Could not transform bone indices from ushort to uchar losslessly; hit-testing may not work as expected");
             }
         }
     }
@@ -545,19 +552,41 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 }
 
 - (nullable id)materialPropertyContentsForTexture:(GLTFTexture *)texture {
+    static id<MTLDevice> device = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        device = MTLCreateSystemDefaultDevice();
+    });
+
     if (_materialPropertyContentsCache[texture.identifier] != nil) {
         return _materialPropertyContentsCache[texture.identifier];
     }
 #ifdef GLTF_BUILD_WITH_KTX2
     if (texture.basisUSource) {
-        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:MTLCreateSystemDefaultDevice()];
+        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:device];
         _materialPropertyContentsCache[texture.identifier] = metalTexture;
         return metalTexture;
     }
 #endif
+    if (texture.webpSource) {
+        CGImageRef webpCGImage = [texture.webpSource newCGImage];
+        _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)webpCGImage;
+        return (__bridge id)webpCGImage;
+    }
     CGImageRef cgImage = [texture.source newCGImage];
-    _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
-    return (__bridge id)cgImage;
+    if (cgImage) {
+        _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
+        return (__bridge id)cgImage;
+    } else {
+        GLTFLogWarning(@"[GLTFKit2] Warning: Failed to create CGImage for material property. Will try to load as KTX2 as a last resort...");
+        if ([[texture.source inferMediaType] isEqual:GLTFMediaTypeKTX2]) {
+            id<MTLTexture> imageTexture = [texture.source newTextureWithDevice:device];
+            _materialPropertyContentsCache[texture.identifier] = imageTexture;
+            return imageTexture;
+        }
+    }
+    GLTFLogWarning(@"[GLTFKit2] Error: Failed to create material property contents for texture.");
+    return nil;
 }
 
 - (void)convertAsset {
@@ -827,14 +856,19 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     // Omit joint indices and weights; these are stored later on the skinner
                     continue;
                 }
-                [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name)];
+                SCNGeometrySource *geometrySource = GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name);
+                if (geometrySource) {
+                    [geometrySources addObject:geometrySource];
+                } else {
+                    GLTFLogWarning(@"[GLTFKit2] Omitting invalid primitive attribute named %@", attribute.name);
+                }
             }
 
             bool hasNormals = [primitive attributeForName:GLTFAttributeSemanticNormal];
             if (material.lightingModelName == SCNLightingModelPhysicallyBased && !hasNormals) {
                 static dispatch_once_t warnOnce;
                 dispatch_once(&warnOnce, ^{
-                    GLTFLogWarning(@"Primitive has a physically-based material but does not supply normals");
+                    GLTFLogWarning(@"[GLTFKit2] Primitive has a physically-based material but does not supply normals");
                 });
             }
 
@@ -1138,7 +1172,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else {
-                    GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
+                    GLTFLogError(@"[GLTFKit2] Unknown animation channel path: %@.", channel.target.path);
                     continue;
                 }
                 caAnimation.keyTimes = baseKeyTimes;
