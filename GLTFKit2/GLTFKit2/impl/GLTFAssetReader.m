@@ -39,7 +39,7 @@ static NSString *const GLTFExtensionEXTMeshoptCompression = @"EXT_meshopt_compre
     NSNumber *existingCount = self.countsForPrefixes[prefix];
     if (existingCount != nil) {
         self.countsForPrefixes[prefix] = @(existingCount.integerValue + 1);
-        return [NSString stringWithFormat:@"%@%@", prefix, existingCount];
+        return [NSString stringWithFormat:@"%@%d", prefix, existingCount.intValue + 1];
     }
     self.countsForPrefixes[prefix] = @(1);
     return [NSString stringWithFormat:@"%@%d", prefix, 1];

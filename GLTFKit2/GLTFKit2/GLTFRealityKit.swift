@@ -2,14 +2,13 @@
 
 import RealityKit
 import Accelerate
+import ModelIO
 
 #if os(macOS)
 typealias PlatformColor = NSColor
 #else
 typealias PlatformColor = UIColor
 #endif
-
-func degreesFromRadians(_ rad: Float) -> Float { return rad * (180 / .pi) }
 
 // Omit support for RealityKit entirely on platforms (such as macOS 11 Big Sur)
 // that don't have the required API or language features from the RealityKit 2
@@ -64,7 +63,11 @@ func packedStride(for accessor: GLTFAccessor) -> Int {
 }
 
 func packedFloatArray(for accessor: GLTFAccessor) -> [Float]? {
-    if accessor.componentType != .float || accessor.dimension != .scalar { return nil }
+    if accessor.dimension != .scalar { return nil }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported scalar component type for conversion to packed float array: \(accessor.componentType). Please file an issue if you see this message.")
+        return nil
+    }
     guard let bufferView = accessor.bufferView else { return nil }
     guard let bufferData = bufferView.buffer.data else { return nil }
     let valueCount = accessor.count
@@ -85,7 +88,11 @@ func packedFloatArray(for accessor: GLTFAccessor) -> [Float]? {
 }
 
 func packedFloat2Array(for accessor: GLTFAccessor, flipVertically: Bool = false) -> [SIMD2<Float>]? {
-    if accessor.componentType != .float || accessor.dimension != .vector2 {
+    if accessor.dimension != .vector2 {
+        return nil
+    }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported vector component type for conversion to packed float2 array: \(accessor.componentType). Please file an issue if you see this message.")
         return nil
     }
 
@@ -109,7 +116,11 @@ func packedFloat2Array(for accessor: GLTFAccessor, flipVertically: Bool = false)
 }
 
 func packedFloat3Array(for accessor: GLTFAccessor) -> [SIMD3<Float>]? {
-    if accessor.componentType != .float || (accessor.dimension != .vector3 && accessor.dimension != .vector4) {
+    if (accessor.dimension != .vector3 && accessor.dimension != .vector4) {
+        return nil
+    }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported component type for conversion to packed float3 array: \(accessor.componentType). Please file an issue if you see this message.")
         return nil
     }
 
@@ -133,7 +144,11 @@ func packedFloat3Array(for accessor: GLTFAccessor) -> [SIMD3<Float>]? {
 }
 
 func packedQuatfArray(for accessor: GLTFAccessor) -> [simd_quatf]? {
-    if accessor.componentType != .float || accessor.dimension != .vector4 {
+    if accessor.dimension != .vector4 {
+        return nil
+    }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported quaternion component type: \(accessor.componentType). Please file an issue if you see this message.")
         return nil
     }
     guard let bufferView = accessor.bufferView else { return nil }
@@ -155,7 +170,11 @@ func packedQuatfArray(for accessor: GLTFAccessor) -> [simd_quatf]? {
 }
 
 func packedFloat4Array(for accessor: GLTFAccessor) -> [SIMD4<Float>]? {
-    if accessor.componentType != .float || (accessor.dimension != .vector4) {
+    if accessor.dimension != .vector4 {
+        return nil
+    }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported component type for conversion to packed float4 array: \(accessor.componentType). Please file an issue if you see this message.")
         return nil
     }
 
@@ -534,6 +553,85 @@ class GLTFRealityKitResourceContext {
 }
 
 @available(macOS 12.0, iOS 15.0, *)
+extension GLTFNode {
+    var bindTarget: BindTarget.EntityPath {
+        if let parent = self.parent {
+            return parent.bindTarget.entity(self.name ?? "")
+        }
+        return BindTarget.entity(self.name ?? "")
+    }
+}
+
+fileprivate class GLTFTransformSampler {
+    let startTime: Float
+    let endTime: Float
+    let recommendedSampleInterval: Float
+    let animatedTranslation = MDLAnimatedVector3()
+    let animatedRotation = MDLAnimatedQuaternion()
+    let animatedScale = MDLAnimatedVector3()
+
+    init(defaultTranslation: SIMD3<Float>, translationChannel: GLTFAnimationChannel?,
+         defaultRotation: simd_quatf, rotationChannel: GLTFAnimationChannel?,
+         defaultScale: SIMD3<Float>, scaleChannel: GLTFAnimationChannel?,
+         maximumSampleInterval: Float = 1 / 30.0)
+    {
+        var minTime: Float = .infinity, maxTime: Float = -.infinity
+        for channel in [translationChannel, rotationChannel, scaleChannel] {
+            if let input = channel?.sampler.input {
+                let channelMinTime = input.minValues.first?.floatValue ?? .infinity
+                let channelMaxTime = input.maxValues.first?.floatValue ?? -.infinity
+                minTime = min(minTime, channelMinTime)
+                maxTime = max(maxTime, channelMaxTime)
+            }
+        }
+        var translationTimes = [minTime]; var translationValues = [defaultTranslation]
+        if let translationSampler = translationChannel?.sampler,
+           let times = packedFloatArray(for: translationSampler.input),
+           let values = packedFloat3Array(for: translationSampler.output)
+        {
+            translationTimes = times
+            translationValues = values
+        }
+        var rotationTimes = [minTime]; var rotationValues = [defaultRotation]
+        if let rotationSampler = rotationChannel?.sampler,
+           let times = packedFloatArray(for: rotationSampler.input),
+           let values = packedQuatfArray(for: rotationSampler.output)
+        {
+            rotationTimes = times
+            rotationValues = values
+        }
+        var scaleTimes = [minTime]; var scaleValues = [defaultScale]
+        if let scaleSampler = scaleChannel?.sampler,
+           let times = packedFloatArray(for: scaleSampler.input),
+           let values = packedFloat3Array(for: scaleSampler.output)
+        {
+            scaleTimes = times
+            scaleValues = values
+        }
+        startTime = minTime
+        endTime = maxTime
+
+        animatedTranslation.reset(float3Array: translationValues, atTimes: translationTimes.map({ Double($0) }))
+        animatedRotation.reset(floatQuaternionArray: rotationValues, atTimes: rotationTimes.map({ Double($0) }))
+        animatedScale.reset(float3Array: scaleValues, atTimes: scaleTimes.map({ Double($0) }))
+
+        let duration = maxTime - minTime
+        let averageKeyDuration = duration / Float(max(translationTimes.count, max(rotationTimes.count, scaleTimes.count)))
+        recommendedSampleInterval = averageKeyDuration > maximumSampleInterval ? maximumSampleInterval : averageKeyDuration
+    }
+}
+
+extension GLTFTransformSampler {
+    func transform(at time: Float) -> Transform {
+        let sampleTime = TimeInterval(time)
+        let translation = animatedTranslation.float3Value(atTime: sampleTime)
+        let rotation = animatedRotation.floatQuaternionValue(atTime: sampleTime)
+        let scale = animatedScale.float3Value(atTime: sampleTime)
+        return Transform(scale: scale, rotation: rotation, translation: translation)
+    }
+}
+
+@available(macOS 12.0, iOS 15.0, *)
 public class GLTFRealityKitLoader {
 
 #if os(macOS)
@@ -559,12 +657,12 @@ public class GLTFRealityKitLoader {
         return instance.convert(scene: scene, asset: nil)
     }
 
-    public static func convert(scene: GLTFScene, asset: GLTFAsset?) -> RealityKit.Entity {
+    @MainActor public static func convert(scene: GLTFScene, asset: GLTFAsset?) -> RealityKit.Entity {
         let instance = GLTFRealityKitLoader()
         return instance.convert(scene: scene, asset: asset)
     }
 
-    func convert(scene: GLTFScene, asset: GLTFAsset? = nil) -> RealityKit.Entity {
+    @MainActor func convert(scene: GLTFScene, asset: GLTFAsset? = nil) -> RealityKit.Entity {
         let context = GLTFRealityKitResourceContext()
 
         let rootEntity = Entity()
@@ -581,8 +679,11 @@ public class GLTFRealityKitLoader {
 
         // TODO: Morph targets, skinned animation, etc.
 
-        for animation in asset?.animations ?? [] {
-            animation.store(in: rootEntity)
+        if #available(macOS 14.0, iOS 17.0, visionOS 2.0, *) {
+            for animation in asset?.animations ?? [] {
+                let rkAnimation = try? convert(animation: animation)
+                rkAnimation?.store(in: rootEntity)
+            }
         }
 
         return rootEntity
@@ -594,7 +695,7 @@ public class GLTFRealityKitLoader {
         // TODO: This only ensures uniqueness for unnamed nodes; the asset could still contain duplicate names.
         nodeEntity.name = gltfNode.name ?? nameGenerator.nextUniqueName(prefix: "Node")
 
-        nodeEntity.transform = Transform(matrix: gltfNode.matrix) // TODO: Properly compose node's TRS properties
+        nodeEntity.transform = Transform(matrix: gltfNode.matrix)
 
         var skeleton: Any?
         #if compiler(>=6.0)
@@ -873,8 +974,8 @@ public class GLTFRealityKitLoader {
     func convert(spotLight gltfLight: GLTFLight) -> SpotLightComponent {
         let light = SpotLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                        intensity: gltfLight.intensity,
-                                       innerAngleInDegrees: degreesFromRadians(gltfLight.innerConeAngle),
-                                       outerAngleInDegrees: degreesFromRadians(gltfLight.outerConeAngle),
+                                       innerAngleInDegrees: GLTFDegFromRad(gltfLight.innerConeAngle),
+                                       outerAngleInDegrees: GLTFDegFromRad(gltfLight.outerConeAngle),
                                        attenuationRadius: gltfLight.range)
         return light
     }
@@ -904,10 +1005,55 @@ public class GLTFRealityKitLoader {
         if let perspectiveParams = camera.perspective {
             let camera = PerspectiveCameraComponent(near: camera.zNear,
                                                     far: camera.zFar,
-                                                    fieldOfViewInDegrees: degreesFromRadians(perspectiveParams.yFOV))
+                                                    fieldOfViewInDegrees: GLTFDegFromRad(perspectiveParams.yFOV))
             return camera
         }
         return nil
+    }
+
+    func convert(animation: GLTFAnimation) throws -> AnimationResource {
+        let groupedChannels = animation.channels.reduce(into: [UUID : [GLTFAnimationChannel]]()) { partialResult, channel in
+            guard let targetIdentifier = channel.target.node?.identifier else { return }
+            if let _ = partialResult[targetIdentifier] {
+                partialResult[targetIdentifier]! += [channel]
+            } else {
+                partialResult[targetIdentifier] = [channel]
+            }
+        }
+        let name = animation.name ?? nameGenerator.nextUniqueName(prefix: "Animation")
+        var sampledAnimations = [SampledAnimation<Transform>]()
+        for (_, channels) in groupedChannels {
+            if let _ = channels.first(where: { $0.target.path == GLTFAnimationPath.weights.rawValue }), channels.count == 1 {
+                continue // TODO: Implement morph target animation
+            }
+            guard let targetNode = channels.first?.target.node else {
+                continue // Can't create an animation without at least one channel and a target
+            }
+            let translationChannel = channels.first { $0.target.path == GLTFAnimationPath.translation.rawValue }
+            let rotationChannel = channels.first { $0.target.path == GLTFAnimationPath.rotation.rawValue }
+            let scaleChannel = channels.first { $0.target.path == GLTFAnimationPath.scale.rawValue }
+            let transformSampler = GLTFTransformSampler(defaultTranslation: targetNode.translation, translationChannel: translationChannel,
+                                                        defaultRotation: targetNode.rotation, rotationChannel: rotationChannel,
+                                                        defaultScale: targetNode.scale, scaleChannel: scaleChannel)
+            let frames = stride(from: transformSampler.startTime,
+                                through: transformSampler.endTime,
+                                by: transformSampler.recommendedSampleInterval).map
+            {
+                transformSampler.transform(at: $0)
+            }
+            let sampledAnimation = SampledAnimation(frames: frames,
+                                                    tweenMode: .linear,
+                                                    frameInterval: transformSampler.recommendedSampleInterval,
+                                                    isAdditive: false,
+                                                    bindTarget: targetNode.bindTarget.transform,
+                                                    repeatMode: .none,
+                                                    fillMode: .none,
+                                                    delay: TimeInterval(transformSampler.startTime))
+            sampledAnimations.append(sampledAnimation)
+        }
+        let groupAnimation = AnimationGroup(group: sampledAnimations, name: name)
+        let resource = try AnimationResource.generate(with: groupAnimation)
+        return resource
     }
 
     func platformColor(for vector: simd_float4) -> PlatformColor {
@@ -924,244 +1070,6 @@ public class GLTFRealityKitLoader {
     }
 }
 
-public class GLTFAnimationPlaybackController {
-    class BoundAnimation {
-        let entity: Entity
-        let path: GLTFAnimationPath
-        let times: [Float]
-        let beginTime: TimeInterval
-        let endTime: TimeInterval
-
-        init(entity: Entity, path: GLTFAnimationPath, times: [Float]) {
-            self.entity = entity
-            self.path = path
-            self.times = times
-            beginTime = TimeInterval(times.first ?? 0.0)
-            endTime = TimeInterval(times.last ?? 0.0)
-        }
-
-        func apply(at time: TimeInterval) {
-            preconditionFailure("Concrete subclasses of BoundAnimation should override apply(at:)")
-        }
-    }
-
-    private class Float3Animation : BoundAnimation {
-        let values: [simd_float3]
-
-        init(entity: Entity, path: GLTFAnimationPath, times: [Float], values: [simd_float3]) {
-            self.values = values
-            super.init(entity: entity, path: path, times: times)
-        }
-
-        override func apply(at time: TimeInterval) {
-            let parentTime = Float(time)
-            if time < beginTime || time > endTime { return }
-            guard let nextIndex = times.firstIndex(where: { $0 > parentTime }) else { return }
-            let prevIndex = max(0, nextIndex - 1)
-            let frameProgress = unlerp(times[prevIndex], times[nextIndex], parentTime)
-            let lowerValue = values[prevIndex], upperValue = values[nextIndex]
-            let currentValue = lerp(lowerValue, upperValue, frameProgress)
-            if path == .translation {
-                entity.transform.translation = currentValue
-            } else if path == .scale {
-                entity.transform.scale = currentValue
-            }
-        }
-    }
-
-    private class QuatfAnimation : BoundAnimation {
-        let values: [simd_quatf]
-
-        init(entity: Entity, path: GLTFAnimationPath, times: [Float], values: [simd_quatf]) {
-            self.values = values
-            super.init(entity: entity, path: path, times: times)
-        }
-
-        override func apply(at time: TimeInterval) {
-            let parentTime = Float(time)
-            if time < beginTime || time > endTime { return }
-            guard let nextIndex = times.firstIndex(where: { $0 > parentTime }) else { return }
-            let prevIndex = max(0, nextIndex - 1)
-            let frameProgress = unlerp(times[prevIndex], times[nextIndex], parentTime)
-            let lowerValue = values[prevIndex], upperValue = values[nextIndex]
-            let currentValue = simd_slerp(lowerValue, upperValue, frameProgress)
-            if path == .rotation {
-                entity.transform.rotation = currentValue
-            }
-        }
-    }
-
-    var repeatDuration: TimeInterval = 0
-    private var paused: Bool = false
-    private var complete: Bool = false
-    private var time: TimeInterval = 0
-    private var animations = [BoundAnimation]()
-
-    private var displayLink: CADisplayLink?
-
-    init(animation: GLTFAnimation, rootEntity: RealityKit.Entity) {
-        for channel in animation.channels {
-            guard let targetName = channel.target.node?.name else { continue }
-            var targetEntity: Entity?
-            if rootEntity.name == targetName {
-                targetEntity = rootEntity
-            } else {
-                targetEntity = rootEntity.findEntity(named: targetName)
-            }
-            guard let targetEntity else { continue }
-            let path = GLTFAnimationPath(rawValue: channel.target.path)
-            guard let keyTimes = packedFloatArray(for: channel.sampler.input) else { continue }
-            if path == .translation {
-                if let keyValues = packedFloat3Array(for: channel.sampler.output) {
-                    animations.append(Float3Animation(entity: targetEntity, path: path, times: keyTimes, values: keyValues))
-                }
-            } else if path == .rotation {
-                if let keyValues = packedQuatfArray(for: channel.sampler.output) {
-                    animations.append(QuatfAnimation(entity: targetEntity, path: path, times: keyTimes, values: keyValues))
-                }
-            } else if path == .scale {
-                if let keyValues = packedFloat3Array(for: channel.sampler.output) {
-                    animations.append(Float3Animation(entity: targetEntity, path: path, times: keyTimes, values: keyValues))
-                }
-            }
-        }
-
-        displayLink = CADisplayLink(target: self, selector: #selector(displayLinkDidFire(_:)))
-        displayLink?.add(to: RunLoop.main, forMode: .default)
-    }
-
-    public func pause() {
-        paused = true
-    }
-
-    public func resume() {
-        paused = false
-    }
-
-    public func stop() {
-        paused = true
-        complete = true
-    }
-
-    func update(timestep: TimeInterval) {
-        if complete { return }
-        if paused { return }
-
-        time += timestep
-
-        var anyActive = false
-        for animation in animations {
-            animation.apply(at: time)
-            if animation.endTime > time {
-                anyActive = true
-            }
-        }
-
-        if !anyActive {
-            complete = true
-        }
-    }
-
-    @objc
-    private func displayLinkDidFire(_ displayLink: CADisplayLink) {
-        DispatchQueue.main.async {
-            self.update(timestep: displayLink.duration)
-        }
-    }
-}
-
-class GLTFAnimationSystem : RealityKit.System {
-    private static let query = EntityQuery(
-        where: .has(GLTFAnimationController.self)
-    )
-
-    static var hasRegistered = false
-    static func registerIfNeeded() {
-        if !hasRegistered {
-            Self.registerSystem()
-            GLTFAnimationContainer.registerComponent()
-            GLTFAnimationController.registerComponent()
-            hasRegistered = true
-        }
-    }
-
-    required init(scene: RealityKit.Scene) {}
-
-    // TODO: update(context:) isn't called at a regular cadence when RealityKit doesn't think it needs to re-render.
-    // We currently use one CADisplayLink per running animation to receive regular callbacks to drive animations.
-    // It would be much more efficient to use a single CADisplayLink instead and drive all controllers with it.
-    func update(context: SceneUpdateContext) {
-//        let animationEntities = context.scene.performQuery(Self.query)
-//
-//        for entity in animationEntities {
-//            guard let controller = entity.components[GLTFAnimationController.self] else { continue }
-//            controller.update(timestep: context.deltaTime)
-//        }
-    }
-}
-
-public struct GLTFAnimationContainer : Component {
-    public private(set) var availableAnimations: [GLTFAnimation] = []
-
-    mutating func store(_ animation: GLTFAnimation) {
-        availableAnimations.append(animation)
-    }
-}
-
-public struct GLTFAnimationController : Component {
-    private var activeControllers = [GLTFAnimationPlaybackController]()
-
-    mutating func playAnimation(_ animation: GLTFAnimation, repeatDuration: TimeInterval, on entity: Entity) -> GLTFAnimationPlaybackController {
-        let playbackController = GLTFAnimationPlaybackController(animation: animation, rootEntity: entity)
-        playbackController.repeatDuration = repeatDuration
-        activeControllers.append(playbackController)
-        return playbackController
-    }
-
-    func update(timestep: TimeInterval) {
-        for animationController in activeControllers {
-            animationController.update(timestep: timestep)
-        }
-    }
-}
-
-public protocol CanPlayGLTFAnimations {
-    func playAnimation(_ animation: GLTFAnimation, repeatDuration: TimeInterval) -> GLTFAnimationPlaybackController
-}
-
-extension RealityKit.Entity : CanPlayGLTFAnimations {
-    public func playAnimation(_ animation: GLTFAnimation, repeatDuration: TimeInterval) -> GLTFAnimationPlaybackController {
-        if (!components.has(GLTFAnimationController.self)) {
-            components.set(GLTFAnimationController())
-        }
-        return components[GLTFAnimationController.self]!.playAnimation(animation, repeatDuration: repeatDuration, on: self)
-    }
-}
-
-public protocol ContainsGLTFAnimations {
-    var availableGLTFAnimations: [GLTFAnimation] { get }
-}
-
-extension RealityKit.Entity : ContainsGLTFAnimations {
-    public var availableGLTFAnimations: [GLTFAnimation] {
-        if (!components.has(GLTFAnimationContainer.self)) {
-            components.set(GLTFAnimationContainer())
-        }
-        return components[GLTFAnimationContainer.self]!.availableAnimations
-    }
-}
-
-extension GLTFAnimation {
-    func store(in entity: Entity) {
-        GLTFAnimationSystem.registerIfNeeded()
-
-        if (!entity.components.has(GLTFAnimationContainer.self)) {
-            entity.components.set(GLTFAnimationContainer())
-        }
-        entity.components[GLTFAnimationContainer.self]?.store(self)
-    }
-}
-
-#endif // swift >=5.5
+#endif // compiler >=5.6
 
 #endif // !tvOS

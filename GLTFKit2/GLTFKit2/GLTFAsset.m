@@ -682,7 +682,7 @@ NSString *GLTFMediaTypeFromDataURI(NSString *uriData) {
                 NSInputStream *fileStream = [[NSInputStream alloc] initWithURL:newURL];
                 [fileStream open];
                 const size_t kHeaderByteCount = 16;
-                uint8_t headerBytes[kHeaderByteCount];
+                uint8_t headerBytes[16];
                 if ([fileStream read:headerBytes maxLength:kHeaderByteCount] == kHeaderByteCount) {
                     NSData *headerData = [NSData dataWithBytesNoCopy:headerBytes length:kHeaderByteCount freeWhenDone:NO];
                     mediaType = GLTFInferredMediaTypeForData(headerData);

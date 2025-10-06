@@ -16,8 +16,8 @@ struct ContentView: View {
                                                         from: .local, to: content)
                     let contentExtent = contentBounds.extents.min()
 
-                    if let animation = entity.availableGLTFAnimations.first {
-                        _ = try? await rootEntity.playAnimation(animation, repeatDuration: 100.0)
+                    if let animation = entity.availableAnimations.first {
+                        _ = try? await rootEntity.playAnimation(animation.repeat())
                     }
 
                     let entityBounds = entity.visualBounds(relativeTo: nil)
