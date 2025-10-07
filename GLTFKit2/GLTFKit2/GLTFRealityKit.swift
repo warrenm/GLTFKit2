@@ -19,19 +19,6 @@ typealias PlatformColor = UIColor
 // https://forums.swift.org/t/do-we-need-something-like-if-available/40349/34
 #if compiler(>=5.6)
 
-fileprivate func lerp(_ a: Float, _ b: Float, _ t: Float) -> Float {
-    return a + t * (b - a)
-}
-
-fileprivate func lerp(_ a: simd_float3, _ b: simd_float3, _ t: Float) -> simd_float3 {
-    return a + t * (b - a)
-}
-
-fileprivate func unlerp(_ a: Float, _ b: Float, _ t: Float) -> Float {
-    if a == b { return 0 } // No solution; avoid division by zero
-    return (t - a) / (b - a)
-}
-
 func packedStride(for accessor: GLTFAccessor) -> Int {
     var size = 0
     switch accessor.componentType {
@@ -562,71 +549,11 @@ extension GLTFNode {
     }
 }
 
-fileprivate class GLTFTransformSampler {
-    let startTime: Float
-    let endTime: Float
-    let recommendedSampleInterval: Float
-    let animatedTranslation = MDLAnimatedVector3()
-    let animatedRotation = MDLAnimatedQuaternion()
-    let animatedScale = MDLAnimatedVector3()
-
-    init(defaultTranslation: SIMD3<Float>, translationChannel: GLTFAnimationChannel?,
-         defaultRotation: simd_quatf, rotationChannel: GLTFAnimationChannel?,
-         defaultScale: SIMD3<Float>, scaleChannel: GLTFAnimationChannel?,
-         maximumSampleInterval: Float = 1 / 30.0)
-    {
-        var minTime: Float = .infinity, maxTime: Float = -.infinity
-        for channel in [translationChannel, rotationChannel, scaleChannel] {
-            if let input = channel?.sampler.input {
-                let channelMinTime = input.minValues.first?.floatValue ?? .infinity
-                let channelMaxTime = input.maxValues.first?.floatValue ?? -.infinity
-                minTime = min(minTime, channelMinTime)
-                maxTime = max(maxTime, channelMaxTime)
-            }
-        }
-        var translationTimes = [minTime]; var translationValues = [defaultTranslation]
-        if let translationSampler = translationChannel?.sampler,
-           let times = packedFloatArray(for: translationSampler.input),
-           let values = packedFloat3Array(for: translationSampler.output)
-        {
-            translationTimes = times
-            translationValues = values
-        }
-        var rotationTimes = [minTime]; var rotationValues = [defaultRotation]
-        if let rotationSampler = rotationChannel?.sampler,
-           let times = packedFloatArray(for: rotationSampler.input),
-           let values = packedQuatfArray(for: rotationSampler.output)
-        {
-            rotationTimes = times
-            rotationValues = values
-        }
-        var scaleTimes = [minTime]; var scaleValues = [defaultScale]
-        if let scaleSampler = scaleChannel?.sampler,
-           let times = packedFloatArray(for: scaleSampler.input),
-           let values = packedFloat3Array(for: scaleSampler.output)
-        {
-            scaleTimes = times
-            scaleValues = values
-        }
-        startTime = minTime
-        endTime = maxTime
-
-        animatedTranslation.reset(float3Array: translationValues, atTimes: translationTimes.map({ Double($0) }))
-        animatedRotation.reset(floatQuaternionArray: rotationValues, atTimes: rotationTimes.map({ Double($0) }))
-        animatedScale.reset(float3Array: scaleValues, atTimes: scaleTimes.map({ Double($0) }))
-
-        let duration = maxTime - minTime
-        let averageKeyDuration = duration / Float(max(translationTimes.count, max(rotationTimes.count, scaleTimes.count)))
-        recommendedSampleInterval = averageKeyDuration > maximumSampleInterval ? maximumSampleInterval : averageKeyDuration
-    }
-}
-
-extension GLTFTransformSampler {
+fileprivate extension GLTFTransformSampler {
     func transform(at time: Float) -> Transform {
-        let sampleTime = TimeInterval(time)
-        let translation = animatedTranslation.float3Value(atTime: sampleTime)
-        let rotation = animatedRotation.floatQuaternionValue(atTime: sampleTime)
-        let scale = animatedScale.float3Value(atTime: sampleTime)
+        let translation = translation.value(at: time)
+        let rotation = rotation.value(at: time)
+        let scale = scale.value(at: time)
         return Transform(scale: scale, rotation: rotation, translation: translation)
     }
 }
@@ -1032,9 +959,11 @@ public class GLTFRealityKitLoader {
             let translationChannel = channels.first { $0.target.path == GLTFAnimationPath.translation.rawValue }
             let rotationChannel = channels.first { $0.target.path == GLTFAnimationPath.rotation.rawValue }
             let scaleChannel = channels.first { $0.target.path == GLTFAnimationPath.scale.rawValue }
-            let transformSampler = GLTFTransformSampler(defaultTranslation: targetNode.translation, translationChannel: translationChannel,
-                                                        defaultRotation: targetNode.rotation, rotationChannel: rotationChannel,
-                                                        defaultScale: targetNode.scale, scaleChannel: scaleChannel)
+            let transformSampler = GLTFTransformSampler(target: targetNode,
+                                                        translationChannel: translationChannel,
+                                                        rotationChannel: rotationChannel,
+                                                        scaleChannel: scaleChannel,
+                                                        maximumSampleInterval: 1 / 30.0) // TODO: Make sample interval an option
             let frames = stride(from: transformSampler.startTime,
                                 through: transformSampler.endTime,
                                 by: transformSampler.recommendedSampleInterval).map
@@ -1042,14 +971,12 @@ public class GLTFRealityKitLoader {
                 transformSampler.transform(at: $0)
             }
             let sampledAnimation = SampledAnimation(frames: frames,
-                                                    tweenMode: .linear,
+                                                    tweenMode: transformSampler.hasStepChannel ? .hold : .linear,
                                                     frameInterval: transformSampler.recommendedSampleInterval,
-                                                    isAdditive: false,
                                                     bindTarget: targetNode.bindTarget.transform,
-                                                    repeatMode: .none,
-                                                    fillMode: .none,
                                                     delay: TimeInterval(transformSampler.startTime))
             sampledAnimations.append(sampledAnimation)
+            //print("Bound animation \(name) to target path \(sampledAnimation.bindTarget)")
         }
         let groupAnimation = AnimationGroup(group: sampledAnimations, name: name)
         let resource = try AnimationResource.generate(with: groupAnimation)
