@@ -600,6 +600,8 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFLight *light;
 @property (nonatomic, copy) NSArray<GLTFNode *> *childNodes;
 @property (nonatomic, weak) GLTFNode *parentNode;
+/// A hint flag that indicates whether this node belongs to a skinning hierarchy.
+@property (nonatomic, assign) BOOL isJoint;
 @property (nonatomic, nullable, strong) GLTFSkin *skin;
 @property (nonatomic, assign) simd_float4x4 matrix;
 @property (nonatomic, nullable, strong) GLTFMesh *mesh;

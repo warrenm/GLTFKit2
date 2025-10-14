@@ -541,14 +541,15 @@ class GLTFRealityKitResourceContext {
 
 @available(macOS 12.0, iOS 15.0, *)
 extension GLTFNode {
-    var bindTarget: BindTarget.EntityPath {
+    var bindPath: BindTarget.EntityPath {
         if let parent = self.parent {
-            return parent.bindTarget.entity(self.name ?? "")
+            return parent.bindPath.entity(self.name ?? "")
         }
         return BindTarget.entity(self.name ?? "")
     }
 }
 
+@available(iOS 13.0, *)
 fileprivate extension GLTFTransformSampler {
     func transform(at time: Float) -> Transform {
         let translation = translation.value(at: time)
@@ -566,10 +567,14 @@ public class GLTFRealityKitLoader {
 #endif
     private let nameGenerator = UniqueNameGenerator()
 
+    private var pathsForSkeletonIDs: [/*MeshResource.Skeleton.ID*/String : BindTarget.EntityPath] = [:]
+    private var skeletonIDsByJointName: [String: [/*MeshResource.Skeleton.ID*/String]] = [:]
+    private var skeletonTransformsByJointName : [String: Transform] = [:]
+
     public static func load(from url: URL) async throws -> RealityKit.Entity {
         let asset = try GLTFAsset(url: url)
         if let scene = asset.defaultScene {
-            return DispatchQueue.main.asyncAndWait {
+            return await MainActor.run {
                 return convert(scene: scene, asset: asset)
             }
         } else {
@@ -593,6 +598,7 @@ public class GLTFRealityKitLoader {
         let context = GLTFRealityKitResourceContext()
 
         let rootEntity = Entity()
+        rootEntity.name = "glTF_\(scene.name ?? "Scene")_Root"
 
         do {
             let rootNodes = try scene.nodes.compactMap { try self.convert(node: $0, context: context) }
@@ -604,7 +610,7 @@ public class GLTFRealityKitLoader {
             fatalError("Error when converting scene: \(error)")
         }
 
-        // TODO: Morph targets, skinned animation, etc.
+        // TODO: Morph targets
 
         if #available(macOS 14.0, iOS 17.0, visionOS 2.0, *) {
             for animation in asset?.animations ?? [] {
@@ -628,7 +634,22 @@ public class GLTFRealityKitLoader {
         #if compiler(>=6.0)
         if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
             if let skin = gltfNode.skin {
-                skeleton = convert(skin: skin, context: context)
+                if let meshSkeleton = convert(skin: skin, context: context) {
+                    skeleton = meshSkeleton
+                    // Cache some associations between joints, entities, and skeletons so we can look them up later.
+                    pathsForSkeletonIDs[meshSkeleton.id] = gltfNode.bindPath
+                    for joint in meshSkeleton.joints {
+                        if joint.parentIndex == nil, let referenceNode = skin.skeleton {
+                            // TODO: Calculate the total transformation between the joint and the skeleton node?
+                            skeletonTransformsByJointName[joint.name] = Transform(matrix: referenceNode.matrix)
+                        }
+                        if let existingJointCache = skeletonIDsByJointName[joint.name] {
+                            skeletonIDsByJointName[joint.name] = existingJointCache + [meshSkeleton.id]
+                        } else {
+                            skeletonIDsByJointName[joint.name] = [meshSkeleton.id]
+                        }
+                    }
+                }
             }
         }
         #endif
@@ -691,7 +712,7 @@ public class GLTFRealityKitLoader {
     }
     #endif
 
-    @MainActor func convert(mesh gltfMesh: GLTFMesh, skeleton: Any? = nil,
+    @MainActor func convert(mesh gltfMesh: GLTFMesh, skeleton: Any? /*MeshResource.Skeleton?*/ = nil,
                             context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent?
     {
         var skeletonID: String?
@@ -948,7 +969,16 @@ public class GLTFRealityKitLoader {
             }
         }
         let name = animation.name ?? nameGenerator.nextUniqueName(prefix: "Animation")
-        var sampledAnimations = [SampledAnimation<Transform>]()
+
+        struct AnimatedJointData {
+            var jointNames = [String]()
+            var jointTransformSamplers = [GLTFTransformSampler]()
+            var minTime: Float = 0
+            var maxTime: Float = 0
+            var sampleInterval: Float = 1 / 30.0
+        }
+        var jointAnimation = AnimatedJointData()
+        var animations = [AnimationDefinition]()
         for (_, channels) in groupedChannels {
             if let _ = channels.first(where: { $0.target.path == GLTFAnimationPath.weights.rawValue }), channels.count == 1 {
                 continue // TODO: Implement morph target animation
@@ -964,23 +994,61 @@ public class GLTFRealityKitLoader {
                                                         rotationChannel: rotationChannel,
                                                         scaleChannel: scaleChannel,
                                                         maximumSampleInterval: 1 / 30.0) // TODO: Make sample interval an option
-            let frames = stride(from: transformSampler.startTime,
-                                through: transformSampler.endTime,
-                                by: transformSampler.recommendedSampleInterval).map
-            {
-                transformSampler.transform(at: $0)
+            if targetNode.isJoint {
+                jointAnimation.jointNames.append(targetNode.name!)
+                jointAnimation.jointTransformSamplers.append(transformSampler)
+                jointAnimation.minTime = min(jointAnimation.minTime, transformSampler.startTime)
+                jointAnimation.maxTime = max(jointAnimation.maxTime, transformSampler.endTime)
+                jointAnimation.sampleInterval = min(jointAnimation.sampleInterval, transformSampler.recommendedSampleInterval)
+            } else {
+                let frames = stride(from: transformSampler.startTime,
+                                    through: transformSampler.endTime,
+                                    by: transformSampler.recommendedSampleInterval).map
+                {
+                    transformSampler.transform(at: $0)
+                }
+                let sampledAnimation = SampledAnimation(frames: frames,
+                                                        tweenMode: transformSampler.hasStepChannel ? .hold : .linear,
+                                                        frameInterval: transformSampler.recommendedSampleInterval,
+                                                        bindTarget: targetNode.bindPath.transform,
+                                                        delay: TimeInterval(transformSampler.startTime))
+                animations.append(sampledAnimation)
             }
-            let sampledAnimation = SampledAnimation(frames: frames,
-                                                    tweenMode: transformSampler.hasStepChannel ? .hold : .linear,
-                                                    frameInterval: transformSampler.recommendedSampleInterval,
-                                                    bindTarget: targetNode.bindTarget.transform,
-                                                    delay: TimeInterval(transformSampler.startTime))
-            sampledAnimations.append(sampledAnimation)
-            //print("Bound animation \(name) to target path \(sampledAnimation.bindTarget)")
         }
-        let groupAnimation = AnimationGroup(group: sampledAnimations, name: name)
-        let resource = try AnimationResource.generate(with: groupAnimation)
-        return resource
+        if !jointAnimation.jointNames.isEmpty {
+            var jointTransforms = [JointTransforms]()
+            for t in stride(from: jointAnimation.minTime, through: jointAnimation.maxTime, by: jointAnimation.sampleInterval) {
+                let sampledTransforms = zip(jointAnimation.jointNames, jointAnimation.jointTransformSamplers).map { jointName, transformSampler -> Transform in
+                    var jointTransform = transformSampler.transform(at: t)
+                    if let ancestorTransform = skeletonTransformsByJointName[jointName] {
+                        jointTransform = Transform(matrix: ancestorTransform.matrix * jointTransform.matrix)
+                    }
+                    return jointTransform
+                }
+                jointTransforms.append(JointTransforms(sampledTransforms))
+            }
+            let delay = TimeInterval(jointAnimation.minTime)
+
+            var animatedSkeletonIDs = Set</*MeshResource.Skeleton.ID*/String>()
+            for jointName in jointAnimation.jointNames {
+                if let skeletonIDs = skeletonIDsByJointName[jointName] {
+                    animatedSkeletonIDs.formUnion(skeletonIDs)
+                }
+            }
+            let animatedBindPaths = animatedSkeletonIDs.compactMap { pathsForSkeletonIDs[$0] }
+            for bindPath in animatedBindPaths {
+                let skeletalAnimation = SampledAnimation(jointNames: jointAnimation.jointNames,
+                                                         frames: jointTransforms,
+                                                         tweenMode: .linear, // TODO: Support .hold?
+                                                         frameInterval: jointAnimation.sampleInterval,
+                                                         bindTarget: bindPath.jointTransforms,
+                                                         delay: delay)
+                animations.append(skeletalAnimation)
+            }
+        }
+
+        let groupAnimation = AnimationGroup(group: animations, name: name)
+        return try AnimationResource.generate(with: groupAnimation)
     }
 
     func platformColor(for vector: simd_float4) -> PlatformColor {

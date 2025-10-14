@@ -1,7 +1,5 @@
 import simd
 
-import ModelIO // for now
-
 func lerp(_ a: Float, _ b: Float, _ t: Float) -> Float {
     return a + t * (b - a)
 }
@@ -19,26 +17,15 @@ func unlerp(_ a: Float, _ b: Float, _ t: Float) -> Float {
     return (t - a) / (b - a)
 }
 
-//func cubic_interp(_ a: Float, _ b: Float,
-//                  _ leftTangent: Float, _ rightTangent: Float,
-//                  _ t: Float, _ dT: Float) -> Float
-//{
-//    let t2 = t * t, t3 = t2 * t
-//    return (2 * t3 - 3 * t2 + 1) * a +
-//           dT * (t3 - 2 * t2 + t) * leftTangent +
-//           (-2 * t3 + 3 * t2) * b +
-//           dT * (t3 - t2) * rightTangent
-//}
-
 func cubic_interp(_ a: SIMD3<Float>, _ b: SIMD3<Float>,
-                  _ leftTangent: SIMD3<Float>, _ rightTangent: SIMD3<Float>,
+                  _ inTangent: SIMD3<Float>, _ outTangent: SIMD3<Float>,
                   _ t: Float, _ dT: Float) -> SIMD3<Float>
 {
     let t2 = t * t, t3 = t2 * t
     return (2 * t3 - 3 * t2 + 1) * a +
-           dT * (t3 - 2 * t2 + t) * leftTangent +
+           dT * (t3 - 2 * t2 + t) * inTangent +
            (-2 * t3 + 3 * t2) * b +
-           dT * (t3 - t2) * rightTangent
+           dT * (t3 - t2) * outTangent
 }
 
 protocol GLTFAnimatedValue {
@@ -62,7 +49,7 @@ extension GLTFAnimatedValue {
         return keyTimes.last ?? 0.0
     }
 
-    func keyTimeIndicesFor(time: Float) -> (index: Int, nextIndex: Int)? {
+    func keyTimeIndicesForTime(_ time: Float) -> (index: Int, nextIndex: Int)? {
         guard !keyTimes.isEmpty else { return nil }
         if time <= keyTimes[0] {
             return keyTimes.count > 1 ? (0, 1) : (0, 0)
@@ -92,21 +79,18 @@ class GLTFAnimatedVector3 : GLTFAnimatedValue {
     let interpolation: GLTFInterpolationMode
 
     init(keyTimes: [Float], values: [SIMD3<Float>], interpolation: GLTFInterpolationMode) {
+        precondition(((interpolation == .cubic) && (values.count == keyTimes.count * 3)) ||
+                     (values.count == keyTimes.count))
+
         self.keyTimes = keyTimes
         self.values = values
         self.interpolation = interpolation
-
-        if interpolation == .cubic {
-            assert(values.count == keyTimes.count * 3)
-        } else {
-            assert(values.count == keyTimes.count)
-        }
     }
 
     func value(at time: Float) -> SIMD3<Float> {
         guard !values.isEmpty else { return [0, 0, 0] }
 
-        guard let (index, nextIndex) = keyTimeIndicesFor(time: time) else {
+        guard let (index, nextIndex) = keyTimeIndicesForTime(time) else {
             return values[0]
         }
 
@@ -147,7 +131,7 @@ class GLTFAnimatedQuaternion : GLTFAnimatedValue {
     func value(at time: Float) -> simd_quatf {
         guard !values.isEmpty else { return simd_quatf() }
 
-        guard let (index, nextIndex) = keyTimeIndicesFor(time: time) else {
+        guard let (index, nextIndex) = keyTimeIndicesForTime(time) else {
             return values[0]
         }
 
