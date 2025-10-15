@@ -50,6 +50,10 @@ The framework can be used to easily transform glTF assets into `SCNScene`s to in
 
 First, load the asset as shown above. Then, to get the default scene of a glTF asset, use the `SCNScene` class extension method `+[SCNScene sceneWithGLTFAsset:]`.
 
+### Interoperating with RealityKit
+
+Use the static method ``GLTFRealityKitLoader.load(from url: URL)`` to load the root Entity from the file. The URL must be a local file URL. Loading of remote assets and resources is not supported.
+
 ### Using Draco Mesh Decompression
 
 GLTFKit2 supports meshes compressed with the [Draco geometry compression library](https://github.com/google/draco) through a plugin system. To activate Draco decompression support, implement the `GLTFDracoMeshDecompressor` protocol in your target, then set the `dracoDecompressorClassName` property on `GLTFAsset` to the name of the conforming class. The framework will then use the supplied class to convert compressed mesh data into glTF primitives which are suitable for rendering. A sample Draco decompressor class is provided in the macOS GLTFViewer target. You are responsible for compiling and linking to the Draco library itself in your own target. If you would prefer not to compile the library yourself, consider using [DracoSwift](https://github.com/warrenm/DracoSwift).
