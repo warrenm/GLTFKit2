@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="20037" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="24412" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="20037"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24412"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -28,11 +28,11 @@
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <subviews>
                         <popUpButton wantsLayer="YES" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="JqY-Lp-rg7">
-                            <rect key="frame" x="18" y="53" width="216" height="26"/>
+                            <rect key="frame" x="14" y="53" width="210" height="26"/>
                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                             <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="s0P-Nf-sTc" id="Qrg-lG-6QS">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                <font key="font" metaFont="menu"/>
+                                <font key="font" metaFont="message"/>
                                 <menu key="menu" id="FvV-rD-X7a">
                                     <items>
                                         <menuItem title="Item 1" state="on" id="s0P-Nf-sTc"/>
@@ -46,21 +46,21 @@
                             </connections>
                         </popUpButton>
                         <segmentedControl verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="w6s-dl-2yV">
-                            <rect key="frame" x="248" y="54" width="209" height="24"/>
+                            <rect key="frame" x="232" y="54" width="225" height="24"/>
                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                             <segmentedCell key="cell" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="cXp-El-UQA">
                                 <font key="font" metaFont="system"/>
                                 <segments>
-                                    <segment label="Loop All" width="68"/>
-                                    <segment label="Loop One" width="67" selected="YES" tag="1"/>
-                                    <segment label="No Loop" width="67"/>
+                                    <segment label="Loop All" width="75"/>
+                                    <segment label="Loop One" width="74" selected="YES" tag="1"/>
+                                    <segment label="No Loop" width="74"/>
                                 </segments>
                             </segmentedCell>
                             <connections>
                                 <action selector="didSelectMode:" target="-2" id="A7R-R0-Kvu"/>
                             </connections>
                         </segmentedControl>
-                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="LeB-Tg-Raz">
+                        <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="LeB-Tg-Raz">
                             <rect key="frame" x="413" y="23" width="44" height="16"/>
                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="88.88" id="7f6-IK-w7j">
@@ -80,7 +80,7 @@
                                 <action selector="didClickPlayPause:" target="-2" id="8hK-UU-FZ6"/>
                             </connections>
                         </button>
-                        <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="cHP-qA-B8k">
+                        <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="cHP-qA-B8k">
                             <rect key="frame" x="74" y="23" width="44" height="16"/>
                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="88.88" id="SC5-lX-I4M">
@@ -119,6 +119,6 @@
         </customView>
     </objects>
     <resources>
-        <image name="NSTouchBarPlayPauseTemplate" width="23" height="13"/>
+        <image name="NSTouchBarPlayPauseTemplate" width="28" height="16"/>
     </resources>
 </document>

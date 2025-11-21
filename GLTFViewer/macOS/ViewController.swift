@@ -92,7 +92,7 @@ class ViewController: NSViewController {
         NSLayoutConstraint(item: animationController.view, attribute:.width, relatedBy:.equal,
                            toItem: nil, attribute: .notAnAttribute, multiplier:0, constant:480).isActive = true
         NSLayoutConstraint(item: animationController.view, attribute:.height, relatedBy:.equal,
-                           toItem: nil, attribute:.notAnAttribute, multiplier:0, constant:100).isActive = true
+                           toItem: nil, attribute:.notAnAttribute, multiplier:0, constant:96).isActive = true
         NSLayoutConstraint(item:animationController.view, attribute:.centerX, relatedBy:.equal,
                            toItem: view, attribute: .centerX, multiplier:1, constant:0).isActive = true
         view.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:[controller]-(12)-|",
