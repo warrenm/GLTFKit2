@@ -234,6 +234,22 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
     return element;
 }
 
+static BOOL GLTFAccessorGetMinMaxScalarValues(GLTFAccessor *accessor, float *minValue, float *maxValue) {
+    if (accessor == nil ||
+        accessor.minValues == nil || accessor.minValues.count < 1 ||
+        accessor.maxValues == nil || accessor.maxValues.count < 1)
+    {
+        return NO;
+    }
+    if (minValue) {
+        *minValue = [accessor.minValues.firstObject floatValue];
+    }
+    if (maxValue) {
+        *maxValue = [accessor.maxValues.firstObject floatValue];
+    }
+    return YES;
+}
+
 static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
     if ([name isEqualToString:GLTFAttributeSemanticPosition]) {
         return SCNGeometrySourceSemanticVertex;
@@ -310,14 +326,14 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
     return [NSData dataWithBytesNoCopy:shorts length:bufferSize freeWhenDone:YES];
 }
 
-static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, NSTimeInterval maxKeyTime) {
+static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, float minKeyTime, float maxKeyTime) {
     NSData *sourceData = GLTFPackedDataForAccessor(accessor);
     sourceData = GLTFTransformPackedDataToFloat(sourceData, accessor);
     NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
     float scale = (maxKeyTime > 0) ? (1.0f / maxKeyTime) : 1.0f;
     for (int i = 0; i < accessor.count; ++i) {
         const float *x = sourceData.bytes + (i * sizeof(float));
-        NSNumber *value = @(x[0] * scale);
+        NSNumber *value = @((x[0] - minKeyTime) * scale);
         [values addObject:value];
     }
     return values;
@@ -1109,17 +1125,28 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         }
     }
 
+    BOOL reportNonZeroMinTimeAnimations = YES;
     NSMutableArray<GLTFSCNAnimation *> *animationPlayers = [NSMutableArray arrayWithCapacity:self.asset.animations.count];
     for (GLTFAnimation *animation in self.asset.animations) {
         NSMutableArray *caChannels = [NSMutableArray array];
-        NSTimeInterval maxChannelTime = 0.0;
+        float minChannelTime = FLT_MAX, maxChannelTime = 0.0f;
         for (GLTFAnimationChannel *channel in animation.channels) {
-            NSTimeInterval channelMaxKeyTime = 0.0;
-            if (channel.sampler.input.maxValues.count > 0) {
-                channelMaxKeyTime = channel.sampler.input.maxValues.firstObject.doubleValue;
+            float channelMinKeyTime = 0.0f, channelMaxKeyTime = 0.0f;
+            if (GLTFAccessorGetMinMaxScalarValues(channel.sampler.input, &channelMinKeyTime, &channelMaxKeyTime)) {
+                minChannelTime = MIN(minChannelTime, channelMinKeyTime);
+                maxChannelTime = MAX(maxChannelTime, channelMaxKeyTime);
             }
-            maxChannelTime = MAX(maxChannelTime, channelMaxKeyTime);
-            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, channelMaxKeyTime);
+        }
+        if (minChannelTime > 0.0f && reportNonZeroMinTimeAnimations) {
+            GLTFLogInfo(@"[GLTFKit2] Asset has animation(s) containing only channels with non-zero start times. "
+                        @"Any such animations will be adjusted to start at time 0. This will only be logged once per asset.");
+            reportNonZeroMinTimeAnimations = NO;
+        }
+        for (GLTFAnimationChannel *channel in animation.channels) {
+            float channelMinKeyTime = 0.0f, channelMaxKeyTime = 0.0f;
+            GLTFAccessorGetMinMaxScalarValues(channel.sampler.input, &channelMinKeyTime, &channelMaxKeyTime);
+            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, channelMinKeyTime, channelMaxKeyTime);
+
             if ([channel.target.path isEqualToString:GLTFAnimationPathWeights]) {
                 NSUInteger targetCount = channel.target.node.mesh.primitives.firstObject.targets.count;
                 assert(targetCount > 0);
@@ -1148,7 +1175,8 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                         weightAnimation.values = weightArrays[t];
                         // TODO: Support non-linear calculation modes?
                         weightAnimation.calculationMode = kCAAnimationLinear;
-                        weightAnimation.duration = channelMaxKeyTime;
+                        weightAnimation.beginTime = channelMinKeyTime - minChannelTime;
+                        weightAnimation.duration = channelMaxKeyTime - channelMinKeyTime;
                         weightAnimation.repeatDuration = FLT_MAX;
                         [weightAnimations addObject:weightAnimation];
                     }
@@ -1198,13 +1226,14 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                         caAnimation.values = knots;
                         break;
                 }
-                caAnimation.duration = channelMaxKeyTime;
+                caAnimation.beginTime = channelMinKeyTime - minChannelTime;
+                caAnimation.duration = channelMaxKeyTime - channelMinKeyTime;
                 [caChannels addObject:caAnimation];
             }
         }
         CAAnimationGroup *channelGroup = [CAAnimationGroup animation];
         channelGroup.animations = caChannels;
-        channelGroup.duration = maxChannelTime;
+        channelGroup.duration = maxChannelTime - minChannelTime;
         channelGroup.repeatDuration = FLT_MAX;
         SCNAnimation *scnChannelGroup = [SCNAnimation animationWithCAAnimation:channelGroup];
         SCNAnimationPlayer *animationPlayer = [SCNAnimationPlayer animationPlayerWithAnimation:scnChannelGroup];
