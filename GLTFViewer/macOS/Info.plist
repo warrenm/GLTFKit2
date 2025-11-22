@@ -27,7 +27,7 @@
 			<string>Default</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>org.khronos.gltf</string>
+				<string>com.khronos.gltf</string>
 			</array>
 			<key>LSTypeIsPackage</key>
 			<integer>0</integer>
@@ -55,7 +55,7 @@
 			<string>Default</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>org.khronos.glb</string>
+				<string>com.khronos.glb</string>
 			</array>
 			<key>LSTypeIsPackage</key>
 			<integer>0</integer>
@@ -106,7 +106,7 @@
 				<string>GLTF</string>
 			</dict>
 			<key>UTTypeIdentifier</key>
-			<string>org.khronos.gltf</string>
+			<string>com.khronos.gltf</string>
 			<key>UTTypeReferenceURL</key>
 			<string>https://www.khronos.org/gltf/</string>
 			<key>UTTypeTagSpecification</key>
@@ -134,7 +134,7 @@
 				<string>GLB</string>
 			</dict>
 			<key>UTTypeIdentifier</key>
-			<string>org.khronos.glb</string>
+			<string>com.khronos.glb</string>
 			<key>UTTypeReferenceURL</key>
 			<string>https://www.khronos.org/gltf/</string>
 			<key>UTTypeTagSpecification</key>
