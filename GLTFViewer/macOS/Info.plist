@@ -27,6 +27,7 @@
 			<string>Default</string>
 			<key>LSItemContentTypes</key>
 			<array>
+				<string>public.gltf</string>
 				<string>org.khronos.gltf</string>
 			</array>
 			<key>LSTypeIsPackage</key>
@@ -56,6 +57,7 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>org.khronos.glb</string>
+				<string>public.glb</string>
 			</array>
 			<key>LSTypeIsPackage</key>
 			<integer>0</integer>
@@ -89,6 +91,62 @@
 	<string>NSApplication</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>GL Transmission Format</string>
+			<key>UTTypeIconFile</key>
+			<string></string>
+			<key>UTTypeIcons</key>
+			<dict>
+				<key>UTTypeIconBadgeName</key>
+				<string>document-icon</string>
+				<key>UTTypeIconText</key>
+				<string>GLTF</string>
+			</dict>
+			<key>UTTypeIdentifier</key>
+			<string>public.gltf</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://www.khronos.org/gltf/</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>gltf</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>GL Transmission Format (Binary)</string>
+			<key>UTTypeIconFile</key>
+			<string></string>
+			<key>UTTypeIcons</key>
+			<dict>
+				<key>UTTypeIconBadgeName</key>
+				<string>document-icon</string>
+				<key>UTTypeIconText</key>
+				<string>GLB</string>
+			</dict>
+			<key>UTTypeIdentifier</key>
+			<string>public.glb</string>
+			<key>UTTypeReferenceURL</key>
+			<string>https://www.khronos.org/gltf/</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>glb</string>
+				</array>
+			</dict>
+		</dict>
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
