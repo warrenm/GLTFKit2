@@ -12,6 +12,8 @@
 			<array>
 				<string>public.gltf</string>
 				<string>public.glb</string>
+				<string>org.khronos.gltf</string>
+				<string>org.khronos.glb</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
