@@ -28,6 +28,17 @@ func cubic_interp(_ a: SIMD3<Float>, _ b: SIMD3<Float>,
            dT * (t3 - t2) * outTangent
 }
 
+func cubic_interp(_ a: Float, _ b: Float,
+                  _ inTangent: Float, _ outTangent: Float,
+                  _ t: Float, _ dT: Float) -> Float
+{
+    let t2 = t * t, t3 = t2 * t
+    return (2 * t3 - 3 * t2 + 1) * a +
+           dT * (t3 - 2 * t2 + t) * inTangent +
+           (-2 * t3 + 3 * t2) * b +
+           dT * (t3 - t2) * outTangent
+}
+
 protocol GLTFAnimatedValue {
     var sampleCount: Int { get }
     var minimumTime: Float { get }
@@ -70,6 +81,50 @@ extension GLTFAnimatedValue {
             }
         }
         return (low, high)
+    }
+}
+
+class GLTFAnimatedScalar : GLTFAnimatedValue {
+    let keyTimes: [Float]
+    let values: [Float]
+    let interpolation: GLTFInterpolationMode
+
+    init(keyTimes: [Float], values: [Float], interpolation: GLTFInterpolationMode) {
+        precondition(((interpolation == .cubic) && (values.count == keyTimes.count * 3)) ||
+                     (values.count == keyTimes.count))
+
+        self.keyTimes = keyTimes
+        self.values = values
+        self.interpolation = interpolation
+    }
+
+    func value(at time: Float) -> Float {
+        guard !values.isEmpty else { return 0 }
+
+        guard let (index, nextIndex) = keyTimeIndicesForTime(time) else {
+            return values[0]
+        }
+
+        if index == nextIndex {
+            return interpolation == .cubic ? values[index * 3 + 1] : values[index]
+        }
+
+        let t0 = keyTimes[index]
+        let t1 = keyTimes[nextIndex]
+        let factor = unlerp(t0, t1, time)
+
+        switch interpolation {
+        case .step:
+            return values[index]
+        case .linear:
+            return lerp(values[index], values[nextIndex], factor)
+        case .cubic:
+            return cubic_interp(values[index * 3 + 1], values[nextIndex * 3 + 1],
+                                values[index * 3 + 2], values[nextIndex * 3 + 0],
+                                factor, (t1 - t0))
+        default:
+            return lerp(values[index], values[nextIndex], factor)
+        }
     }
 }
 
