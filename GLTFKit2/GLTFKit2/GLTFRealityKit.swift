@@ -657,6 +657,26 @@ public class GLTFRealityKitLoader {
         if let gltfMesh = gltfNode.mesh,
            let meshComponent = try convert(mesh: gltfMesh, skeleton: skeleton, context: context) {
             nodeEntity.components.set(meshComponent)
+
+            #if compiler(>=6.0)
+            if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+                let mapping = BlendShapeWeightsMapping(meshResource: meshComponent.mesh)
+                var blendComponent = BlendShapeWeightsComponent(weightsMapping: mapping)
+                if blendComponent.weightSet.count > 0 {
+                    var weightsData = blendComponent.weightSet[0]
+                    var weights = weightsData.weights
+
+                    let source = gltfNode.weights ?? gltfMesh.weights ?? []
+                    weights.indices.forEach {
+                        weights[$0] = $0 < source.count ? source[$0].floatValue : 0
+                    }
+
+                    weightsData.weights = weights
+                    blendComponent.weightSet[0] = weightsData
+                }
+                nodeEntity.components.set(blendComponent)
+            }
+            #endif
         }
 
         if #available(visionOS 2.0, *) {
@@ -727,8 +747,9 @@ public class GLTFRealityKitLoader {
         typealias PartMaterialPair = (MeshResource.Part, any RealityKit.Material)
         var primitiveMaterialIndex: Int = 0
         let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> PartMaterialPair? in
-            if let part = self.convert(primitive: primitive, materialIndex: primitiveMaterialIndex, 
-                                       skeletonID: skeletonID, context:context)
+            let blendShapeNames = blendShapeNames(for: gltfMesh)
+            if let part = self.convert(primitive: primitive, materialIndex: primitiveMaterialIndex,
+                                       skeletonID: skeletonID, blendShapeNames: blendShapeNames, context:context)
             {
                 let material = try self.convert(material: primitive.material, context: context)
                 primitiveMaterialIndex += 1
@@ -767,7 +788,7 @@ public class GLTFRealityKitLoader {
     }
 
     func convert(primitive gltfPrimitive: GLTFPrimitive, materialIndex: Int = 0, skeletonID: String? = nil,
-                 context: GLTFRealityKitResourceContext) -> RealityKit.MeshResource.Part?
+                 blendShapeNames: [String], context: GLTFRealityKitResourceContext) -> RealityKit.MeshResource.Part?
     {
         if gltfPrimitive.primitiveType != .triangles {
             return nil
@@ -780,6 +801,25 @@ public class GLTFRealityKitLoader {
            let positionArray = packedFloat3Array(for: positionAttribute.accessor)
         {
             part[MeshBuffers.positions] = MeshBuffers.Positions(positionArray)
+            
+            #if compiler(>=6.0)
+            if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+                let targets = gltfPrimitive.targets
+                for (index, name) in blendShapeNames.enumerated() {
+                    var offsets = [SIMD3<Float>](repeating: .zero, count: positionArray.count)
+                    if index < targets.count {
+                        let target = targets[index]
+                        if let positionDeltaAttribute = target.first(where: { $0.name == "POSITION" }),
+                           let deltaArray = packedFloat3Array(for: positionDeltaAttribute.accessor),
+                           deltaArray.count == positionArray.count
+                        {
+                            offsets = deltaArray
+                        }
+                    }
+                    part.setBlendShapeOffsets(named: name, buffer: MeshBuffers.BlendShapeOffsets(offsets))
+                }
+            }
+            #endif
         }
 
         if let normalAttribute = gltfPrimitive.attribute(forName: "NORMAL"),
@@ -1062,6 +1102,20 @@ public class GLTFRealityKitLoader {
         let color = UIColor(red: components[0], green: components[1], blue: components[2], alpha: components[3])
         return color
 #endif
+    }
+    
+    private func blendShapeNames(for gltfMesh: GLTFMesh) -> [String] {
+        let base = gltfMesh.targetNames ?? []
+        let maxCount = gltfMesh.primitives.map(\.targets.count).max() ?? 0
+
+        let padded = base + (base.count..<maxCount).map { "Target_\($0)" }
+
+        var seen: [String: Int] = [:]
+        return padded.map {
+            let n = seen[$0, default: 0] + 1
+            seen[$0] = n
+            return n == 1 ? $0 : "\($0)_\(n)"
+        }
     }
 }
 
