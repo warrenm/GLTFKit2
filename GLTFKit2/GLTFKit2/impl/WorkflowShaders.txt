@@ -15,7 +15,7 @@ static float y_from_rgb(float3 rgb) {
     return dot(rgb, float3(0.2126, 0.7152, 0.0722));
 }
 static float solve_metallic(float diffuse, float specular, float oneMinusSpecularStrength) {
-    if (specular < diffuseF0.r) {
+    if (specular < dielectricF0.r) {
         return 0;
     }
     float a = dielectricF0.r;
@@ -49,13 +49,15 @@ kernel void sg_to_mr(texture2d<float, access::sample> diffuseTexture            
     uint outputHeight = baseColorTexture.get_height();
     if (index.x >= outputWidth || index.y >= outputHeight) { return; }
     float2 uv { float(index.x) / outputWidth, float(index.y) / outputHeight };
-    float4 diffuseColor = params.diffuseColorFactor;
+    float3 diffuseColor = {0};
+    float opacity = 1;
     if (!is_null_texture(diffuseTexture)) {
         float4 sampledDiffuse = diffuseTexture.sample(linearSampler, uv);
         if (params.unpremultiplyDiffuse) {
             sampledDiffuse.rgb /= sampledDiffuse.a;
         }
-        diffuseColor *= sampledDiffuse;
+        diffuseColor.rgb = sampledDiffuse.rgb;
+        opacity = sampledDiffuse.a;
     }
     float3 specularColor = params.specularFactor;
     float glossiness = params.glossinessFactor;
@@ -71,6 +73,6 @@ kernel void sg_to_mr(texture2d<float, access::sample> diffuseTexture            
     float3 baseColor;
     float metallic, roughness;
     get_rm_from_sg(diffuseColor.rgb, specularColor, glossiness, &baseColor, &metallic, &roughness);
-    baseColorTexture.write(float4(baseColor, diffuseColor.a), ushort2(index));
+    baseColorTexture.write(float4(baseColor, opacity), ushort2(index));
     roughnessMetallicTexture.write(float4(0.0, roughness, metallic, 1.0), ushort2(index));
 }

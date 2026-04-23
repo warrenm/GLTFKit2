@@ -4,6 +4,13 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+typedef NSString * GLTFSCNAssetOption NS_STRING_ENUM;
+
+/// Use this option to indicate whether alpha-blended glTF materials being converted to
+/// SCNMaterials should write to the depth buffer. This may improve rendering fidelity
+/// for some scenes, while it may have a detrimental effect on others. Defaults to YES.
+GLTFKIT2_EXPORT GLTFSCNAssetOption const GLTFSCNAlphaBlendedMaterialsWriteDepth;
+
 extern NSString *const GLTFAssetPropertyKeyCopyright;
 extern NSString *const GLTFAssetPropertyKeyGenerator;
 extern NSString *const GLTFAssetPropertyKeyVersion;
@@ -18,6 +25,7 @@ extern NSString *const GLTFAssetPropertyKeyExtensionsRequired;
 
 @interface SCNScene (GLTFSceneKit)
 + (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset;
++ (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset options:(NSDictionary<GLTFSCNAssetOption, id> *)options;
 @end
 
 @interface GLTFSCNSceneSource : NSObject
@@ -32,6 +40,7 @@ extern NSString *const GLTFAssetPropertyKeyExtensionsRequired;
 @property (nonatomic, readonly) NSArray<GLTFSCNAnimation *> *animations;
 
 - (instancetype)initWithAsset:(GLTFAsset *)asset;
+- (instancetype)initWithAsset:(GLTFAsset *)asset options:(NSDictionary<GLTFSCNAssetOption, id> *)options;
 - (instancetype)initWithAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant;
 
 /*!

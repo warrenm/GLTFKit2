@@ -38,6 +38,22 @@ class ViewController: NSViewController {
                 cameraLight.color = NSColor.white
                 sceneView.pointOfView?.light = cameraLight
 
+                // Uncommenting this may alleviate certain artifacts related to alpha-blending
+                /*
+                sceneView.scene?.rootNode.enumerateHierarchy { node, _ in
+                    guard let geometry = node.geometry else { return }
+                    for material in geometry.materials {
+                        if material.blendMode == .alpha {
+                            var shaderModifiers = material.shaderModifiers ?? [:]
+                            var fragmentModifier = shaderModifiers[.fragment] ?? ""
+                            fragmentModifier += "#ifdef USE_PBR_TRANSPARENCY\n  _output.color.rgb *= _lightingContribution.pbr.transparency;\n#endif\n"
+                            shaderModifiers[.fragment] = fragmentModifier
+                            material.shaderModifiers = shaderModifiers
+                        }
+                    }
+                }
+                */
+
                 if asset.animations.count > 0 {
                     if animationController == nil {
                         showAnimationUI()

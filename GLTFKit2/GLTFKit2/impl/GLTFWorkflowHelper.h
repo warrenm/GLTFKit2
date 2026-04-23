@@ -5,7 +5,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface GLTFWorkflowHelper : NSObject
 
-- (instancetype)initWithSpecularGlossiness:(GLTFPBRSpecularGlossinessParams *)specularGlossiness;
+- (instancetype)initWithSpecularGlossiness:(GLTFPBRSpecularGlossinessParams *)specularGlossiness
+                                    device:(id<MTLDevice>)device;
 
 @property (nonatomic, readonly) simd_float4 baseColorFactor;
 @property (nonatomic, nullable, readonly) GLTFTextureParams *baseColorTexture;

@@ -621,6 +621,13 @@ NSString *GLTFMediaTypeFromDataURI(NSString *uriData) {
     return self;
 }
 
+- (instancetype)initWithTexture:(id<MTLTexture>)texture {
+    if (self = [super init]) {
+        _cachedTexture = texture;
+    }
+    return self;
+}
+
 - (void)dealloc {
     CGImageRelease(_cachedImage);
 }

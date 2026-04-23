@@ -6,6 +6,8 @@
 #import <SceneKit/ModelIO.h>
 #import <simd/simd.h>
 
+GLTFAssetLoadingOption const GLTFSCNAlphaBlendedMaterialsWriteDepth = @"GLTFSCNAlphaBlendedMaterialsWriteDepthKey";
+
 NSString *const GLTFAssetPropertyKeyCopyright = @"GLTFAssetPropertyKeyCopyright";
 NSString *const GLTFAssetPropertyKeyGenerator = @"GLTFAssetPropertyKeyGenerator";
 NSString *const GLTFAssetPropertyKeyVersion = @"GLTFAssetPropertyKeyVersion";
@@ -505,10 +507,6 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     return values;
 }
 
-static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
-    return 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2];
-}
-
 @implementation GLTFSCNAnimation
 @end
 
@@ -516,6 +514,11 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 
 + (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset {
     GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset];
+    return source.defaultScene;
+}
+
++ (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset options:(NSDictionary<GLTFSCNAssetOption, id> *)options {
+    GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset options:options];
     return source.defaultScene;
 }
 
@@ -529,6 +532,8 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 @interface GLTFSCNSceneSource () {
     NSMutableDictionary<NSUUID *, id> *_materialPropertyContentsCache;
 }
+@property (nonatomic, strong) id<MTLDevice> device;
+@property (nonatomic, copy) NSDictionary<GLTFSCNAssetOption, id> *options;
 @property (nonatomic, copy) NSDictionary *properties;
 @property (nonatomic, copy) NSArray<SCNMaterial *> *materials;
 @property (nonatomic, copy) NSArray<SCNLight *> *lights;
@@ -547,8 +552,14 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 @implementation GLTFSCNSceneSource
 
 - (instancetype)initWithAsset:(GLTFAsset *)asset {
+    return [self initWithAsset:asset options:@{}];
+}
+
+- (instancetype)initWithAsset:(GLTFAsset *)asset options:(NSDictionary<GLTFSCNAssetOption, id> *)options {
     if (self = [super init]) {
+        _device = MTLCreateSystemDefaultDevice();
         _asset = asset;
+        _options = [options copy];
         [self convertAsset];
     }
     return self;
@@ -556,7 +567,9 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 
 - (instancetype)initWithAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant {
     if (self = [super init]) {
+        _device = MTLCreateSystemDefaultDevice();
         _asset = asset;
+        _options = @{};
         _activeMaterialVariant = variant;
         [self convertAsset];
     }
@@ -568,18 +581,12 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 }
 
 - (nullable id)materialPropertyContentsForTexture:(GLTFTexture *)texture {
-    static id<MTLDevice> device = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        device = MTLCreateSystemDefaultDevice();
-    });
-
     if (_materialPropertyContentsCache[texture.identifier] != nil) {
         return _materialPropertyContentsCache[texture.identifier];
     }
 #ifdef GLTF_BUILD_WITH_KTX2
     if (texture.basisUSource) {
-        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:device];
+        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:self.device];
         _materialPropertyContentsCache[texture.identifier] = metalTexture;
         return metalTexture;
     }
@@ -596,7 +603,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     } else {
         GLTFLogWarning(@"[GLTFKit2] Warning: Failed to create CGImage for material property. Will try to load as KTX2 as a last resort...");
         if ([[texture.source inferMediaType] isEqual:GLTFMediaTypeKTX2]) {
-            id<MTLTexture> imageTexture = [texture.source newTextureWithDevice:device];
+            id<MTLTexture> imageTexture = [texture.source newTextureWithDevice:self.device];
             _materialPropertyContentsCache[texture.identifier] = imageTexture;
             return imageTexture;
         }
@@ -639,6 +646,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         } else {
             scnMaterial.lightingModelName = SCNLightingModelBlinn;
         }
+        simd_float4 baseColorFactor = simd_make_float4(1, 1, 1, 1);
         if (material.metallicRoughness) {
             //TODO: How to represent base color/emissive factor, etc., when textures are present?
             if (material.metallicRoughness.baseColorTexture) {
@@ -646,8 +654,8 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 baseColorProperty.contents = [self materialPropertyContentsForTexture:baseColorTexture.texture];
                 GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
-                simd_float4 rgba = material.metallicRoughness.baseColorFactor;
-                if (rgba[0] != 1.0 || rgba[1] != 1.0 || rgba[2] != 1.0 || rgba[3] != 1.0) {
+                baseColorFactor = material.metallicRoughness.baseColorFactor;
+                if (baseColorFactor[0] != 1.0 || baseColorFactor[1] != 1.0 || baseColorFactor[2] != 1.0 || baseColorFactor[3] != 1.0) {
                     // SceneKit only supports scalar factors for material property intensities,
                     // so we need to use a shader modifier to modulate properly.
                     hasNonUnityBaseColorFactor = YES;
@@ -680,13 +688,19 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 roughnessProperty.contents = @(material.metallicRoughness.roughnessFactor);
             }
         } else if (material.specularGlossiness) {
-            GLTFWorkflowHelper *workflowConverter = [[GLTFWorkflowHelper alloc] initWithSpecularGlossiness:material.specularGlossiness];
+            GLTFWorkflowHelper *workflowConverter = [[GLTFWorkflowHelper alloc] initWithSpecularGlossiness:material.specularGlossiness
+                                                                                                    device:self.device];
             if (workflowConverter.baseColorTexture) {
                 GLTFTextureParams *baseColorTexture = workflowConverter.baseColorTexture;
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
-                baseColorProperty.contents = (__bridge_transfer id)[workflowConverter.baseColorTexture.texture.source newCGImage];
+                baseColorProperty.contents = [workflowConverter.baseColorTexture.texture.source newTextureWithDevice:self.device];
                 GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
-                baseColorProperty.intensity = GLTFLuminanceFromRGBA(workflowConverter.baseColorFactor);
+                baseColorFactor = workflowConverter.baseColorFactor;
+                if (baseColorFactor[0] != 1.0 || baseColorFactor[1] != 1.0 || baseColorFactor[2] != 1.0 || baseColorFactor[3] != 1.0) {
+                    // SceneKit only supports scalar factors for material property intensities,
+                    // so we need to use a shader modifier to modulate properly.
+                    hasNonUnityBaseColorFactor = YES;
+                }
             } else {
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 simd_float4 rgba = workflowConverter.baseColorFactor;
@@ -695,7 +709,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             }
             if (workflowConverter.metallicRoughnessTexture) {
                 GLTFTextureParams *metallicRoughnessTexture = workflowConverter.metallicRoughnessTexture;
-                id metallicRoughnessImage = (__bridge_transfer id)[workflowConverter.metallicRoughnessTexture.texture.source newCGImage];
+                id metallicRoughnessImage = [workflowConverter.metallicRoughnessTexture.texture.source newTextureWithDevice:self.device];
 
                 SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
                 metallicProperty.contents = metallicRoughnessImage;
@@ -723,7 +737,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             GLTFTextureParams *emissiveTexture = material.emissive.emissiveTexture;
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
             emissiveProperty.contents = [self materialPropertyContentsForTexture:emissiveTexture.texture];
-            // TODO: How to support emissive.emissiveStrength?
+            // TODO: How to support emissive.emissiveStrength, emissiveFactor?
             GLTFConfigureSCNMaterialProperty(emissiveProperty, emissiveTexture);
         } else {
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
@@ -766,9 +780,17 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             }
         }
         scnMaterial.name = material.name;
+
         scnMaterial.doubleSided = material.isDoubleSided;
         scnMaterial.blendMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNBlendModeAlpha : SCNBlendModeReplace;
         scnMaterial.transparencyMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNTransparencyModeDualLayer : SCNTransparencyModeDefault;
+
+        if (material.alphaMode == GLTFAlphaModeBlend) {
+            id blendedMaterialsWriteDepthValue = self.options[GLTFSCNAlphaBlendedMaterialsWriteDepth];
+            if ([blendedMaterialsWriteDepthValue isKindOfClass:[NSNumber class]]) {
+                scnMaterial.writesToDepthBuffer = [blendedMaterialsWriteDepthValue boolValue];
+            }
+        }
 
         NSMutableString *surfaceModifier = [NSMutableString stringWithString:@""];
         NSMutableString *fragmentModifier = [NSMutableString stringWithString:@""];
@@ -788,7 +810,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         }
 
         if (hasNonUnityBaseColorFactor) {
-            simd_float4 f = material.metallicRoughness.baseColorFactor;
+            simd_float4 f = baseColorFactor;
             if (f[3] < 1.0f) {
                 // SceneKit needs to be informed that this modifier can produce transparent fragments,
                 // even if we expressly set the blend mode to alpha.
