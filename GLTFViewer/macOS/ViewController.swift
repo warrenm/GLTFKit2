@@ -7,7 +7,9 @@ class ViewController: NSViewController {
     var asset: GLTFAsset? {
         didSet {
             if let asset = asset {
-                let source = GLTFSCNSceneSource(asset: asset)
+                // If your asset contains alpha-blended materials and you notice artifacts from overlapping
+                // fragments not blending together, consider setting the below option to false.
+                let source = GLTFSCNSceneSource(asset: asset, options: [.alphaBlendedMaterialsWriteDepth : true])
                 sceneView.scene = source.defaultScene
                 animations = source.animations
                 sceneView.scene?.lightingEnvironment.contents = "studio.hdr"
