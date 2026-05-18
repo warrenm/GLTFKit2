@@ -6,6 +6,8 @@
 #import <SceneKit/ModelIO.h>
 #import <simd/simd.h>
 
+GLTFAssetLoadingOption const GLTFSCNAlphaBlendedMaterialsWriteDepth = @"GLTFSCNAlphaBlendedMaterialsWriteDepthKey";
+
 NSString *const GLTFAssetPropertyKeyCopyright = @"GLTFAssetPropertyKeyCopyright";
 NSString *const GLTFAssetPropertyKeyGenerator = @"GLTFAssetPropertyKeyGenerator";
 NSString *const GLTFAssetPropertyKeyVersion = @"GLTFAssetPropertyKeyVersion";
@@ -170,7 +172,7 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
     int primitiveCount;
     switch (primitive.primitiveType) {
         case GLTFPrimitiveTypeInvalid:
-            GLTFLogError(@"Encountered primitive with invalid type. Will not create geometry element");
+            GLTFLogError(@"[GLTFKit2] Encountered primitive with invalid type. Will not create geometry element");
             return nil;
         case GLTFPrimitiveTypePoints:
             primitiveType = SCNGeometryPrimitiveTypePoint;
@@ -232,6 +234,22 @@ static SCNGeometryElement *GLTFSCNGeometryElementForIndexData(NSData *indexData,
         element.maximumPointScreenSpaceRadius = 1.0;
     }
     return element;
+}
+
+static BOOL GLTFAccessorGetMinMaxScalarValues(GLTFAccessor *accessor, float *minValue, float *maxValue) {
+    if (accessor == nil ||
+        accessor.minValues == nil || accessor.minValues.count < 1 ||
+        accessor.maxValues == nil || accessor.maxValues.count < 1)
+    {
+        return NO;
+    }
+    if (minValue) {
+        *minValue = [accessor.minValues.firstObject floatValue];
+    }
+    if (maxValue) {
+        *maxValue = [accessor.maxValues.firstObject floatValue];
+    }
+    return YES;
 }
 
 static NSString *GLTFSCNGeometrySourceSemanticForSemantic(NSString *name) {
@@ -310,14 +328,14 @@ static NSData *GLTFPackedUInt16DataFromPackedUInt8(UInt8 *bytes, size_t count) {
     return [NSData dataWithBytesNoCopy:shorts length:bufferSize freeWhenDone:YES];
 }
 
-static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, NSTimeInterval maxKeyTime) {
+static NSArray<NSNumber *> *GLTFKeyTimeArrayForAccessor(GLTFAccessor *accessor, float minKeyTime, float maxKeyTime) {
     NSData *sourceData = GLTFPackedDataForAccessor(accessor);
     sourceData = GLTFTransformPackedDataToFloat(sourceData, accessor);
     NSMutableArray *values = [NSMutableArray arrayWithCapacity:accessor.count];
     float scale = (maxKeyTime > 0) ? (1.0f / maxKeyTime) : 1.0f;
     for (int i = 0; i < accessor.count; ++i) {
         const float *x = sourceData.bytes + (i * sizeof(float));
-        NSNumber *value = @(x[0] * scale);
+        NSNumber *value = @((x[0] - minKeyTime) * scale);
         [values addObject:value];
     }
     return values;
@@ -358,13 +376,20 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
         floatComponents = YES;
     }
 
+    if (attrData == nil || attrData.length == 0 || attrData.bytes == NULL) {
+        GLTFLogWarning(@"[GLTFKit2] Not producing geometry source for empty accessor");
+        return nil;
+    }
+
     // Ensure linear sum of weights is equal to 1; this is required by the spec,
     // and SceneKit relies on this invariant as of iOS 12 and macOS Mojave.
     // TODO: Support multiple sets of weights, assuring that sum of weights across
     // all weight sets is 1.
     if ([semanticName isEqualToString:GLTFAttributeSemanticWeights0]) {
-        assert(floatComponents && (componentCount == 4) &&
-                 "Accessor for joint weights must be of float4 type; other data types are not currently supported");
+        if (componentCount != 4) {
+            GLTFLogError(@"[GLTFKit2] Accessor for joint weights must be of VEC4 type");
+            return nil;
+        }
         for (int i = 0; i < accessor.count; ++i) {
             float *weights = (float *)(attrData.bytes + i * elementSize);
             float sum = weights[0] + weights[1] + weights[2] + weights[3];
@@ -405,7 +430,7 @@ static SCNGeometrySource *GLTFSCNGeometrySourceForAccessor(GLTFAccessor *accesso
                 bytesPerComponent = sizeof(uint8_t);
                 elementSize = bytesPerComponent * componentCount;
             } else {
-                GLTFLogWarning(@"Could not transform bone indices from ushort to uchar losslessly; hit-testing may not work as expected");
+                GLTFLogWarning(@"[GLTFKit2] Could not transform bone indices from ushort to uchar losslessly; hit-testing may not work as expected");
             }
         }
     }
@@ -482,10 +507,6 @@ static NSArray<NSValue *> *GLTFSCNMatrix4ArrayFromAccessor(GLTFAccessor *accesso
     return values;
 }
 
-static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
-    return 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2];
-}
-
 @implementation GLTFSCNAnimation
 @end
 
@@ -493,6 +514,11 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 
 + (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset {
     GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset];
+    return source.defaultScene;
+}
+
++ (instancetype)sceneWithGLTFAsset:(GLTFAsset *)asset options:(NSDictionary<GLTFSCNAssetOption, id> *)options {
+    GLTFSCNSceneSource *source = [[GLTFSCNSceneSource alloc] initWithAsset:asset options:options];
     return source.defaultScene;
 }
 
@@ -506,6 +532,8 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 @interface GLTFSCNSceneSource () {
     NSMutableDictionary<NSUUID *, id> *_materialPropertyContentsCache;
 }
+@property (nonatomic, strong) id<MTLDevice> device;
+@property (nonatomic, copy) NSDictionary<GLTFSCNAssetOption, id> *options;
 @property (nonatomic, copy) NSDictionary *properties;
 @property (nonatomic, copy) NSArray<SCNMaterial *> *materials;
 @property (nonatomic, copy) NSArray<SCNLight *> *lights;
@@ -524,8 +552,14 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 @implementation GLTFSCNSceneSource
 
 - (instancetype)initWithAsset:(GLTFAsset *)asset {
+    return [self initWithAsset:asset options:@{}];
+}
+
+- (instancetype)initWithAsset:(GLTFAsset *)asset options:(NSDictionary<GLTFSCNAssetOption, id> *)options {
     if (self = [super init]) {
+        _device = MTLCreateSystemDefaultDevice();
         _asset = asset;
+        _options = [options copy];
         [self convertAsset];
     }
     return self;
@@ -533,7 +567,9 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
 
 - (instancetype)initWithAsset:(GLTFAsset *)asset applyingMaterialVariant:(GLTFMaterialVariant *)variant {
     if (self = [super init]) {
+        _device = MTLCreateSystemDefaultDevice();
         _asset = asset;
+        _options = @{};
         _activeMaterialVariant = variant;
         [self convertAsset];
     }
@@ -550,7 +586,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
     }
 #ifdef GLTF_BUILD_WITH_KTX2
     if (texture.basisUSource) {
-        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:MTLCreateSystemDefaultDevice()];
+        id<MTLTexture> metalTexture = [texture.basisUSource newTextureWithDevice:self.device];
         _materialPropertyContentsCache[texture.identifier] = metalTexture;
         return metalTexture;
     }
@@ -561,8 +597,19 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         return (__bridge id)webpCGImage;
     }
     CGImageRef cgImage = [texture.source newCGImage];
-    _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
-    return (__bridge id)cgImage;
+    if (cgImage) {
+        _materialPropertyContentsCache[texture.identifier] = (__bridge_transfer id)cgImage;
+        return (__bridge id)cgImage;
+    } else {
+        GLTFLogWarning(@"[GLTFKit2] Warning: Failed to create CGImage for material property. Will try to load as KTX2 as a last resort...");
+        if ([[texture.source inferMediaType] isEqual:GLTFMediaTypeKTX2]) {
+            id<MTLTexture> imageTexture = [texture.source newTextureWithDevice:self.device];
+            _materialPropertyContentsCache[texture.identifier] = imageTexture;
+            return imageTexture;
+        }
+    }
+    GLTFLogWarning(@"[GLTFKit2] Error: Failed to create material property contents for texture.");
+    return nil;
 }
 
 - (void)convertAsset {
@@ -599,6 +646,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         } else {
             scnMaterial.lightingModelName = SCNLightingModelBlinn;
         }
+        simd_float4 baseColorFactor = simd_make_float4(1, 1, 1, 1);
         if (material.metallicRoughness) {
             //TODO: How to represent base color/emissive factor, etc., when textures are present?
             if (material.metallicRoughness.baseColorTexture) {
@@ -606,8 +654,8 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 baseColorProperty.contents = [self materialPropertyContentsForTexture:baseColorTexture.texture];
                 GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
-                simd_float4 rgba = material.metallicRoughness.baseColorFactor;
-                if (rgba[0] != 1.0 || rgba[1] != 1.0 || rgba[2] != 1.0 || rgba[3] != 1.0) {
+                baseColorFactor = material.metallicRoughness.baseColorFactor;
+                if (baseColorFactor[0] != 1.0 || baseColorFactor[1] != 1.0 || baseColorFactor[2] != 1.0 || baseColorFactor[3] != 1.0) {
                     // SceneKit only supports scalar factors for material property intensities,
                     // so we need to use a shader modifier to modulate properly.
                     hasNonUnityBaseColorFactor = YES;
@@ -640,13 +688,19 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                 roughnessProperty.contents = @(material.metallicRoughness.roughnessFactor);
             }
         } else if (material.specularGlossiness) {
-            GLTFWorkflowHelper *workflowConverter = [[GLTFWorkflowHelper alloc] initWithSpecularGlossiness:material.specularGlossiness];
+            GLTFWorkflowHelper *workflowConverter = [[GLTFWorkflowHelper alloc] initWithSpecularGlossiness:material.specularGlossiness
+                                                                                                    device:self.device];
             if (workflowConverter.baseColorTexture) {
                 GLTFTextureParams *baseColorTexture = workflowConverter.baseColorTexture;
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
-                baseColorProperty.contents = (__bridge_transfer id)[workflowConverter.baseColorTexture.texture.source newCGImage];
+                baseColorProperty.contents = [workflowConverter.baseColorTexture.texture.source newTextureWithDevice:self.device];
                 GLTFConfigureSCNMaterialProperty(baseColorProperty, baseColorTexture);
-                baseColorProperty.intensity = GLTFLuminanceFromRGBA(workflowConverter.baseColorFactor);
+                baseColorFactor = workflowConverter.baseColorFactor;
+                if (baseColorFactor[0] != 1.0 || baseColorFactor[1] != 1.0 || baseColorFactor[2] != 1.0 || baseColorFactor[3] != 1.0) {
+                    // SceneKit only supports scalar factors for material property intensities,
+                    // so we need to use a shader modifier to modulate properly.
+                    hasNonUnityBaseColorFactor = YES;
+                }
             } else {
                 SCNMaterialProperty *baseColorProperty = scnMaterial.diffuse;
                 simd_float4 rgba = workflowConverter.baseColorFactor;
@@ -655,7 +709,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             }
             if (workflowConverter.metallicRoughnessTexture) {
                 GLTFTextureParams *metallicRoughnessTexture = workflowConverter.metallicRoughnessTexture;
-                id metallicRoughnessImage = (__bridge_transfer id)[workflowConverter.metallicRoughnessTexture.texture.source newCGImage];
+                id metallicRoughnessImage = [workflowConverter.metallicRoughnessTexture.texture.source newTextureWithDevice:self.device];
 
                 SCNMaterialProperty *metallicProperty = scnMaterial.metalness;
                 metallicProperty.contents = metallicRoughnessImage;
@@ -683,7 +737,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             GLTFTextureParams *emissiveTexture = material.emissive.emissiveTexture;
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
             emissiveProperty.contents = [self materialPropertyContentsForTexture:emissiveTexture.texture];
-            // TODO: How to support emissive.emissiveStrength?
+            // TODO: How to support emissive.emissiveStrength, emissiveFactor?
             GLTFConfigureSCNMaterialProperty(emissiveProperty, emissiveTexture);
         } else {
             SCNMaterialProperty *emissiveProperty = scnMaterial.emission;
@@ -726,9 +780,17 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
             }
         }
         scnMaterial.name = material.name;
+
         scnMaterial.doubleSided = material.isDoubleSided;
         scnMaterial.blendMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNBlendModeAlpha : SCNBlendModeReplace;
         scnMaterial.transparencyMode = (material.alphaMode == GLTFAlphaModeBlend) ? SCNTransparencyModeDualLayer : SCNTransparencyModeDefault;
+
+        if (material.alphaMode == GLTFAlphaModeBlend) {
+            id blendedMaterialsWriteDepthValue = self.options[GLTFSCNAlphaBlendedMaterialsWriteDepth];
+            if ([blendedMaterialsWriteDepthValue isKindOfClass:[NSNumber class]]) {
+                scnMaterial.writesToDepthBuffer = [blendedMaterialsWriteDepthValue boolValue];
+            }
+        }
 
         NSMutableString *surfaceModifier = [NSMutableString stringWithString:@""];
         NSMutableString *fragmentModifier = [NSMutableString stringWithString:@""];
@@ -748,7 +810,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         }
 
         if (hasNonUnityBaseColorFactor) {
-            simd_float4 f = material.metallicRoughness.baseColorFactor;
+            simd_float4 f = baseColorFactor;
             if (f[3] < 1.0f) {
                 // SceneKit needs to be informed that this modifier can produce transparent fragments,
                 // even if we expressly set the blend mode to alpha.
@@ -837,14 +899,19 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     // Omit joint indices and weights; these are stored later on the skinner
                     continue;
                 }
-                [geometrySources addObject:GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name)];
+                SCNGeometrySource *geometrySource = GLTFSCNGeometrySourceForAccessor(attribute.accessor, attribute.name);
+                if (geometrySource) {
+                    [geometrySources addObject:geometrySource];
+                } else {
+                    GLTFLogWarning(@"[GLTFKit2] Omitting invalid primitive attribute named %@", attribute.name);
+                }
             }
 
             bool hasNormals = [primitive attributeForName:GLTFAttributeSemanticNormal];
             if (material.lightingModelName == SCNLightingModelPhysicallyBased && !hasNormals) {
                 static dispatch_once_t warnOnce;
                 dispatch_once(&warnOnce, ^{
-                    GLTFLogWarning(@"Primitive has a physically-based material but does not supply normals");
+                    GLTFLogWarning(@"[GLTFKit2] Primitive has a physically-based material but does not supply normals");
                 });
             }
 
@@ -1087,17 +1154,28 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
         }
     }
 
+    BOOL reportNonZeroMinTimeAnimations = YES;
     NSMutableArray<GLTFSCNAnimation *> *animationPlayers = [NSMutableArray arrayWithCapacity:self.asset.animations.count];
     for (GLTFAnimation *animation in self.asset.animations) {
         NSMutableArray *caChannels = [NSMutableArray array];
-        NSTimeInterval maxChannelTime = 0.0;
+        float minChannelTime = FLT_MAX, maxChannelTime = 0.0f;
         for (GLTFAnimationChannel *channel in animation.channels) {
-            NSTimeInterval channelMaxKeyTime = 0.0;
-            if (channel.sampler.input.maxValues.count > 0) {
-                channelMaxKeyTime = channel.sampler.input.maxValues.firstObject.doubleValue;
+            float channelMinKeyTime = 0.0f, channelMaxKeyTime = 0.0f;
+            if (GLTFAccessorGetMinMaxScalarValues(channel.sampler.input, &channelMinKeyTime, &channelMaxKeyTime)) {
+                minChannelTime = MIN(minChannelTime, channelMinKeyTime);
+                maxChannelTime = MAX(maxChannelTime, channelMaxKeyTime);
             }
-            maxChannelTime = MAX(maxChannelTime, channelMaxKeyTime);
-            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, channelMaxKeyTime);
+        }
+        if (minChannelTime > 0.0f && reportNonZeroMinTimeAnimations) {
+            GLTFLogInfo(@"[GLTFKit2] Asset has animation(s) containing only channels with non-zero start times. "
+                        @"Any such animations will be adjusted to start at time 0. This will only be logged once per asset.");
+            reportNonZeroMinTimeAnimations = NO;
+        }
+        for (GLTFAnimationChannel *channel in animation.channels) {
+            float channelMinKeyTime = 0.0f, channelMaxKeyTime = 0.0f;
+            GLTFAccessorGetMinMaxScalarValues(channel.sampler.input, &channelMinKeyTime, &channelMaxKeyTime);
+            NSArray<NSNumber *> *baseKeyTimes = GLTFKeyTimeArrayForAccessor(channel.sampler.input, channelMinKeyTime, channelMaxKeyTime);
+
             if ([channel.target.path isEqualToString:GLTFAnimationPathWeights]) {
                 NSUInteger targetCount = channel.target.node.mesh.primitives.firstObject.targets.count;
                 assert(targetCount > 0);
@@ -1126,7 +1204,8 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                         weightAnimation.values = weightArrays[t];
                         // TODO: Support non-linear calculation modes?
                         weightAnimation.calculationMode = kCAAnimationLinear;
-                        weightAnimation.duration = channelMaxKeyTime;
+                        weightAnimation.beginTime = channelMinKeyTime - minChannelTime;
+                        weightAnimation.duration = channelMaxKeyTime - channelMinKeyTime;
                         weightAnimation.repeatDuration = FLT_MAX;
                         [weightAnimations addObject:weightAnimation];
                     }
@@ -1150,7 +1229,7 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                     caAnimation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
                     caAnimation.values = GLTFSCNVector3ArrayForAccessor(channel.sampler.output);
                 } else {
-                    GLTFLogError(@"Unknown animation channel path: %@.", channel.target.path);
+                    GLTFLogError(@"[GLTFKit2] Unknown animation channel path: %@.", channel.target.path);
                     continue;
                 }
                 caAnimation.keyTimes = baseKeyTimes;
@@ -1176,13 +1255,14 @@ static float GLTFLuminanceFromRGBA(simd_float4 rgba) {
                         caAnimation.values = knots;
                         break;
                 }
-                caAnimation.duration = channelMaxKeyTime;
+                caAnimation.beginTime = channelMinKeyTime - minChannelTime;
+                caAnimation.duration = channelMaxKeyTime - channelMinKeyTime;
                 [caChannels addObject:caAnimation];
             }
         }
         CAAnimationGroup *channelGroup = [CAAnimationGroup animation];
         channelGroup.animations = caChannels;
-        channelGroup.duration = maxChannelTime;
+        channelGroup.duration = maxChannelTime - minChannelTime;
         channelGroup.repeatDuration = FLT_MAX;
         SCNAnimation *scnChannelGroup = [SCNAnimation animationWithCAAnimation:channelGroup];
         SCNAnimationPlayer *animationPlayer = [SCNAnimationPlayer animationPlayerWithAnimation:scnChannelGroup];

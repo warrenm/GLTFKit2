@@ -3,14 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		8324CED827F26C8F003ACEDD /* GLTFAssetWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = 8324CED627F26C8F003ACEDD /* GLTFAssetWriter.h */; };
-		8324CED927F26C8F003ACEDD /* GLTFAssetWriter.m in Sources */ = {isa = PBXBuildFile; fileRef = 8324CED727F26C8F003ACEDD /* GLTFAssetWriter.m */; };
 		83244B6B2ABA517F00ECA381 /* GLTFKTX2Support.h in Headers */ = {isa = PBXBuildFile; fileRef = 83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */; };
 		83244B6C2ABA517F00ECA381 /* GLTFKTX2Support.m in Sources */ = {isa = PBXBuildFile; fileRef = 83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */; };
+		8324CED827F26C8F003ACEDD /* GLTFAssetWriter.h in Headers */ = {isa = PBXBuildFile; fileRef = 8324CED627F26C8F003ACEDD /* GLTFAssetWriter.h */; };
+		8324CED927F26C8F003ACEDD /* GLTFAssetWriter.m in Sources */ = {isa = PBXBuildFile; fileRef = 8324CED727F26C8F003ACEDD /* GLTFAssetWriter.m */; };
 		833A50CD2BDEC39700184DA8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 833A50CC2BDEC39700184DA8 /* PrivacyInfo.xcprivacy */; };
 		834AD60A25E1A3960010608A /* GLTFSceneKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 834AD60825E1A3960010608A /* GLTFSceneKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		834AD60B25E1A3960010608A /* GLTFSceneKit.m in Sources */ = {isa = PBXBuildFile; fileRef = 834AD60925E1A3960010608A /* GLTFSceneKit.m */; };
@@ -28,15 +28,17 @@
 		83821E06280CF37600D4A11A /* GLTFWorkflowHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 83821E04280CF37600D4A11A /* GLTFWorkflowHelper.m */; };
 		83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */ = {isa = PBXBuildFile; fileRef = 83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		83BEF9D825CF3240005DFE80 /* GLTFModelIO.m in Sources */ = {isa = PBXBuildFile; fileRef = 83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */; };
+		83C2C0982E959972001F1A9C /* GLTFAnimationHelpers.swift in Headers */ = {isa = PBXBuildFile; fileRef = 83C2C0972E95996C001F1A9C /* GLTFAnimationHelpers.swift */; platformFilters = (ios, maccatalyst, macos, xros, ); };
+		83C2C0992E959A5E001F1A9C /* GLTFAnimationHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C2C0972E95996C001F1A9C /* GLTFAnimationHelpers.swift */; platformFilters = (ios, maccatalyst, macos, xros, ); };
 		83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 83DA575526DEEAA9007B440E /* GLTFLogging.h */; };
 		83DB5F512992BA9800B0190E /* GLTFRealityKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DB5F502992BA9800B0190E /* GLTFRealityKit.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		8324CED627F26C8F003ACEDD /* GLTFAssetWriter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GLTFAssetWriter.h; sourceTree = "<group>"; };
-		8324CED727F26C8F003ACEDD /* GLTFAssetWriter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GLTFAssetWriter.m; sourceTree = "<group>"; };
 		83244B692ABA517F00ECA381 /* GLTFKTX2Support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFKTX2Support.h; sourceTree = "<group>"; };
 		83244B6A2ABA517F00ECA381 /* GLTFKTX2Support.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFKTX2Support.m; sourceTree = "<group>"; };
+		8324CED627F26C8F003ACEDD /* GLTFAssetWriter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GLTFAssetWriter.h; sourceTree = "<group>"; };
+		8324CED727F26C8F003ACEDD /* GLTFAssetWriter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GLTFAssetWriter.m; sourceTree = "<group>"; };
 		833A50CC2BDEC39700184DA8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		834AD60825E1A3960010608A /* GLTFSceneKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFSceneKit.h; sourceTree = "<group>"; };
 		834AD60925E1A3960010608A /* GLTFSceneKit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFSceneKit.m; sourceTree = "<group>"; };
@@ -58,6 +60,7 @@
 		83BEF9D525CF3240005DFE80 /* GLTFModelIO.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFModelIO.h; sourceTree = "<group>"; };
 		83BEF9D625CF3240005DFE80 /* GLTFModelIO.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GLTFModelIO.m; sourceTree = "<group>"; };
 		83C1BC9C25C3EABF003A485D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
+		83C2C0972E95996C001F1A9C /* GLTFAnimationHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GLTFAnimationHelpers.swift; sourceTree = "<group>"; };
 		83DA575526DEEAA9007B440E /* GLTFLogging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GLTFLogging.h; sourceTree = "<group>"; };
 		83DB5F502992BA9800B0190E /* GLTFRealityKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GLTFRealityKit.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -120,6 +123,7 @@
 		834FF1EA25C3C034001887C2 /* impl */ = {
 			isa = PBXGroup;
 			children = (
+				83C2C0972E95996C001F1A9C /* GLTFAnimationHelpers.swift */,
 				834FF1D725C3BE51001887C2 /* GLTFAssetReader.h */,
 				834FF1D825C3BE51001887C2 /* GLTFAssetReader.m */,
 				8324CED627F26C8F003ACEDD /* GLTFAssetWriter.h */,
@@ -165,6 +169,7 @@
 				834FF1D225C27A02001887C2 /* GLTFAsset.h in Headers */,
 				83BEF9D725CF3240005DFE80 /* GLTFModelIO.h in Headers */,
 				834AD61025E1BD850010608A /* GLTFTypes.h in Headers */,
+				83C2C0982E959972001F1A9C /* GLTFAnimationHelpers.swift in Headers */,
 				836805A6277D3F6C00F3222A /* cgltf.h in Headers */,
 				834FF1C925C27938001887C2 /* GLTFKit2.h in Headers */,
 				83DA575726DEEAA9007B440E /* GLTFLogging.h in Headers */,
@@ -205,7 +210,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					834FF1C325C27938001887C2 = {
 						CreatedOnToolsVersion = 12.4;
@@ -247,6 +252,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83C2C0992E959A5E001F1A9C /* GLTFAnimationHelpers.swift in Sources */,
 				83244B6C2ABA517F00ECA381 /* GLTFKTX2Support.m in Sources */,
 				834AD60B25E1A3960010608A /* GLTFSceneKit.m in Sources */,
 				83821E06280CF37600D4A11A /* GLTFWorkflowHelper.m in Sources */,
@@ -322,6 +328,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_VERSION = 5.0;
 				TVOS_DEPLOYMENT_TARGET = 12.1;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -383,6 +390,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_VERSION = 5.0;
 				TVOS_DEPLOYMENT_TARGET = 12.1;

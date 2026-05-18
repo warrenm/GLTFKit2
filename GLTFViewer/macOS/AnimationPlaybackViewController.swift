@@ -88,6 +88,7 @@ class AnimationPlaybackViewController : NSViewController {
         progressSlider.maxValue = currentAnimationDuration
         progressSlider.floatValue = 0
         sceneView.sceneTime = 0.0
+        SCNTransaction.flush()
 
         sceneView.scene?.rootNode.addAnimationPlayer(animationPlayer, forKey: "Playback")
         animationPlayer.animation.usesSceneTimeBase = true

@@ -15,7 +15,11 @@ struct ContentView: View {
                     let contentBounds = content.convert(geometry.frame(in: .local),
                                                         from: .local, to: content)
                     let contentExtent = contentBounds.extents.min()
-                
+
+                    if let animation = entity.availableAnimations.first {
+                        _ = try? await rootEntity.playAnimation(animation.repeat())
+                    }
+
                     let entityBounds = entity.visualBounds(relativeTo: nil)
                     let entityExtent = entityBounds.extents.max()
                     let entityCenter = entityBounds.center

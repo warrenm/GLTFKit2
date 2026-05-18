@@ -26,6 +26,8 @@ enum {
 
 typedef NSInteger GLTFErrorCode;
 
+extern NSString *const GLTFMediaTypeKTX2;
+
 extern const float LumensPerCandela;
 
 typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
@@ -380,6 +382,8 @@ GLTFKIT2_EXPORT
 
 @property (nonatomic, nullable, strong) GLTFOrthographicProjectionParams *orthographic;
 @property (nonatomic, nullable, strong) GLTFPerspectiveProjectionParams *perspective;
+
+/// The distance to the near viewing plane
 @property (nonatomic, assign) float zNear;
 
 // If positive, the distance from the camera to the far depth culling plane.
@@ -409,10 +413,16 @@ GLTFKIT2_EXPORT
 - (instancetype)initWithURI:(NSURL *)uri NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithBufferView:(GLTFBufferView *)bufferView mimeType:(NSString *)mimeType NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithCGImage:(CGImageRef)cgImage NS_DESIGNATED_INITIALIZER; // For internal use.
+- (instancetype)initWithTexture:(id<MTLTexture>)texture NS_DESIGNATED_INITIALIZER; // For internal use.
 - (instancetype)init NS_UNAVAILABLE;
 
 - (nullable CGImageRef)newCGImage;
 - (nullable id<MTLTexture>)newTextureWithDevice:(id<MTLDevice>)device;
+
+/// Makes a best-effort guess at the MIME type of the image. If the asset is valid
+/// and the image is backed by a buffer view, this will return the type provided in
+/// the asset. Otherwise the contents of the image are tested for known image types.
+- (nullable NSString *)inferMediaType;
 
 @end
 
@@ -485,6 +495,20 @@ GLTFKIT2_EXPORT
 @end
 
 GLTFKIT2_EXPORT
+@interface GLTFDiffuseTransmissionParams : NSObject
+/// A texture that defines the fraction of non-specularly reflected light that is diffusely transmitted
+/// through the surface, stored in the alpha (A) channel. Multiplied by the `diffuseTransmissionFactor`.
+@property (nonatomic, nullable) GLTFTextureParams *diffuseTransmissionTexture;
+/// The fraction of non-specularly reflected light that is diffusely transmitted through the surface. Defaults to 0.
+@property (nonatomic, assign) float diffuseTransmissionFactor;
+/// A texture that defines the color that modulates the diffusely transmitted light, stored in the RGB channels.
+/// This texture, if present, will be multiplied by `diffuseTransmissionColorFactor`.
+@property (nonatomic, nullable) GLTFTextureParams *diffuseTransmissionColorTexture;
+/// A set of linear multiplicative factors applied to the diffuse transmission color. Defaults to white ([1, 1, 1]).
+@property (nonatomic, assign) simd_float3 diffuseTransmissionColorFactor;
+@end
+
+GLTFKIT2_EXPORT
 @interface GLTFVolumeParams : GLTFObject
 
 @property (nonatomic, nullable) GLTFTextureParams *thicknessTexture;
@@ -549,6 +573,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable) GLTFSpecularParams *specular;
 @property (nonatomic, nullable) GLTFEmissiveParams *emissive;
 @property (nonatomic, nullable) GLTFTransmissionParams *transmission;
+@property (nonatomic, nullable) GLTFDiffuseTransmissionParams *diffuseTransmission;
 @property (nonatomic, nullable) GLTFVolumeParams *volume;
 @property (nonatomic, nullable) GLTFClearcoatParams *clearcoat;
 @property (nonatomic, nullable) GLTFSheenParams *sheen;
@@ -632,6 +657,8 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFLight *light;
 @property (nonatomic, copy) NSArray<GLTFNode *> *childNodes;
 @property (nonatomic, weak) GLTFNode *parentNode;
+/// A hint flag that indicates whether this node belongs to a skinning hierarchy.
+@property (nonatomic, assign) BOOL isJoint;
 @property (nonatomic, nullable, strong) GLTFSkin *skin;
 @property (nonatomic, assign) simd_float4x4 matrix;
 @property (nonatomic, nullable, strong) GLTFMesh *mesh;

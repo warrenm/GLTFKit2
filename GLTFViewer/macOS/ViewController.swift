@@ -7,7 +7,9 @@ class ViewController: NSViewController {
     var asset: GLTFAsset? {
         didSet {
             if let asset = asset {
-                let source = GLTFSCNSceneSource(asset: asset)
+                // If your asset contains alpha-blended materials and you notice artifacts from overlapping
+                // fragments not blending together, consider setting the below option to false.
+                let source = GLTFSCNSceneSource(asset: asset, options: [.alphaBlendedMaterialsWriteDepth : true])
                 sceneView.scene = source.defaultScene
                 animations = source.animations
                 sceneView.scene?.lightingEnvironment.contents = "studio.hdr"
@@ -37,6 +39,22 @@ class ViewController: NSViewController {
                 cameraLight.intensity = 300
                 cameraLight.color = NSColor.white
                 sceneView.pointOfView?.light = cameraLight
+
+                // Uncommenting this may alleviate certain artifacts related to alpha-blending
+                /*
+                sceneView.scene?.rootNode.enumerateHierarchy { node, _ in
+                    guard let geometry = node.geometry else { return }
+                    for material in geometry.materials {
+                        if material.blendMode == .alpha {
+                            var shaderModifiers = material.shaderModifiers ?? [:]
+                            var fragmentModifier = shaderModifiers[.fragment] ?? ""
+                            fragmentModifier += "#ifdef USE_PBR_TRANSPARENCY\n  _output.color.rgb *= _lightingContribution.pbr.transparency;\n#endif\n"
+                            shaderModifiers[.fragment] = fragmentModifier
+                            material.shaderModifiers = shaderModifiers
+                        }
+                    }
+                }
+                */
 
                 if asset.animations.count > 0 {
                     if animationController == nil {
@@ -93,7 +111,7 @@ class ViewController: NSViewController {
         NSLayoutConstraint(item: animationController.view, attribute:.width, relatedBy:.equal,
                            toItem: nil, attribute: .notAnAttribute, multiplier:0, constant:480).isActive = true
         NSLayoutConstraint(item: animationController.view, attribute:.height, relatedBy:.equal,
-                           toItem: nil, attribute:.notAnAttribute, multiplier:0, constant:100).isActive = true
+                           toItem: nil, attribute:.notAnAttribute, multiplier:0, constant:96).isActive = true
         NSLayoutConstraint(item:animationController.view, attribute:.centerX, relatedBy:.equal,
                            toItem: view, attribute: .centerX, multiplier:1, constant:0).isActive = true
         view.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:[controller]-(12)-|",

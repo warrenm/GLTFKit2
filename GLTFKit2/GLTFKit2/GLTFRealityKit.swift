@@ -2,22 +2,22 @@
 
 import RealityKit
 import Accelerate
+import ModelIO
 
 #if os(macOS)
 typealias PlatformColor = NSColor
-#elseif os(iOS) || os(visionOS)
+#else
 typealias PlatformColor = UIColor
 #endif
 
-func degreesFromRadians(_ rad: Float) -> Float { return rad * (180 / .pi) }
-
 // Omit support for RealityKit entirely on platforms (such as macOS 11 Big Sur)
-// that don't have the required API features from RealityKit 2. We would, of course,
-// prefer to use a check that actually corresponds to the minimum supported SDKs
-// (macOS 12 Monterey, iOS 15, etc.), but we lack the tools necessary to do so,
-// so we fall back on language version.
+// that don't have the required API or language features from the RealityKit 2
+// era.
+// We would, of course, prefer to use a check that actually corresponds to the
+// minimum supported SDKs (macOS 12 Monterey, iOS 15, etc.), but we lack the
+// tools necessary to do so, so we fall back on compiler version.
 // https://forums.swift.org/t/do-we-need-something-like-if-available/40349/34
-#if swift(>=5.5)
+#if compiler(>=5.6)
 
 func packedStride(for accessor: GLTFAccessor) -> Int {
     var size = 0
@@ -49,8 +49,37 @@ func packedStride(for accessor: GLTFAccessor) -> Int {
     return size
 }
 
+func packedFloatArray(for accessor: GLTFAccessor) -> [Float]? {
+    if accessor.dimension != .scalar { return nil }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported scalar component type for conversion to packed float array: \(accessor.componentType). Please file an issue if you see this message.")
+        return nil
+    }
+    guard let bufferView = accessor.bufferView else { return nil }
+    guard let bufferData = bufferView.buffer.data else { return nil }
+    let valueCount = accessor.count
+    let offset = bufferView.offset + accessor.offset
+    let inputStride = bufferView.stride == 0 ? MemoryLayout<Float>.stride : bufferView.stride
+    let values = [Float](unsafeUninitializedCapacity: valueCount) { buffer, initializedCount in
+        bufferData.withUnsafeBytes({ rawPtr in
+            // TODO: Fast path when stride == 4
+            for i in 0..<valueCount {
+                guard let floatPtr = rawPtr.baseAddress?.advanced(by: offset + inputStride * i)
+                    .assumingMemoryBound(to: Float.self) else { initializedCount = 0; return }
+                buffer[i] = floatPtr.pointee
+            }
+            initializedCount = valueCount
+        })
+    }
+    return values
+}
+
 func packedFloat2Array(for accessor: GLTFAccessor, flipVertically: Bool = false) -> [SIMD2<Float>]? {
-    if accessor.componentType != .float || accessor.dimension != .vector2 {
+    if accessor.dimension != .vector2 {
+        return nil
+    }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported vector component type for conversion to packed float2 array: \(accessor.componentType). Please file an issue if you see this message.")
         return nil
     }
 
@@ -74,7 +103,11 @@ func packedFloat2Array(for accessor: GLTFAccessor, flipVertically: Bool = false)
 }
 
 func packedFloat3Array(for accessor: GLTFAccessor) -> [SIMD3<Float>]? {
-    if accessor.componentType != .float || (accessor.dimension != .vector3 && accessor.dimension != .vector4) {
+    if (accessor.dimension != .vector3 && accessor.dimension != .vector4) {
+        return nil
+    }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported component type for conversion to packed float3 array: \(accessor.componentType). Please file an issue if you see this message.")
         return nil
     }
 
@@ -97,8 +130,38 @@ func packedFloat3Array(for accessor: GLTFAccessor) -> [SIMD3<Float>]? {
     return vectors
 }
 
+func packedQuatfArray(for accessor: GLTFAccessor) -> [simd_quatf]? {
+    if accessor.dimension != .vector4 {
+        return nil
+    }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported quaternion component type: \(accessor.componentType). Please file an issue if you see this message.")
+        return nil
+    }
+    guard let bufferView = accessor.bufferView else { return nil }
+    guard let bufferData = bufferView.buffer.data else { return nil }
+    let vertexCount = accessor.count
+    let offset = bufferView.offset + accessor.offset
+    let elementStride = (bufferView.stride != 0) ? bufferView.stride : packedStride(for: accessor)
+    let vectors = [simd_quatf](unsafeUninitializedCapacity: vertexCount) { buffer, initializedCount in
+        bufferData.withUnsafeBytes { rawPtr in
+            guard let basePtr = rawPtr.baseAddress?.advanced(by: offset) else { initializedCount = 0; return }
+            for v in 0..<vertexCount {
+                let elementPtr = basePtr.advanced(by: elementStride * v).bindMemory(to: Float.self, capacity: 4)
+                buffer[v] = simd_quaternion(elementPtr[0], elementPtr[1], elementPtr[2], elementPtr[3])
+            }
+            initializedCount = vertexCount
+        }
+    }
+    return vectors
+}
+
 func packedFloat4Array(for accessor: GLTFAccessor) -> [SIMD4<Float>]? {
-    if accessor.componentType != .float || (accessor.dimension != .vector4) {
+    if accessor.dimension != .vector4 {
+        return nil
+    }
+    if accessor.componentType != .float {
+        print("[GLTFKit2] Unsupported component type for conversion to packed float4 array: \(accessor.componentType). Please file an issue if you see this message.")
         return nil
     }
 
@@ -284,7 +347,7 @@ fileprivate class UniqueNameGenerator {
     func nextUniqueName(prefix: String) -> String {
         if let existingCount = countsForPrefixes[prefix] {
             countsForPrefixes[prefix] = existingCount + 1
-            return "\(prefix)\(existingCount)"
+            return "\(prefix)\(existingCount + 1)"
         } else {
             countsForPrefixes[prefix] = 1
             return "\(prefix)1"
@@ -299,8 +362,23 @@ class GLTFRealityKitResourceContext {
         case green
         case blue
         case all
+
+        var textureSwizzle: MTLTextureSwizzleChannels {
+            switch self {
+            case .red:
+                return MTLTextureSwizzleChannels(red: .red, green: .red, blue: .red, alpha: .alpha)
+            case .green:
+                return MTLTextureSwizzleChannels(red: .green, green: .green, blue: .green, alpha: .alpha)
+            case .blue:
+                return MTLTextureSwizzleChannels(red: .blue, green: .blue, blue: .blue, alpha: .alpha)
+            case .all:
+                return MTLTextureSwizzleChannels(red: .red, green: .green, blue: .blue, alpha: .alpha)
+            }
+        }
     }
 
+    let device: MTLDevice
+    let commandQueue: MTLCommandQueue
     private var cgImagesForImageIdentifiers = [UUID : CGImage]()
     private var textureResourcesForImageIdentifiers = [UUID : [(RealityKit.TextureResource, ColorMask)]]()
 
@@ -308,11 +386,19 @@ class GLTFRealityKitResourceContext {
         return RealityKit.SimpleMaterial(color: .init(white: 0.5, alpha: 1.0), isMetallic: false)
     }
 
+    init() {
+        guard let metalDevice = MTLCreateSystemDefaultDevice() else {
+            fatalError("Unable to create Metal system default device")
+        }
+        self.device = metalDevice
+        self.commandQueue = metalDevice.makeCommandQueue()!
+    }
+
     @MainActor func texture(for gltfTextureParams: GLTFTextureParams, channels: ColorMask,
                             semantic: RealityKit.TextureResource.Semantic) -> RealityKit.PhysicallyBasedMaterial.Texture?
     {
         let gltfTexture = gltfTextureParams.texture
-        guard let image = (gltfTexture.webpSource ?? gltfTexture.source) else { return nil }
+        guard let image = (gltfTexture.basisUSource ?? gltfTexture.webpSource ?? gltfTexture.source) else { return nil }
         if let resource = textureResource(for:image, channels: channels, semantic: semantic) {
             let descriptor = MTLSamplerDescriptor(from: gltfTexture.sampler ?? GLTFTextureSampler())
             let sampler = MaterialParameters.Texture.Sampler(descriptor)
@@ -328,6 +414,46 @@ class GLTFRealityKitResourceContext {
         if let existingMatch = existingResources?.first(where: { $0.1 == channels })?.0 {
             return existingMatch
         }
+
+        #if compiler(>=6.0)
+        if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+            if gltfImage.inferMediaType() == GLTFMediaTypeKTX2 {
+                let mtlTexture = gltfImage.newTexture(with: device)
+                guard let sourceTexture = mtlTexture else { return nil }
+                do {
+                    let lowLevelDesc = LowLevelTexture.Descriptor(textureType: sourceTexture.textureType,
+                                                                  pixelFormat: sourceTexture.pixelFormat,
+                                                                  width: sourceTexture.width,
+                                                                  height: sourceTexture.height,
+                                                                  depth: sourceTexture.depth,
+                                                                  mipmapLevelCount: sourceTexture.mipmapLevelCount,
+                                                                  arrayLength: sourceTexture.arrayLength,
+                                                                  textureUsage: [.shaderRead],
+                                                                  swizzle: channels.textureSwizzle)
+                    let lowLevelTexture = try LowLevelTexture(descriptor: lowLevelDesc)
+                    if let commandBuffer = commandQueue.makeCommandBuffer() {
+                        let targetTexture = lowLevelTexture.replace(using: commandBuffer)
+                        if let blitEncoder = commandBuffer.makeBlitCommandEncoder() {
+                            blitEncoder.copy(from: sourceTexture, to: targetTexture)
+                            blitEncoder.endEncoding()
+                        }
+                        commandBuffer.commit()
+                    }
+                    let resource = try TextureResource(from: lowLevelTexture)
+                    if textureResourcesForImageIdentifiers[gltfImage.identifier] != nil {
+                        textureResourcesForImageIdentifiers[gltfImage.identifier]!.append((resource, channels))
+                    } else {
+                        textureResourcesForImageIdentifiers[gltfImage.identifier] = [(resource, channels)]
+                    }
+                    return resource
+                } catch {
+                    print("[GLTFKit2] Error occurred when converting KTX2 texture to RealityKit TextureResource: \(error)")
+                    return nil
+                }
+            }
+        }
+        #endif
+
         var cgImage = cgImagesForImageIdentifiers[gltfImage.identifier]
         if cgImage == nil {
             cgImage = gltfImage.newCGImage()?.takeRetainedValue()
@@ -363,6 +489,7 @@ class GLTFRealityKitResourceContext {
         }
         guard let inputFormat = vImage_CGImageFormat(cgImage: cgImage) else { return nil }
         guard var inputBuffer = try? vImage_Buffer(cgImage: cgImage, format: inputFormat) else { return nil }
+        defer { inputBuffer.free() }
         var outputBuffer = vImage_Buffer()
         vImageBuffer_Init(&outputBuffer, inputBuffer.height, inputBuffer.width, inputFormat.bitsPerPixel, vImage_Flags())
         defer { outputBuffer.data.deallocate() }
@@ -412,13 +539,25 @@ class GLTFRealityKitResourceContext {
     }
 }
 
-#if os(visionOS)
-typealias GLTFRKSkeleton = RealityKit.MeshResource.Skeleton
-#else
-struct GLTFRKSkeleton : Identifiable {
-    var id: String
+@available(macOS 12.0, iOS 15.0, *)
+extension GLTFNode {
+    var bindPath: BindTarget.EntityPath {
+        if let parent = self.parent {
+            return parent.bindPath.entity(self.name ?? "")
+        }
+        return BindTarget.entity(self.name ?? "")
+    }
 }
-#endif
+
+@available(iOS 13.0, *)
+fileprivate extension GLTFTransformSampler {
+    func transform(at time: Float) -> Transform {
+        let translation = translation.value(at: time)
+        let rotation = rotation.value(at: time)
+        let scale = scale.value(at: time)
+        return Transform(scale: scale, rotation: rotation, translation: translation)
+    }
+}
 
 @available(macOS 12.0, iOS 15.0, *)
 public class GLTFRealityKitLoader {
@@ -428,11 +567,15 @@ public class GLTFRealityKitLoader {
 #endif
     private let nameGenerator = UniqueNameGenerator()
 
+    private var pathsForSkeletonIDs: [/*MeshResource.Skeleton.ID*/String : BindTarget.EntityPath] = [:]
+    private var skeletonIDsByJointName: [String: [/*MeshResource.Skeleton.ID*/String]] = [:]
+    private var skeletonTransformsByJointName : [String: Transform] = [:]
+
     public static func load(from url: URL) async throws -> RealityKit.Entity {
         let asset = try GLTFAsset(url: url)
         if let scene = asset.defaultScene {
             return await MainActor.run {
-                return convert(scene: scene)
+                return convert(scene: scene, asset: asset)
             }
         } else {
             throw NSError(domain: GLTFErrorDomain,
@@ -443,13 +586,19 @@ public class GLTFRealityKitLoader {
 
     @MainActor public static func convert(scene: GLTFScene) -> RealityKit.Entity {
         let instance = GLTFRealityKitLoader()
-        return instance.convert(scene: scene)
+        return instance.convert(scene: scene, asset: nil)
     }
 
-    @MainActor func convert(scene: GLTFScene) -> RealityKit.Entity {
+    @MainActor public static func convert(scene: GLTFScene, asset: GLTFAsset?) -> RealityKit.Entity {
+        let instance = GLTFRealityKitLoader()
+        return instance.convert(scene: scene, asset: asset)
+    }
+
+    @MainActor func convert(scene: GLTFScene, asset: GLTFAsset? = nil) -> RealityKit.Entity {
         let context = GLTFRealityKitResourceContext()
 
         let rootEntity = Entity()
+        rootEntity.name = "glTF_\(scene.name ?? "Scene")_Root"
 
         do {
             let rootNodes = try scene.nodes.compactMap { try self.convert(node: $0, context: context) }
@@ -461,7 +610,14 @@ public class GLTFRealityKitLoader {
             fatalError("Error when converting scene: \(error)")
         }
 
-        // TODO: Morph targets, skinned animation, etc.
+        // TODO: Morph targets
+
+        if #available(macOS 14.0, iOS 17.0, visionOS 2.0, *) {
+            for animation in asset?.animations ?? [] {
+                let rkAnimation = try? convert(animation: animation)
+                rkAnimation?.store(in: rootEntity)
+            }
+        }
 
         return rootEntity
     }
@@ -472,12 +628,29 @@ public class GLTFRealityKitLoader {
         // TODO: This only ensures uniqueness for unnamed nodes; the asset could still contain duplicate names.
         nodeEntity.name = gltfNode.name ?? nameGenerator.nextUniqueName(prefix: "Node")
 
-        nodeEntity.transform = Transform(matrix: gltfNode.matrix) // TODO: Properly compose node's TRS properties
+        nodeEntity.transform = Transform(matrix: gltfNode.matrix)
 
-        var skeleton: GLTFRKSkeleton?
-        #if os(visionOS)
-        if let skin = gltfNode.skin {
-            skeleton = convert(skin: skin, context: context)
+        var skeleton: Any?
+        #if compiler(>=6.0)
+        if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+            if let skin = gltfNode.skin {
+                if let meshSkeleton = convert(skin: skin, context: context) {
+                    skeleton = meshSkeleton
+                    // Cache some associations between joints, entities, and skeletons so we can look them up later.
+                    pathsForSkeletonIDs[meshSkeleton.id] = gltfNode.bindPath
+                    for joint in meshSkeleton.joints {
+                        if joint.parentIndex == nil, let referenceNode = skin.skeleton {
+                            // TODO: Calculate the total transformation between the joint and the skeleton node?
+                            skeletonTransformsByJointName[joint.name] = Transform(matrix: referenceNode.matrix)
+                        }
+                        if let existingJointCache = skeletonIDsByJointName[joint.name] {
+                            skeletonIDsByJointName[joint.name] = existingJointCache + [meshSkeleton.id]
+                        } else {
+                            skeletonIDsByJointName[joint.name] = [meshSkeleton.id]
+                        }
+                    }
+                }
+            }
         }
         #endif
 
@@ -486,20 +659,20 @@ public class GLTFRealityKitLoader {
             nodeEntity.components.set(meshComponent)
         }
 
-        #if !os(visionOS)
-        if let gltfLight = gltfNode.light {
-            switch gltfLight.type {
-            case .directional:
-                nodeEntity.components.set(convert(directionalLight: gltfLight))
-            case .point:
-                nodeEntity.components.set(convert(pointLight: gltfLight))
-            case .spot:
-                nodeEntity.components.set(convert(spotLight: gltfLight))
-            default:
-                break
+        if #available(visionOS 2.0, *) {
+            if let gltfLight = gltfNode.light {
+                switch gltfLight.type {
+                case .directional:
+                    nodeEntity.components.set(convert(directionalLight: gltfLight))
+                case .point:
+                    nodeEntity.components.set(convert(pointLight: gltfLight))
+                case .spot:
+                    nodeEntity.components.set(convert(spotLight: gltfLight))
+                default:
+                    break
+                }
             }
         }
-        #endif
 
         if let gltfCamera = gltfNode.camera, let cameraComponent = convert(camera: gltfCamera) {
             nodeEntity.components.set(cameraComponent)
@@ -512,7 +685,8 @@ public class GLTFRealityKitLoader {
         return nodeEntity
     }
 
-    #if os(visionOS)
+    #if compiler(>=6.0) || os(visionOS)
+    @available(macOS 15.0, iOS 18.0, visionOS 2.0, *)
     func convert(skin gltfSkin: GLTFSkin, context: GLTFRealityKitResourceContext) -> MeshResource.Skeleton? {
         let skeletonName = gltfSkin.name ?? nameGenerator.nextUniqueName(prefix: "Skin")
         let jointNames = gltfSkin.joints.compactMap { return $0.name }
@@ -538,13 +712,23 @@ public class GLTFRealityKitLoader {
     }
     #endif
 
-    @MainActor func convert(mesh gltfMesh: GLTFMesh, skeleton: GLTFRKSkeleton? = nil,
+    @MainActor func convert(mesh gltfMesh: GLTFMesh, skeleton: Any? /*MeshResource.Skeleton?*/ = nil,
                             context: GLTFRealityKitResourceContext) throws -> RealityKit.ModelComponent?
     {
+        var skeletonID: String?
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let skeleton = skeleton as? MeshResource.Skeleton {
+                skeletonID = skeleton.id
+            }
+        }
+        #endif
+
+        typealias PartMaterialPair = (MeshResource.Part, any RealityKit.Material)
         var primitiveMaterialIndex: Int = 0
-        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> (MeshResource.Part, any RealityKit.Material)? in
+        let partsAndMaterials = try gltfMesh.primitives.compactMap { primitive -> PartMaterialPair? in
             if let part = self.convert(primitive: primitive, materialIndex: primitiveMaterialIndex, 
-                                       skeletonID: skeleton?.id, context:context)
+                                       skeletonID: skeletonID, context:context)
             {
                 let material = try self.convert(material: primitive.material, context: context)
                 primitiveMaterialIndex += 1
@@ -568,9 +752,11 @@ public class GLTFRealityKitLoader {
 
         var meshContents = MeshResource.Contents()
         meshContents.models = MeshModelCollection([model])
-        #if os(visionOS)
-        if let skeleton = skeleton {
-            meshContents.skeletons = MeshSkeletonCollection([skeleton])
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let skeleton = skeleton as? MeshResource.Skeleton {
+                meshContents.skeletons = MeshSkeletonCollection([skeleton])
+            }
         }
         #endif
 
@@ -614,27 +800,29 @@ public class GLTFRealityKitLoader {
             part[MeshBuffers.textureCoordinates] = MeshBuffers.TextureCoordinates(texCoordsArray)
         }
 
-        #if os(visionOS)
-        if let joints0Attribute = gltfPrimitive.attribute(forName: "JOINTS_0"),
-           let weights0Attribute = gltfPrimitive.attribute(forName: "WEIGHTS_0"),
-           let jointsArray = packedUShort4Array(for: joints0Attribute.accessor),
-           let weightsArray = packedFloat4Array(for: weights0Attribute.accessor)
-        {
-            let weightsPerVertex = 4
-            func jointInfluences(forJoints joints: [SIMD4<UInt16>], weights: [SIMD4<Float>]) -> [MeshJointInfluence] {
-                return zip(joints, weights).reduce(into: [MeshJointInfluence]()) { partialResult, jointsAndWeights in
-                    let joints = jointsAndWeights.0; let weights = jointsAndWeights.1
-                    partialResult.append(MeshJointInfluence(jointIndex: Int(joints[0]), weight: weights[0]))
-                    partialResult.append(MeshJointInfluence(jointIndex: Int(joints[1]), weight: weights[1]))
-                    partialResult.append(MeshJointInfluence(jointIndex: Int(joints[2]), weight: weights[2]))
-                    partialResult.append(MeshJointInfluence(jointIndex: Int(joints[3]), weight: weights[3]))
+        #if compiler(>=6.0) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, *) {
+            if let joints0Attribute = gltfPrimitive.attribute(forName: "JOINTS_0"),
+               let weights0Attribute = gltfPrimitive.attribute(forName: "WEIGHTS_0"),
+               let jointsArray = packedUShort4Array(for: joints0Attribute.accessor),
+               let weightsArray = packedFloat4Array(for: weights0Attribute.accessor)
+            {
+                let weightsPerVertex = 4
+                func jointInfluences(forJoints joints: [SIMD4<UInt16>], weights: [SIMD4<Float>]) -> [MeshJointInfluence] {
+                    return zip(joints, weights).reduce(into: [MeshJointInfluence]()) { partialResult, jointsAndWeights in
+                        let joints = jointsAndWeights.0; let weights = jointsAndWeights.1
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[0]), weight: weights[0]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[1]), weight: weights[1]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[2]), weight: weights[2]))
+                        partialResult.append(MeshJointInfluence(jointIndex: Int(joints[3]), weight: weights[3]))
+                    }
                 }
-            }
 
-            let influences = jointInfluences(forJoints: jointsArray, weights: weightsArray)
-            part.jointInfluences = MeshResource.JointInfluences(influences: MeshBuffers.JointInfluences(influences),
-                                                                influencesPerVertex: weightsPerVertex)
-            part.skeletonID = skeletonID
+                let influences = jointInfluences(forJoints: jointsArray, weights: weightsArray)
+                part.jointInfluences = MeshResource.JointInfluences(influences: MeshBuffers.JointInfluences(influences),
+                                                                    influencesPerVertex: weightsPerVertex)
+                part.skeletonID = skeletonID
+            }
         }
         #endif
 
@@ -730,17 +918,17 @@ public class GLTFRealityKitLoader {
         }
     }
 
-    #if !os(visionOS)
-
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(spotLight gltfLight: GLTFLight) -> SpotLightComponent {
         let light = SpotLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                        intensity: gltfLight.intensity,
-                                       innerAngleInDegrees: degreesFromRadians(gltfLight.innerConeAngle),
-                                       outerAngleInDegrees: degreesFromRadians(gltfLight.outerConeAngle),
+                                       innerAngleInDegrees: GLTFDegFromRad(gltfLight.innerConeAngle),
+                                       outerAngleInDegrees: GLTFDegFromRad(gltfLight.outerConeAngle),
                                        attenuationRadius: gltfLight.range)
         return light
     }
 
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(pointLight gltfLight: GLTFLight) -> PointLightComponent {
         let light = PointLightComponent(color:platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                         intensity: gltfLight.intensity,
@@ -748,23 +936,119 @@ public class GLTFRealityKitLoader {
         return light
     }
 
+    @available(macOS 12.0, iOS 15.0, visionOS 2.0, *)
     func convert(directionalLight gltfLight: GLTFLight) -> DirectionalLightComponent {
+        #if os(visionOS)
+        let light = DirectionalLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
+                                              intensity: gltfLight.intensity)
+        #else
         let light = DirectionalLightComponent(color: platformColor(for: simd_make_float4(gltfLight.color, 1.0)),
                                               intensity: gltfLight.intensity,
                                               isRealWorldProxy: false)
+        #endif
         return light
     }
-
-    #endif
 
     func convert(camera: GLTFCamera) -> PerspectiveCameraComponent? {
         if let perspectiveParams = camera.perspective {
             let camera = PerspectiveCameraComponent(near: camera.zNear,
                                                     far: (camera.zFar > 0.0) ? camera.zFar : .infinity,
-                                                    fieldOfViewInDegrees: degreesFromRadians(perspectiveParams.yFOV))
+                                                    fieldOfViewInDegrees: GLTFDegFromRad(perspectiveParams.yFOV))
             return camera
         }
         return nil
+    }
+
+    func convert(animation: GLTFAnimation) throws -> AnimationResource {
+        let groupedChannels = animation.channels.reduce(into: [UUID : [GLTFAnimationChannel]]()) { partialResult, channel in
+            guard let targetIdentifier = channel.target.node?.identifier else { return }
+            if let _ = partialResult[targetIdentifier] {
+                partialResult[targetIdentifier]! += [channel]
+            } else {
+                partialResult[targetIdentifier] = [channel]
+            }
+        }
+        let name = animation.name ?? nameGenerator.nextUniqueName(prefix: "Animation")
+
+        struct AnimatedJointData {
+            var jointNames = [String]()
+            var jointTransformSamplers = [GLTFTransformSampler]()
+            var minTime: Float = 0
+            var maxTime: Float = 0
+            var sampleInterval: Float = 1 / 30.0
+        }
+        var jointAnimation = AnimatedJointData()
+        var animations = [AnimationDefinition]()
+        for (_, channels) in groupedChannels {
+            if let _ = channels.first(where: { $0.target.path == GLTFAnimationPath.weights.rawValue }), channels.count == 1 {
+                continue // TODO: Implement morph target animation
+            }
+            guard let targetNode = channels.first?.target.node else {
+                continue // Can't create an animation without at least one channel and a target
+            }
+            let translationChannel = channels.first { $0.target.path == GLTFAnimationPath.translation.rawValue }
+            let rotationChannel = channels.first { $0.target.path == GLTFAnimationPath.rotation.rawValue }
+            let scaleChannel = channels.first { $0.target.path == GLTFAnimationPath.scale.rawValue }
+            let transformSampler = GLTFTransformSampler(target: targetNode,
+                                                        translationChannel: translationChannel,
+                                                        rotationChannel: rotationChannel,
+                                                        scaleChannel: scaleChannel,
+                                                        maximumSampleInterval: 1 / 30.0) // TODO: Make sample interval an option
+            if targetNode.isJoint {
+                jointAnimation.jointNames.append(targetNode.name!)
+                jointAnimation.jointTransformSamplers.append(transformSampler)
+                jointAnimation.minTime = min(jointAnimation.minTime, transformSampler.startTime)
+                jointAnimation.maxTime = max(jointAnimation.maxTime, transformSampler.endTime)
+                jointAnimation.sampleInterval = min(jointAnimation.sampleInterval, transformSampler.recommendedSampleInterval)
+            } else {
+                let frames = stride(from: transformSampler.startTime,
+                                    through: transformSampler.endTime,
+                                    by: transformSampler.recommendedSampleInterval).map
+                {
+                    transformSampler.transform(at: $0)
+                }
+                let sampledAnimation = SampledAnimation(frames: frames,
+                                                        tweenMode: transformSampler.hasStepChannel ? .hold : .linear,
+                                                        frameInterval: transformSampler.recommendedSampleInterval,
+                                                        bindTarget: targetNode.bindPath.transform,
+                                                        delay: TimeInterval(transformSampler.startTime))
+                animations.append(sampledAnimation)
+            }
+        }
+        if !jointAnimation.jointNames.isEmpty {
+            var jointTransforms = [JointTransforms]()
+            for t in stride(from: jointAnimation.minTime, through: jointAnimation.maxTime, by: jointAnimation.sampleInterval) {
+                let sampledTransforms = zip(jointAnimation.jointNames, jointAnimation.jointTransformSamplers).map { jointName, transformSampler -> Transform in
+                    var jointTransform = transformSampler.transform(at: t)
+                    if let ancestorTransform = skeletonTransformsByJointName[jointName] {
+                        jointTransform = Transform(matrix: ancestorTransform.matrix * jointTransform.matrix)
+                    }
+                    return jointTransform
+                }
+                jointTransforms.append(JointTransforms(sampledTransforms))
+            }
+            let delay = TimeInterval(jointAnimation.minTime)
+
+            var animatedSkeletonIDs = Set</*MeshResource.Skeleton.ID*/String>()
+            for jointName in jointAnimation.jointNames {
+                if let skeletonIDs = skeletonIDsByJointName[jointName] {
+                    animatedSkeletonIDs.formUnion(skeletonIDs)
+                }
+            }
+            let animatedBindPaths = animatedSkeletonIDs.compactMap { pathsForSkeletonIDs[$0] }
+            for bindPath in animatedBindPaths {
+                let skeletalAnimation = SampledAnimation(jointNames: jointAnimation.jointNames,
+                                                         frames: jointTransforms,
+                                                         tweenMode: .linear, // TODO: Support .hold?
+                                                         frameInterval: jointAnimation.sampleInterval,
+                                                         bindTarget: bindPath.jointTransforms,
+                                                         delay: delay)
+                animations.append(skeletalAnimation)
+            }
+        }
+
+        let groupAnimation = AnimationGroup(group: animations, name: name)
+        return try AnimationResource.generate(with: groupAnimation)
     }
 
     func platformColor(for vector: simd_float4) -> PlatformColor {
@@ -781,6 +1065,6 @@ public class GLTFRealityKitLoader {
     }
 }
 
-#endif // swift >=5.5
+#endif // compiler >=5.6
 
 #endif // !tvOS

@@ -1,7 +1,7 @@
 /**
  * cgltf_write - a single-file glTF 2.0 writer written in C99.
  *
- * Version: 1.14
+ * Version: 1.15
  *
  * Website: https://github.com/jkuhlmann/cgltf
  *
@@ -88,6 +88,7 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 #define CGLTF_EXTENSION_FLAG_MATERIALS_ANISOTROPY (1 << 16)
 #define CGLTF_EXTENSION_FLAG_MATERIALS_DISPERSION (1 << 17)
 #define CGLTF_EXTENSION_FLAG_TEXTURE_WEBP          (1 << 18)
+#define CGLTF_EXTENSION_FLAG_MATERIALS_DIFFUSE_TRANSMISSION (1 << 19)
 
 typedef struct {
 	char* buffer;
@@ -656,6 +657,11 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 		context->extension_flags |= CGLTF_EXTENSION_FLAG_MATERIALS_IRIDESCENCE;
 	}
 
+	if (material->has_diffuse_transmission)
+	{
+		context->extension_flags |= CGLTF_EXTENSION_FLAG_MATERIALS_DIFFUSE_TRANSMISSION;
+	}
+
 	if (material->has_anisotropy)
 	{
 		context->extension_flags |= CGLTF_EXTENSION_FLAG_MATERIALS_ANISOTROPY;
@@ -681,7 +687,7 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 		cgltf_write_line(context, "}");
 	}
 
-	if (material->unlit || material->has_pbr_specular_glossiness || material->has_clearcoat || material->has_ior || material->has_specular || material->has_transmission || material->has_sheen || material->has_volume || material->has_emissive_strength || material->has_iridescence || material->has_anisotropy || material->has_dispersion)
+	if (material->unlit || material->has_pbr_specular_glossiness || material->has_clearcoat || material->has_ior || material->has_specular || material->has_transmission || material->has_sheen || material->has_volume || material->has_emissive_strength || material->has_iridescence || material->has_anisotropy || material->has_dispersion || material->has_diffuse_transmission)
 	{
 		cgltf_write_line(context, "\"extensions\": {");
 		if (material->has_clearcoat)
@@ -792,11 +798,24 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 			CGLTF_WRITE_TEXTURE_INFO("iridescenceThicknessTexture", params->iridescence_thickness_texture);
 			cgltf_write_line(context, "}");
 		}
+		if (material->has_diffuse_transmission)
+		{
+			const cgltf_diffuse_transmission* params = &material->diffuse_transmission;
+			cgltf_write_line(context, "\"KHR_materials_diffuse_transmission\": {");
+			CGLTF_WRITE_TEXTURE_INFO("diffuseTransmissionTexture", params->diffuse_transmission_texture);
+			cgltf_write_floatprop(context, "diffuseTransmissionFactor", params->diffuse_transmission_factor, 0.f);
+			if (cgltf_check_floatarray(params->diffuse_transmission_color_factor, 3, 1.f))
+			{
+				cgltf_write_floatarrayprop(context, "diffuseTransmissionColorFactor", params->diffuse_transmission_color_factor, 3);
+			}
+			CGLTF_WRITE_TEXTURE_INFO("diffuseTransmissionColorTexture", params->diffuse_transmission_color_texture);
+			cgltf_write_line(context, "}");
+		}
 		if (material->has_anisotropy)
 		{
 			cgltf_write_line(context, "\"KHR_materials_anisotropy\": {");
 			const cgltf_anisotropy* params = &material->anisotropy;
-			cgltf_write_floatprop(context, "anisotropyFactor", params->anisotropy_strength, 0.f);
+			cgltf_write_floatprop(context, "anisotropyStrength", params->anisotropy_strength, 0.f);
 			cgltf_write_floatprop(context, "anisotropyRotation", params->anisotropy_rotation, 0.f);
 			CGLTF_WRITE_TEXTURE_INFO("anisotropyTexture", params->anisotropy_texture);
 			cgltf_write_line(context, "}");
@@ -1297,6 +1316,9 @@ static void cgltf_write_extensions(cgltf_write_context* context, uint32_t extens
 	}
 	if (extension_flags & CGLTF_EXTENSION_FLAG_MATERIALS_IRIDESCENCE) {
 		cgltf_write_stritem(context, "KHR_materials_iridescence");
+	}
+	if (extension_flags & CGLTF_EXTENSION_FLAG_MATERIALS_DIFFUSE_TRANSMISSION) {
+		cgltf_write_stritem(context, "KHR_materials_diffuse_transmission");
 	}
 	if (extension_flags & CGLTF_EXTENSION_FLAG_MATERIALS_ANISOTROPY) {
 		cgltf_write_stritem(context, "KHR_materials_anisotropy");

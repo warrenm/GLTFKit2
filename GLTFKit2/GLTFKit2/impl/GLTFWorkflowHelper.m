@@ -1,16 +1,18 @@
-
 #import "GLTFWorkflowHelper.h"
+#import "GLTFLogging.h"
 
 #import <Metal/Metal.h>
 
 static NSString *const GLTFWorkflowConversionShaderSource = @""
 "#include <metal_stdlib>\n"
 "using namespace metal;\n"
-"static constant float3 diffuseF0 { 0.04, 0.04, 0.04 };\n"
+"static constant float3 dielectricF0 { 0.04, 0.04, 0.04 };\n"
 "struct sg_to_rm_params {\n"
 "    float4 diffuseColorFactor;\n"
 "    float3 specularFactor;\n"
 "    float glossinessFactor;\n"
+"    uint unpremultiplyDiffuse;\n"
+"    uint unpremultiplySpecular;\n"
 "};\n"
 "static float max_component(float3 v) {\n"
 "    return max(max(v.x, v.y), v.z);\n"
@@ -19,12 +21,12 @@ static NSString *const GLTFWorkflowConversionShaderSource = @""
 "    return dot(rgb, float3(0.2126, 0.7152, 0.0722));\n"
 "}\n"
 "static float solve_metallic(float diffuse, float specular, float oneMinusSpecularStrength) {\n"
-"    if (specular < diffuseF0.r) {\n"
+"    if (specular < dielectricF0.r) {\n"
 "        return 0;\n"
 "    }\n"
-"    float a = diffuseF0.r;\n"
-"    float b = diffuse * oneMinusSpecularStrength / (1 - diffuseF0.r) + specular - 2 * diffuseF0.r;\n"
-"    float c = diffuseF0.r - specular;\n"
+"    float a = dielectricF0.r;\n"
+"    float b = diffuse * oneMinusSpecularStrength / (1 - dielectricF0.r) + specular - 2 * dielectricF0.r;\n"
+"    float c = dielectricF0.r - specular;\n"
 "    float D = b * b - 4 * a * c;\n"
 "    return saturate((-b + sqrt(D)) / (2 * a));\n"
 "}\n"
@@ -34,8 +36,8 @@ static NSString *const GLTFWorkflowConversionShaderSource = @""
 "    const float epsilon = 1e-6;\n"
 "    float oneMinusSpecularStrength = 1 - max_component(specular);\n"
 "    float metallic = solve_metallic(y_from_rgb(diffuse), y_from_rgb(specular), oneMinusSpecularStrength);\n"
-"    float3 baseColorFromDiffuse = diffuse * (oneMinusSpecularStrength / (1 - diffuseF0.r) / max(1 - metallic, epsilon));\n"
-"    float3 baseColorFromSpecular = specular - (diffuseF0 * (1 - metallic)) * (1 / max(metallic, epsilon));\n"
+"    float3 baseColorFromDiffuse = diffuse * (oneMinusSpecularStrength / (1 - dielectricF0.r) / max(1 - metallic, epsilon));\n"
+"    float3 baseColorFromSpecular = specular - (dielectricF0 * (1 - metallic)) * (1 / max(metallic, epsilon));\n"
 "    float3 baseColor = mix(baseColorFromDiffuse, baseColorFromSpecular, metallic * metallic);\n"
 "    *outBaseColor = baseColor;\n"
 "    *outMetallic = metallic;\n"
@@ -53,30 +55,40 @@ static NSString *const GLTFWorkflowConversionShaderSource = @""
 "    uint outputHeight = baseColorTexture.get_height();\n"
 "    if (index.x >= outputWidth || index.y >= outputHeight) { return; }\n"
 "    float2 uv { float(index.x) / outputWidth, float(index.y) / outputHeight };\n"
-"    float4 diffuseColor = params.diffuseColorFactor;\n"
+"    float3 diffuseColor = {0};\n"
+"    float opacity = 1;\n"
 "    if (!is_null_texture(diffuseTexture)) {\n"
 "        float4 sampledDiffuse = diffuseTexture.sample(linearSampler, uv);\n"
-"        sampledDiffuse.rgb /= sampledDiffuse.a;\n"
-"        diffuseColor *= sampledDiffuse;\n"
+"        if (params.unpremultiplyDiffuse) {\n"
+"            sampledDiffuse.rgb /= sampledDiffuse.a;\n"
+"        }\n"
+"        diffuseColor.rgb = sampledDiffuse.rgb;\n"
+"        opacity = sampledDiffuse.a;\n"
 "    }\n"
 "    float3 specularColor = params.specularFactor;\n"
 "    float glossiness = params.glossinessFactor;\n"
 "    if (!is_null_texture(specularGlossinessTexture)) {\n"
 "        float4 sampledSpecGloss = specularGlossinessTexture.sample(linearSampler, uv);\n"
-"        specularColor *= (sampledSpecGloss.rgb / sampledSpecGloss.a);\n"
+"        if (params.unpremultiplySpecular) {\n"
+"            specularColor *= (sampledSpecGloss.rgb / sampledSpecGloss.a);\n"
+"        } else {\n"
+"            specularColor *= sampledSpecGloss.rgb;\n"
+"        }\n"
 "        glossiness *= sampledSpecGloss.a;\n"
 "    }\n"
 "    float3 baseColor;\n"
 "    float metallic, roughness;\n"
 "    get_rm_from_sg(diffuseColor.rgb, specularColor, glossiness, &baseColor, &metallic, &roughness);\n"
-"    baseColorTexture.write(float4(baseColor * diffuseColor.a, diffuseColor.a), ushort2(index));\n"
-"    roughnessMetallicTexture.write(float4(0.0, roughness * roughness, metallic, 1.0), ushort2(index));\n"
+"    baseColorTexture.write(float4(baseColor, opacity), ushort2(index));\n"
+"    roughnessMetallicTexture.write(float4(0.0, roughness, metallic, 1.0), ushort2(index));\n"
 "}\n";
 
 typedef struct {
     simd_float4 diffuseColorFactor;
     simd_float3 specularFactor;
     float glossinessFactor;
+    uint32_t unpremultiplyDiffuse;
+    uint32_t unpremultiplySpecular;
 } GLTFWorkflowHelperParams;
 
 static float GLTFMaxVectorComponent(simd_float3 v) {
@@ -125,6 +137,7 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
 }
 
 @interface GLTFWorkflowHelper ()
+@property (nonatomic, strong) id<MTLDevice> device;
 @property (nonatomic, strong) GLTFPBRSpecularGlossinessParams *specularGlossiness;
 @property (nonatomic, assign) simd_float4 baseColorFactor;
 @property (nonatomic, nullable, strong) GLTFTextureParams *baseColorTexture;
@@ -135,8 +148,12 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
 
 @implementation GLTFWorkflowHelper
 
-- (instancetype)initWithSpecularGlossiness:(GLTFPBRSpecularGlossinessParams *)specularGlossiness {
+- (instancetype)initWithSpecularGlossiness:(GLTFPBRSpecularGlossinessParams *)specularGlossiness
+                                    device:(nonnull id<MTLDevice>)device
+{
     if (self = [super init]) {
+        _device = device;
+
         _specularGlossiness = specularGlossiness;
 
         _baseColorFactor = (simd_float4){ 1, 1, 1, 1 };
@@ -153,74 +170,62 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
     // a per-texel base color and metallic-roughness dependency, so we will generate
     // textures for both.
     BOOL hasTextures = (self.specularGlossiness.diffuseTexture != nil) ||
-                       (self.specularGlossiness.specularGlossinessTexture != nil);
+    (self.specularGlossiness.specularGlossinessTexture != nil);
+
+    simd_float3 diffuseFactor = self.specularGlossiness.diffuseFactor.xyz;
+    float opacityFactor = self.specularGlossiness.diffuseFactor.w;
+    simd_float3 specularFactor = self.specularGlossiness.specularFactor;
+    float glossinessFactor = self.specularGlossiness.glossinessFactor;
+    simd_float3 albedo;
+    float metallicFactor, roughnessFactor;
+    GLTFGetMetallicRoughnessFromSpecularGlossiness(diffuseFactor, specularFactor, glossinessFactor,
+                                                   &albedo, &metallicFactor, &roughnessFactor);
 
     if (!hasTextures) {
-        simd_float3 diffuseFactor = self.specularGlossiness.diffuseFactor.xyz;
-        float opacityFactor = self.specularGlossiness.diffuseFactor.w;
-        simd_float3 specularFactor = self.specularGlossiness.specularFactor;
-        float glossinessFactor = self.specularGlossiness.glossinessFactor;
-        simd_float3 albedo;
-        float metallic, roughness;
-        GLTFGetMetallicRoughnessFromSpecularGlossiness(diffuseFactor, specularFactor, glossinessFactor,
-                                                       &albedo, &metallic, &roughness);
         self.baseColorFactor = simd_make_float4(albedo, opacityFactor);
-        self.metallicFactor = metallic;
-        self.roughnessFactor = roughness;
+        self.metallicFactor = metallicFactor;
+        self.roughnessFactor = roughnessFactor;
     } else {
-        CGImageRef diffuseImage = [self.specularGlossiness.diffuseTexture.texture.source newCGImage];
-        CGImageRef specularGlossinessImage = [self.specularGlossiness.specularGlossinessTexture.texture.source newCGImage];
-
-        int diffuseWidth = diffuseImage ? (int)CGImageGetWidth(diffuseImage) : 0;
-        int diffuseHeight = diffuseImage ? (int)CGImageGetHeight(diffuseImage) : 0;
-
-        int specularWidth = specularGlossinessImage ? (int)CGImageGetWidth(specularGlossinessImage) : 0;
-        int specularHeight = specularGlossinessImage ? (int)CGImageGetHeight(specularGlossinessImage) : 0;
-
-        int outputWidth = MAX(diffuseWidth, specularWidth);
-        int outputHeight = MAX(diffuseHeight, specularHeight);
-
-        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-
-        //[MTLCaptureManager.sharedCaptureManager startCaptureWithDevice:device];
-
-        id<MTLTexture> diffuseTexture = nil;
-        if (diffuseWidth > 0 && diffuseHeight > 0) {
-            diffuseTexture = [self newTextureFromImage:diffuseImage device:device];
-        }
-
-        id<MTLTexture> specularGlossinessTexture = nil;
-        if (specularWidth > 0 && specularHeight > 0) {
-            specularGlossinessTexture = [self newTextureFromImage:specularGlossinessImage device:device];
-        }
-
-        MTLPixelFormat pixelFormat = MTLPixelFormatBGRA8Unorm;
-        MTLTextureDescriptor *baseColorDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:pixelFormat
-                                                                                                 width:outputWidth
-                                                                                                height:outputHeight
-                                                                                             mipmapped:NO];
-        baseColorDesc.usage = MTLTextureUsageShaderWrite;
-        id<MTLTexture> baseColorTexture = [device newTextureWithDescriptor:baseColorDesc];
-
-        MTLTextureDescriptor *metallicDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:pixelFormat
-                                                                                                 width:outputWidth
-                                                                                                height:outputHeight
-                                                                                             mipmapped:NO];
-        metallicDesc.usage = MTLTextureUsageShaderWrite;
-        id<MTLTexture> metallicRoughnessTexture = [device newTextureWithDescriptor:metallicDesc];
-
-        NSError *error = nil;
-        id<MTLLibrary> library = [device newLibraryWithSource:GLTFWorkflowConversionShaderSource options:nil error:&error];
-
-        id<MTLFunction> kernelFunction = [library newFunctionWithName:@"sg_to_mr"];
-        id<MTLComputePipelineState> computePipelineState = [device newComputePipelineStateWithFunction:kernelFunction error:&error];
-
-        id<MTLCommandQueue> commandQueue = [device newCommandQueue];
+        BOOL shouldUnpremultiplyDiffuse = NO;
+        id<MTLTexture> _Nullable diffuseTexture = [self newTextureForGLTFTexture: self.specularGlossiness.diffuseTexture.texture
+                                                                            sRGB:YES
+                                                          outShouldUnpremultiply:&shouldUnpremultiplyDiffuse];
+        BOOL shouldUnpremultiplySpecular = NO;
+        id<MTLTexture> _Nullable specularGlossinessTexture = [self newTextureForGLTFTexture:self.specularGlossiness.specularGlossinessTexture.texture
+                                                                                       sRGB:YES
+                                                                     outShouldUnpremultiply:&shouldUnpremultiplySpecular];
 
         GLTFWorkflowHelperParams params;
         params.diffuseColorFactor = self.specularGlossiness.diffuseFactor;
         params.specularFactor = self.specularGlossiness.specularFactor;
         params.glossinessFactor = self.specularGlossiness.glossinessFactor;
+        params.unpremultiplyDiffuse = (uint32_t)shouldUnpremultiplyDiffuse;
+        params.unpremultiplySpecular = (uint32_t)shouldUnpremultiplySpecular;
+
+        NSUInteger outputWidth = MAX(MAX(diffuseTexture.width, specularGlossinessTexture.width), 1);
+        NSUInteger outputHeight = MAX(MAX(diffuseTexture.height, specularGlossinessTexture.height), 1);
+
+        MTLTextureDescriptor *baseColorDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB
+                                                                                                 width:outputWidth
+                                                                                                height:outputHeight
+                                                                                             mipmapped:YES];
+        baseColorDesc.usage = MTLTextureUsageShaderWrite | MTLTextureUsageShaderRead;
+        id<MTLTexture> baseColorTexture = [self.device newTextureWithDescriptor:baseColorDesc];
+
+        MTLTextureDescriptor *metallicDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                                                                width:outputWidth
+                                                                                               height:outputHeight
+                                                                                            mipmapped:YES];
+        metallicDesc.usage = MTLTextureUsageShaderWrite | MTLTextureUsageShaderRead;
+        id<MTLTexture> metallicRoughnessTexture = [self.device newTextureWithDescriptor:metallicDesc];
+
+        NSError *error = nil;
+        id<MTLLibrary> library = [self.device newLibraryWithSource:GLTFWorkflowConversionShaderSource options:nil error:&error];
+
+        id<MTLFunction> kernelFunction = [library newFunctionWithName:@"sg_to_mr"];
+        id<MTLComputePipelineState> computePipelineState = [self.device newComputePipelineStateWithFunction:kernelFunction error:&error];
+
+        id<MTLCommandQueue> commandQueue = [self.device newCommandQueue];
 
         MTLSize tileSize = MTLSizeMake(8, 4, 1);
         MTLSize threadgroupCount = MTLSizeMake(((outputWidth + tileSize.width - 1) / tileSize.width),
@@ -238,55 +243,89 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
         [computeEncoder dispatchThreadgroups:threadgroupCount threadsPerThreadgroup:tileSize];
         [computeEncoder endEncoding];
 
-        #if TARGET_OS_OSX
+#if TARGET_OS_OSX
         id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
-        [blitEncoder synchronizeResource:baseColorTexture];
-        [blitEncoder synchronizeResource:metallicRoughnessTexture];
+        [blitEncoder generateMipmapsForTexture:baseColorTexture];
+        [blitEncoder generateMipmapsForTexture:metallicRoughnessTexture];
         [blitEncoder endEncoding];
-        #endif
+#endif
 
         [commandBuffer commit];
-        [commandBuffer waitUntilCompleted];
-
-        CGImageRef baseColorImage = [self newImageFromTexture:baseColorTexture];
-        CGImageRef metallicRoughnessImage = [self newImageFromTexture:metallicRoughnessTexture];
 
         self.baseColorTexture = [[GLTFTextureParams alloc] init];
+        self.baseColorTexture.texCoord = self.specularGlossiness.diffuseTexture.texCoord;
+        self.baseColorTexture.transform = self.specularGlossiness.diffuseTexture.transform;
         self.baseColorTexture.texture = [[GLTFTexture alloc] init];
         self.baseColorTexture.texture.sampler = self.specularGlossiness.diffuseTexture.texture.sampler;
-        self.baseColorTexture.texture.source = [[GLTFImage alloc] initWithCGImage:baseColorImage];
+        self.baseColorTexture.texture.source = [[GLTFImage alloc] initWithTexture:baseColorTexture];
 
-        self.metallicRoughnessTexture = [[GLTFTextureParams alloc] init];
-        self.metallicRoughnessTexture.texture = [[GLTFTexture alloc] init];
-        self.metallicRoughnessTexture.texture.sampler = self.specularGlossiness.specularGlossinessTexture.texture.sampler;
-        self.metallicRoughnessTexture.texture.source = [[GLTFImage alloc] initWithCGImage:metallicRoughnessImage];
+        self.baseColorFactor = self.specularGlossiness.diffuseFactor;
 
-        CGImageRelease(baseColorImage);
-        CGImageRelease(metallicRoughnessImage);
-        CGImageRelease(diffuseImage);
-        CGImageRelease(specularGlossinessImage);
-
-        //[MTLCaptureManager.sharedCaptureManager stopCapture];
+        // Although both diffuse and specular color influence base color, metallic and roughness
+        // are derived entirely from specular/glossiness, so if we didn't have a specular-glossiness
+        // map, we can infer that metallic/roughness are actually constants. If we *did* have a specular-glossiness
+        // map, the metallic and roughness factors are baked into the metallic-roughness texture and should
+        // not be separately applied by the renderer.
+        if (specularGlossinessTexture) {
+            self.metallicRoughnessTexture = [[GLTFTextureParams alloc] init];
+            self.metallicRoughnessTexture.texCoord = self.specularGlossiness.specularGlossinessTexture.texCoord;
+            self.metallicRoughnessTexture.transform = self.specularGlossiness.specularGlossinessTexture.transform;
+            self.metallicRoughnessTexture.texture = [[GLTFTexture alloc] init];
+            self.metallicRoughnessTexture.texture.sampler = self.specularGlossiness.specularGlossinessTexture.texture.sampler;
+            self.metallicRoughnessTexture.texture.source = [[GLTFImage alloc] initWithTexture:metallicRoughnessTexture];
+            self.metallicFactor = 1.0;
+            self.roughnessFactor = 1.0;
+        } else {
+            self.metallicFactor = metallicFactor;
+            self.roughnessFactor = roughnessFactor;
+        }
     }
 }
 
-- (id<MTLTexture>)newTextureFromImage:(CGImageRef)image device:(id<MTLDevice>)device {
+- (id<MTLTexture> _Nullable)newTextureForGLTFTexture:(GLTFTexture *_Nullable)gltfTexture
+                                                sRGB:(BOOL)sRGB
+                              outShouldUnpremultiply:(BOOL *)shouldUnpremultiply
+{
+    *shouldUnpremultiply = NO;
+    if (gltfTexture == nil) {
+        return nil;
+    }
+    if (gltfTexture.basisUSource) {
+        return [gltfTexture.basisUSource newTextureWithDevice:self.device];
+    }
+    GLTFImage *source = gltfTexture.webpSource ?: gltfTexture.source;
+    CGImageRef _Nullable cgImage = source.newCGImage;
+    if (cgImage) {
+        CGImageAlphaInfo alpha = CGImageGetAlphaInfo(cgImage);
+        if (alpha == kCGImageAlphaPremultipliedLast || alpha == kCGImageAlphaPremultipliedFirst) {
+            *shouldUnpremultiply = YES;
+        }
+        id<MTLTexture> texture = [self newTextureFromImage:cgImage sRGB:sRGB];
+        CGImageRelease(cgImage);
+        return texture;
+    }
+    // glTF texture seems to have an image, but we don't know how to convert it to a Metal texture.
+    GLTFLogWarning(@"[GLTFKit2] WARNING: Conversion from glTF texture to Metal texture in specular-glossiness workflow failed");
+    return nil;
+}
+
+- (id<MTLTexture>)newTextureFromImage:(CGImageRef)image sRGB:(BOOL)sRGB {
     int width = (int)CGImageGetWidth(image);
     int height = (int)CGImageGetHeight(image);
     int bytesPerRow = width * 4;
     void *data = malloc(bytesPerRow * height);
     memset(data, 0, bytesPerRow * height);
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-    int bitmapInfo = kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst;
+    CGColorSpaceRef colorSpace = sRGB ? CGColorSpaceCreateWithName(kCGColorSpaceSRGB) : CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
+    CGBitmapInfo bitmapInfo = (uint32_t)kCGImageByteOrder32Little | (uint32_t)kCGImageAlphaPremultipliedFirst;
     CGContextRef context = CGBitmapContextCreate(data, width, height, 8, bytesPerRow, colorSpace, bitmapInfo);
     CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
 
-    MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB
+    MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:sRGB ? MTLPixelFormatBGRA8Unorm_sRGB : MTLPixelFormatBGRA8Unorm
                                                                                                  width:width
                                                                                                 height:height
                                                                                              mipmapped:NO];
     textureDescriptor.usage = MTLTextureUsageShaderRead;
-    id<MTLTexture> texture = [device newTextureWithDescriptor:textureDescriptor];
+    id<MTLTexture> texture = [self.device newTextureWithDescriptor:textureDescriptor];
     [texture replaceRegion:MTLRegionMake2D(0, 0, width, height) mipmapLevel:0 withBytes:data bytesPerRow:bytesPerRow];
 
     CGContextRelease(context);
@@ -294,22 +333,6 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
     free(data);
 
     return texture;
-}
-
-- (CGImageRef)newImageFromTexture:(id<MTLTexture>)texture {
-    int width = (int)texture.width;
-    int height = (int)texture.height;
-    int bytesPerRow = width * 4;
-    void *data = malloc(bytesPerRow * height);
-    [texture getBytes:data bytesPerRow:bytesPerRow fromRegion:MTLRegionMake2D(0, 0, width, height) mipmapLevel:0];
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceLinearSRGB);
-    int bitmapInfo = kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst;
-    CGContextRef context = CGBitmapContextCreate(data, width, height, 8, bytesPerRow, colorSpace, bitmapInfo);
-    CGImageRef image = CGBitmapContextCreateImage(context);
-    CGContextRelease(context);
-    CFRelease(colorSpace);
-    free(data);
-    return image;
 }
 
 @end
