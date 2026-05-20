@@ -136,6 +136,14 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
     *outRoughness = 1 - glossiness;
 }
 
+static BOOL GLTFMetalDeviceHasWritableSRGBFormats(id<MTLDevice> device) {
+    if (@available(iOS 13.0, tvOS 13.0, *)) {
+        return [device supportsFamily:MTLGPUFamilyApple2];
+    } else {
+        return NO;
+    }
+}
+
 @interface GLTFWorkflowHelper ()
 @property (nonatomic, strong) id<MTLDevice> device;
 @property (nonatomic, strong) GLTFPBRSpecularGlossinessParams *specularGlossiness;
@@ -186,6 +194,15 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
         self.metallicFactor = metallicFactor;
         self.roughnessFactor = roughnessFactor;
     } else {
+        MTLPixelFormat baseColorFormat = MTLPixelFormatBGRA8Unorm_sRGB;
+        if (!GLTFMetalDeviceHasWritableSRGBFormats(_device)) {
+            static dispatch_once_t warnOnce;
+            dispatch_once(&warnOnce, ^{
+                GLTFLogWarning(@"[GLTFKit2] WARNING: This device does not support writeable sRGB pixel formats. Specular-glossiness conversion workflows may produce incorrect colors. This will only be logged once per session.");
+            });
+            baseColorFormat = MTLPixelFormatBGRA8Unorm;
+        }
+        
         BOOL shouldUnpremultiplyDiffuse = NO;
         id<MTLTexture> _Nullable diffuseTexture = [self newTextureForGLTFTexture: self.specularGlossiness.diffuseTexture.texture
                                                                             sRGB:YES
@@ -205,7 +222,7 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
         NSUInteger outputWidth = MAX(MAX(diffuseTexture.width, specularGlossinessTexture.width), 1);
         NSUInteger outputHeight = MAX(MAX(diffuseTexture.height, specularGlossinessTexture.height), 1);
 
-        MTLTextureDescriptor *baseColorDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB
+        MTLTextureDescriptor *baseColorDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:baseColorFormat
                                                                                                  width:outputWidth
                                                                                                 height:outputHeight
                                                                                              mipmapped:YES];
@@ -243,12 +260,10 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
         [computeEncoder dispatchThreadgroups:threadgroupCount threadsPerThreadgroup:tileSize];
         [computeEncoder endEncoding];
 
-#if TARGET_OS_OSX
         id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
         [blitEncoder generateMipmapsForTexture:baseColorTexture];
         [blitEncoder generateMipmapsForTexture:metallicRoughnessTexture];
         [blitEncoder endEncoding];
-#endif
 
         [commandBuffer commit];
 
