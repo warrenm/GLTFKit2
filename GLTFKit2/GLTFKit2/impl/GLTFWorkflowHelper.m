@@ -3,6 +3,13 @@
 
 #import <Metal/Metal.h>
 
+#if \
+    (__IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_16_0 && defined(__IPHONE_16_0)) || \
+    (__TV_OS_VERSION_MAX_ALLOWED >= __TVOS_16_0 && defined(__TVOS_16_0)) || \
+    (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_13_0 && defined(MAC_OS_VERSION_13_0))
+#define GLTF_METAL3_AWARE_SDK 1
+#endif
+
 static NSString *const GLTFWorkflowConversionShaderSource = @""
 "#include <metal_stdlib>\n"
 "using namespace metal;\n"
@@ -138,11 +145,13 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
 
 static BOOL GLTFMetalDeviceHasWritableSRGBFormats(id<MTLDevice> device) {
     if (@available(iOS 13.0, tvOS 13.0, *)) {
+        #ifdef GLTF_METAL3_AWARE_SDK
         if (@available(macOS 13.0, iOS 16.0, tvOS 16.0, *)) {
             if([device supportsFamily:MTLGPUFamilyMetal3]) {
                 return YES;
             }
         }
+        #endif
         return [device supportsFamily:MTLGPUFamilyApple2];
     } else {
         return NO;
