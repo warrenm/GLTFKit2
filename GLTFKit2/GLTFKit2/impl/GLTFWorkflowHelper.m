@@ -6,7 +6,8 @@
 #if \
     (__IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_16_0 && defined(__IPHONE_16_0)) || \
     (__TV_OS_VERSION_MAX_ALLOWED >= __TVOS_16_0 && defined(__TVOS_16_0)) || \
-    (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_13_0 && defined(MAC_OS_VERSION_13_0))
+    (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_13_0 && defined(MAC_OS_VERSION_13_0)) || \
+    defined(__VISION_OS_VERSION_MAX_ALLOWED)
 #define GLTF_METAL3_AWARE_SDK 1
 #endif
 
