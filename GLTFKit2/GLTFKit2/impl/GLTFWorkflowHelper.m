@@ -138,6 +138,11 @@ static void GLTFGetMetallicRoughnessFromSpecularGlossiness(simd_float3 diffuse, 
 
 static BOOL GLTFMetalDeviceHasWritableSRGBFormats(id<MTLDevice> device) {
     if (@available(iOS 13.0, tvOS 13.0, *)) {
+        if (@available(macOS 13.0, iOS 16.0, tvOS 16.0, *)) {
+            if([device supportsFamily:MTLGPUFamilyMetal3]) {
+                return YES;
+            }
+        }
         return [device supportsFamily:MTLGPUFamilyApple2];
     } else {
         return NO;
@@ -198,7 +203,9 @@ static BOOL GLTFMetalDeviceHasWritableSRGBFormats(id<MTLDevice> device) {
         if (!GLTFMetalDeviceHasWritableSRGBFormats(_device)) {
             static dispatch_once_t warnOnce;
             dispatch_once(&warnOnce, ^{
-                GLTFLogWarning(@"[GLTFKit2] WARNING: This device does not support writeable sRGB pixel formats. Specular-glossiness conversion workflows may produce incorrect colors. This will only be logged once per session.");
+                GLTFLogWarning(@"[GLTFKit2] WARNING: This device does not support writable sRGB pixel formats. "
+                               "Specular-glossiness conversion workflows may produce incorrect colors. "
+                               "This will only be logged once per session.");
             });
             baseColorFormat = MTLPixelFormatBGRA8Unorm;
         }
