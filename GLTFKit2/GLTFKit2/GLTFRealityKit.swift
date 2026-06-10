@@ -10,6 +10,13 @@ typealias PlatformColor = NSColor
 typealias PlatformColor = UIColor
 #endif
 
+fileprivate enum GLTFGaussianSplattingAttribute: String {
+    case rotation = "KHR_gaussian_splatting:ROTATION"
+    case scale = "KHR_gaussian_splatting:SCALE"
+    case opacity = "KHR_gaussian_splatting:OPACITY"
+    case shDegree0Coeff0 = "KHR_gaussian_splatting:SH_DEGREE_0_COEF_0"
+}
+
 // Omit support for RealityKit entirely on platforms (such as macOS 11 Big Sur)
 // that don't have the required API or language features from the RealityKit 2
 // era.
@@ -18,6 +25,10 @@ typealias PlatformColor = UIColor
 // tools necessary to do so, so we fall back on compiler version.
 // https://forums.swift.org/t/do-we-need-something-like-if-available/40349/34
 #if compiler(>=5.6)
+
+fileprivate func alignUp(_ value: Int, _ alignment: Int = 16) -> Int {
+    return (value + alignment - 1) & ~(alignment - 1)
+}
 
 func packedStride(for accessor: GLTFAccessor) -> Int {
     var size = 0
@@ -579,7 +590,7 @@ public class GLTFRealityKitLoader {
             }
         } else {
             throw NSError(domain: GLTFErrorDomain,
-                          code: 1020,
+                          code: GLTFErrorCodeNoDefaultScene,
                           userInfo: [ NSLocalizedDescriptionKey : "The glTF asset did not specify a default scene" ])
         }
     }
@@ -658,6 +669,34 @@ public class GLTFRealityKitLoader {
            let meshComponent = try convert(mesh: gltfMesh, skeleton: skeleton, context: context) {
             nodeEntity.components.set(meshComponent)
         }
+
+        #if compiler(>=6.4) && (/*os(iOS) ||*/ os(visionOS)) && !targetEnvironment(simulator)
+        if #available(iOS 27.0, visionOS 27.0, *) {
+            if let gltfMesh = gltfNode.mesh {
+                // Gaussian splats aren't meshes, so we handle them separately, creating an
+                // individual splat entity per splat primitive.
+                let splatPrimitives = gltfMesh.primitives.filter { $0.gaussianSplatting != nil }
+                for primitive in splatPrimitives {
+                    let (splatResource, splatBounds) = try convert(splatPrimitive: primitive)
+                    let splatEntity = Entity()
+                    splatEntity.components.set(GaussianSplatComponent(splatResource))
+                    assert(splatEntity.components.has(GaussianSplatComponent.self))
+                    nodeEntity.addChild(splatEntity)
+                    // These nodes are temporary; they give the splat entity a visible extent, because
+                    // by default, splats are not factored into entities' visible bounds.
+                    var boundingMaterial = UnlitMaterial(color: .white)
+                    boundingMaterial.blending = .transparent(opacity: 0.002)
+                    let boundingBox = MeshResource.generateBox(size: 0.001)
+                    let minBoundingEntity = ModelEntity(mesh: boundingBox, materials: [boundingMaterial])
+                    minBoundingEntity.transform.translation = splatBounds.min
+                    nodeEntity.addChild(minBoundingEntity)
+                    let maxBoundingEntity = ModelEntity(mesh: boundingBox, materials: [boundingMaterial])
+                    maxBoundingEntity.transform.translation = splatBounds.max
+                    nodeEntity.addChild(maxBoundingEntity)
+                }
+            }
+        }
+        #endif
 
         if #available(visionOS 2.0, *) {
             if let gltfLight = gltfNode.light {
@@ -838,6 +877,164 @@ public class GLTFRealityKitLoader {
 
         return part
     }
+
+    #if compiler(>=6.4) && (/*os(iOS) ||*/ os(visionOS)) && !targetEnvironment(simulator)
+    @available(iOS 27.0, visionOS 27.0, *)
+    @MainActor func convert(splatPrimitive gltfPrimitive: GLTFPrimitive) throws -> (GaussianSplatResource, BoundingBox) {
+        guard let positionAttribute = gltfPrimitive.attribute(forName: GLTFAttributeSemantic.position.rawValue) else {
+            throw NSError(domain: GLTFErrorDomain,
+                          code: GLTFErrorCodeRequiredAttributeMissing,
+                          userInfo: [ NSLocalizedDescriptionKey : "A Gaussian splatting primitive did not contain required attribute POSITION" ])
+        }
+        guard let rotationAttribute = gltfPrimitive.attribute(forName: GLTFGaussianSplattingAttribute.rotation.rawValue) else {
+            throw NSError(domain: GLTFErrorDomain,
+                          code: GLTFErrorCodeRequiredAttributeMissing,
+                          userInfo: [ NSLocalizedDescriptionKey : "A Gaussian splatting primitive did not contain required attribute KHR_gaussian_splatting:ROTATION" ])
+        }
+        guard let scaleAttribute = gltfPrimitive.attribute(forName: GLTFGaussianSplattingAttribute.scale.rawValue) else {
+            throw NSError(domain: GLTFErrorDomain,
+                          code: GLTFErrorCodeRequiredAttributeMissing,
+                          userInfo: [ NSLocalizedDescriptionKey : "A Gaussian splatting primitive did not contain required attribute KHR_gaussian_splatting:SCALE" ])
+        }
+        guard let opacityAttribute = gltfPrimitive.attribute(forName: GLTFGaussianSplattingAttribute.opacity.rawValue) else {
+            throw NSError(domain: GLTFErrorDomain,
+                          code: GLTFErrorCodeRequiredAttributeMissing,
+                          userInfo: [ NSLocalizedDescriptionKey : "A Gaussian splatting primitive did not contain required attribute KHR_gaussian_splatting:OPACITY" ])
+        }
+        let splatCount = positionAttribute.accessor.count
+        let positionDescriptor = LowLevelBuffer.Descriptor(capacity: alignUp(splatCount * MemoryLayout<Float>.stride * 3), sizeMultiple: 16)
+        let positionBuffer = try LowLevelBuffer(descriptor: positionDescriptor)
+        positionBuffer.replaceUnsafeMutableBytes { ptr in
+            let packedPositions = GLTFPackedDataForAccessor(positionAttribute.accessor)
+            let floatPositions = GLTFTransformPackedDataToFloat(packedPositions, positionAttribute.accessor)
+            ptr.copyBytes(from: floatPositions)
+        }
+        let rotationDescriptor = LowLevelBuffer.Descriptor(capacity: alignUp(splatCount * MemoryLayout<Float>.stride * 4), sizeMultiple: 16)
+        let rotationBuffer = try LowLevelBuffer(descriptor: rotationDescriptor)
+        rotationBuffer.replaceUnsafeMutableBytes { ptr in
+            let packedRotations = GLTFPackedDataForAccessor(rotationAttribute.accessor)
+            let floatRotations = GLTFTransformPackedDataToFloat(packedRotations, rotationAttribute.accessor)
+            for splatIdx in 0..<splatCount {
+                let dstComponents = ptr.baseAddress!.advanced(by: splatIdx * MemoryLayout<Float>.stride * 4).bindMemory(to: Float.self, capacity: 4)
+                floatRotations.advanced(by: splatIdx * MemoryLayout<Float>.stride * 4).withUnsafeBytes { componentPtr in
+                    let srcComponents = componentPtr.bindMemory(to: Float.self)
+                    dstComponents[0] = srcComponents[3]
+                    dstComponents[1] = srcComponents[0]
+                    dstComponents[2] = srcComponents[1]
+                    dstComponents[3] = srcComponents[2]
+                }
+            }
+        }
+        let scaleDescriptor = LowLevelBuffer.Descriptor(capacity: alignUp(splatCount * MemoryLayout<Float>.stride * 3))
+        let scaleBuffer = try LowLevelBuffer(descriptor: scaleDescriptor)
+        scaleBuffer.replaceUnsafeMutableBytes { ptr in
+            let packedScales = GLTFPackedDataForAccessor(scaleAttribute.accessor)
+            let floatScales = GLTFTransformPackedDataToFloat(packedScales, scaleAttribute.accessor)
+            ptr.copyBytes(from: floatScales)
+        }
+        let opacityDescriptor = LowLevelBuffer.Descriptor(capacity: alignUp(splatCount * MemoryLayout<Float>.stride))
+        let opacityBuffer = try LowLevelBuffer(descriptor: opacityDescriptor)
+        opacityBuffer.replaceUnsafeMutableBytes { ptr in
+            let packedOpacities = GLTFPackedDataForAccessor(opacityAttribute.accessor)
+            let floatOpacities = GLTFTransformPackedDataToFloat(packedOpacities, opacityAttribute.accessor)
+            ptr.copyBytes(from: floatOpacities)
+        }
+        let sphericalHarmonics = try packedSphericalHarmonics(for: gltfPrimitive)
+        let resource = try GaussianSplatResource(.init(count: splatCount,
+                                                       position: .init(buffer: positionBuffer,
+                                                                       format: .float3,
+                                                                       stride: MemoryLayout<Float>.stride * 3,
+                                                                       offset: 0),
+                                                       scale: .init(buffer: scaleBuffer,
+                                                                    format: .float3,
+                                                                    stride: MemoryLayout<Float>.stride * 3,
+                                                                    offset: 0),
+                                                       rotation: .init(buffer: rotationBuffer,
+                                                                       format: .float4,
+                                                                       stride: MemoryLayout<Float>.stride * 4,
+                                                                       offset: 0),
+                                                       opacity: .init(buffer: opacityBuffer,
+                                                                      format: .float,
+                                                                      stride: MemoryLayout<Float>.stride,
+                                                                      offset: 0),
+                                                       sphericalHarmonics: sphericalHarmonics))
+        if let gs = gltfPrimitive.gaussianSplatting {
+            let colorSpace = gs.colorSpace == .rec709Linear ? CGColorSpace.linearSRGB : CGColorSpace.sRGB
+            resource.colorSpace = CGColorSpace(name: colorSpace)!
+            // These values are the defaults for KHR_gaussian_splatting and can be updated
+            // if and when other splatting extensions introduce new supported values.
+            resource.projectionMode = .perspective
+            resource.sortingMode = .distance
+            resource.scaleActivation = .identity
+            resource.opacityActivation = .identity
+        }
+        var bounds = BoundingBox()
+        let min = positionAttribute.accessor.minValues.map(\.floatValue)
+        let max = positionAttribute.accessor.maxValues.map(\.floatValue)
+        if min.count == 3, max.count == 3 {
+            bounds = BoundingBox(min: SIMD3<Float>(min), max: SIMD3<Float>(max))
+        }
+        return (resource, bounds)
+    }
+
+    @available(iOS 27.0, visionOS 27.0, *)
+    @MainActor func packedSphericalHarmonics(for gltfPrimitive: GLTFPrimitive) throws ->
+        (GaussianSplatResource.BufferDescriptor, GaussianSplatResource.SphericalHarmonicDegree)
+    {
+        var degree: GaussianSplatResource.SphericalHarmonicDegree = .zero
+        guard let dcAttribute = gltfPrimitive.attribute(forName: GLTFGaussianSplattingAttribute.shDegree0Coeff0.rawValue) else {
+            throw NSError(domain: GLTFErrorDomain,
+                          code: GLTFErrorCodeRequiredAttributeMissing,
+                          userInfo: [ NSLocalizedDescriptionKey : "A Gaussian splatting primitive did not contain required attribute KHR_gaussian_splatting:SH_DEGREE_0_COEF_0" ])
+        }
+        var coeffAttrs: [GLTFAttribute] = [dcAttribute]
+        let splatCount = dcAttribute.accessor.count
+        let sh1Attrs = (0..<3).compactMap { index in
+            gltfPrimitive.attribute(forName: "KHR_gaussian_splatting:SH_DEGREE_1_COEF_\(index)")
+        }
+        if sh1Attrs.count == 3 {
+            degree = .first
+            coeffAttrs.append(contentsOf: sh1Attrs)
+            let sh2Attrs = (0..<5).compactMap { index in
+                gltfPrimitive.attribute(forName: "KHR_gaussian_splatting:SH_DEGREE_2_COEF_\(index)")
+            }
+            if sh2Attrs.count == 5 {
+                degree = .second
+                coeffAttrs.append(contentsOf: sh2Attrs)
+                let sh3Attrs = (0..<7).compactMap { index in
+                    gltfPrimitive.attribute(forName: "KHR_gaussian_splatting:SH_DEGREE_3_COEF_\(index)")
+                }
+                if sh3Attrs.count == 7 {
+                    degree = .third
+                    coeffAttrs.append(contentsOf: sh3Attrs)
+                }
+            }
+        }
+        let splatStride = coeffAttrs.count * MemoryLayout<Float>.stride * 3
+        let shDescriptor = LowLevelBuffer.Descriptor(capacity: alignUp(splatCount * splatStride))
+        let shBuffer = try LowLevelBuffer(descriptor: shDescriptor)
+        shBuffer.replaceUnsafeMutableBytes { ptr in
+            let attributeData = coeffAttrs.map { GLTFPackedDataForAccessor($0.accessor) }
+            let attributeFloats = zip(attributeData, coeffAttrs).map { (data, attr) in
+                GLTFTransformPackedDataToFloat(data, attr.accessor)
+            }
+            for splatIdx in 0..<splatCount {
+                for (attrIndex, coeffs) in attributeFloats.enumerated() {
+                    let dstOffset = splatIdx * splatStride + attrIndex * MemoryLayout<Float>.stride * 3
+                    let dstComponents = ptr.baseAddress!.advanced(by: dstOffset).bindMemory(to: Float.self, capacity: 3)
+                    coeffs.withUnsafeBytes { srcPtr in
+                        let srcOffset = splatIdx * MemoryLayout<Float>.stride * 3
+                        let srcComponents = srcPtr.baseAddress!.advanced(by: srcOffset).bindMemory(to: Float.self, capacity: 3)
+                        dstComponents[0] = srcComponents[0]
+                        dstComponents[1] = srcComponents[1]
+                        dstComponents[2] = srcComponents[2]
+                    }
+                }
+            }
+        }
+        return (.init(buffer: shBuffer, format: .float3, stride: splatStride, offset: 0), degree)
+    }
+    #endif
 
     @MainActor func convert(material gltfMaterial: GLTFMaterial?,
                             context: GLTFRealityKitResourceContext) throws -> any RealityKit.Material

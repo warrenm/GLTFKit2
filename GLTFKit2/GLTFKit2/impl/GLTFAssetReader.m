@@ -1012,6 +1012,27 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
                 }
                 [targets addObject:[target copy]];
             }
+            if (p->has_gaussian_splatting) {
+                const cgltf_gaussian_splatting *gs = &p->gaussian_splatting;
+                if (gs) {
+                    GLTFGaussianSplatting *splatting = [GLTFGaussianSplatting new];
+                    if (gs->kernel) {
+                        splatting.kernel = [NSString stringWithCString:gs->kernel encoding:NSUTF8StringEncoding];
+                    }
+                    if (gs->color_space) {
+                        splatting.colorSpace = [NSString stringWithCString:gs->color_space encoding:NSUTF8StringEncoding];
+                    }
+                    if (gs->sorting_method) {
+                        splatting.sortingMethod = [NSString stringWithCString:gs->sorting_method encoding:NSUTF8StringEncoding];
+                    }
+                    if (gs->projection) {
+                        splatting.projection = [NSString stringWithCString:gs->projection encoding:NSUTF8StringEncoding];
+                    }
+                    splatting.extras = GLTFObjectFromExtras(gltf->json, gs->extras, nil);
+                    splatting.extensions = GLTFConvertExtensions(gs->extensions, gs->extensions_count, nil);
+                    primitive.gaussianSplatting = splatting;
+                }
+            }
             if (p->mappings_count > 0) {
                 NSMutableArray *materialMappings = [NSMutableArray arrayWithCapacity:p->mappings_count];
                 for (int k = 0; k < p->mappings_count; ++k) {
@@ -1306,6 +1327,7 @@ NSDictionary *GLTFConvertExtensions(cgltf_extension *extensions, size_t count, N
         @"EXT_mesh_gpu_instancing",
         @"EXT_texture_webp",
         @"KHR_emissive_strength",
+        @"KHR_gaussian_splatting",
         @"KHR_lights_punctual",
         @"KHR_materials_anisotropy",
         @"KHR_materials_clearcoat",

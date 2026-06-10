@@ -23,27 +23,33 @@ static NSString *g_dracoDecompressorClassName = nil;
 GLTFAssetLoadingOption const GLTFAssetCreateNormalsIfAbsentKey = @"GLTFAssetCreateNormalsIfAbsentKey";
 GLTFAssetLoadingOption const GLTFAssetAssetDirectoryURLKey = @"GLTFAssetAssetDirectoryURLKey";
 
-GLTFAttributeSemantic GLTFAttributeSemanticPosition = @"POSITION";
-GLTFAttributeSemantic GLTFAttributeSemanticNormal = @"NORMAL";
-GLTFAttributeSemantic GLTFAttributeSemanticTangent = @"TANGENT";
-GLTFAttributeSemantic GLTFAttributeSemanticTexcoord0 = @"TEXCOORD_0";
-GLTFAttributeSemantic GLTFAttributeSemanticTexcoord1 = @"TEXCOORD_1";
-GLTFAttributeSemantic GLTFAttributeSemanticTexcoord2 = @"TEXCOORD_2";
-GLTFAttributeSemantic GLTFAttributeSemanticTexcoord3 = @"TEXCOORD_3";
-GLTFAttributeSemantic GLTFAttributeSemanticTexcoord4 = @"TEXCOORD_4";
-GLTFAttributeSemantic GLTFAttributeSemanticTexcoord5 = @"TEXCOORD_5";
-GLTFAttributeSemantic GLTFAttributeSemanticTexcoord6 = @"TEXCOORD_6";
-GLTFAttributeSemantic GLTFAttributeSemanticTexcoord7 = @"TEXCOORD_7";
-GLTFAttributeSemantic GLTFAttributeSemanticColor0 = @"COLOR_0";
-GLTFAttributeSemantic GLTFAttributeSemanticJoints0 = @"JOINTS_0";
-GLTFAttributeSemantic GLTFAttributeSemanticJoints1 = @"JOINTS_1";
-GLTFAttributeSemantic GLTFAttributeSemanticWeights0 = @"WEIGHTS_0";
-GLTFAttributeSemantic GLTFAttributeSemanticWeights1 = @"WEIGHTS_1";
+GLTFAttributeSemantic const GLTFAttributeSemanticPosition = @"POSITION";
+GLTFAttributeSemantic const GLTFAttributeSemanticNormal = @"NORMAL";
+GLTFAttributeSemantic const GLTFAttributeSemanticTangent = @"TANGENT";
+GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord0 = @"TEXCOORD_0";
+GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord1 = @"TEXCOORD_1";
+GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord2 = @"TEXCOORD_2";
+GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord3 = @"TEXCOORD_3";
+GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord4 = @"TEXCOORD_4";
+GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord5 = @"TEXCOORD_5";
+GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord6 = @"TEXCOORD_6";
+GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord7 = @"TEXCOORD_7";
+GLTFAttributeSemantic const GLTFAttributeSemanticColor0 = @"COLOR_0";
+GLTFAttributeSemantic const GLTFAttributeSemanticJoints0 = @"JOINTS_0";
+GLTFAttributeSemantic const GLTFAttributeSemanticJoints1 = @"JOINTS_1";
+GLTFAttributeSemantic const GLTFAttributeSemanticWeights0 = @"WEIGHTS_0";
+GLTFAttributeSemantic const GLTFAttributeSemanticWeights1 = @"WEIGHTS_1";
 
-GLTFAnimationPath GLTFAnimationPathTranslation = @"translation";
-GLTFAnimationPath GLTFAnimationPathRotation = @"rotation";
-GLTFAnimationPath GLTFAnimationPathScale = @"scale";
-GLTFAnimationPath GLTFAnimationPathWeights = @"weights";
+GLTFAnimationPath const GLTFAnimationPathTranslation = @"translation";
+GLTFAnimationPath const GLTFAnimationPathRotation = @"rotation";
+GLTFAnimationPath const GLTFAnimationPathScale = @"scale";
+GLTFAnimationPath const GLTFAnimationPathWeights = @"weights";
+
+GLTFGaussianSplattingKernel const GLTFGaussianSplattingKernelEllipse = @"ellipse";
+GLTFGaussianSplattingColorSpace const GLTFGaussianSplattingColorSpaceRec709Linear = @"lin_rec709_display";
+GLTFGaussianSplattingColorSpace const GLTFGaussianSplattingColorSpaceRec709sRGB = @"srgb_rec709_display";
+GLTFGaussianSplattingSortingMethod const GLTFGaussianSplattingSortingMethodCameraDistance = @"cameraDistance";
+GLTFGaussianSplattingProjection const GLTFGaussianSplattingProjectionPerspective = @"perspective";
 
 static NSString *const GLTFMediaTypeWebP = @"image/webp";
 
@@ -929,6 +935,20 @@ NSString *GLTFMediaTypeFromDataURI(NSString *uriData) {
     if (self = [super init]) {
         [super setName:name];
         _accessor = accessor;
+    }
+    return self;
+}
+
+@end
+
+@implementation GLTFGaussianSplatting
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _kernel = GLTFGaussianSplattingKernelEllipse;
+        _colorSpace = GLTFGaussianSplattingColorSpaceRec709sRGB;
+        _projection = GLTFGaussianSplattingProjectionPerspective;
+        _sortingMethod = GLTFGaussianSplattingSortingMethodCameraDistance;
     }
     return self;
 }

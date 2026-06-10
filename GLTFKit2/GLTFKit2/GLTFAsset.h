@@ -10,6 +10,7 @@ NS_ASSUME_NONNULL_BEGIN
 extern NSString *const GLTFErrorDomain;
 
 enum {
+    // These cases are mapped from lower-level errors in cgltf
     GLTFErrorCodeDataTooShort         = 1001,
     GLTFErrorCodeUnknownFormat        = 1002,
     GLTFErrorCodeInvalidJSON          = 1003,
@@ -22,6 +23,10 @@ enum {
     GLTFErrorCodeNoDataToLoad         = 1010,
     GLTFErrorCodeFailedToLoad         = 1011,
     GLTFErrorCodeUnsupportedExtension = 1012,
+
+    // These cases cover higher-level conversion scenarios
+    GLTFErrorCodeNoDefaultScene           = 1020,
+    GLTFErrorCodeRequiredAttributeMissing = 1021,
 };
 
 typedef NSInteger GLTFErrorCode;
@@ -30,29 +35,45 @@ extern NSString *const GLTFMediaTypeKTX2;
 
 extern const float LumensPerCandela;
 
-typedef NSString *const GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
-extern GLTFAttributeSemantic GLTFAttributeSemanticPosition;
-extern GLTFAttributeSemantic GLTFAttributeSemanticNormal;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTangent;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord0;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord1;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord2;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord3;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord4;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord5;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord6;
-extern GLTFAttributeSemantic GLTFAttributeSemanticTexcoord7;
-extern GLTFAttributeSemantic GLTFAttributeSemanticColor0;
-extern GLTFAttributeSemantic GLTFAttributeSemanticJoints0;
-extern GLTFAttributeSemantic GLTFAttributeSemanticJoints1;
-extern GLTFAttributeSemantic GLTFAttributeSemanticWeights0;
-extern GLTFAttributeSemantic GLTFAttributeSemanticWeights1;
+typedef NSString *GLTFAttributeSemantic NS_TYPED_EXTENSIBLE_ENUM;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticPosition;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticNormal;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTangent;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord0;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord1;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord2;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord3;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord4;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord5;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord6;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticTexcoord7;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticColor0;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticJoints0;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticJoints1;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticWeights0;
+extern GLTFAttributeSemantic const GLTFAttributeSemanticWeights1;
 
-typedef NSString *const GLTFAnimationPath NS_TYPED_EXTENSIBLE_ENUM;
-extern GLTFAnimationPath GLTFAnimationPathTranslation;
-extern GLTFAnimationPath GLTFAnimationPathRotation;
-extern GLTFAnimationPath GLTFAnimationPathScale;
-extern GLTFAnimationPath GLTFAnimationPathWeights;
+typedef NSString *GLTFAnimationPath NS_TYPED_EXTENSIBLE_ENUM;
+extern GLTFAnimationPath const GLTFAnimationPathTranslation;
+extern GLTFAnimationPath const GLTFAnimationPathRotation;
+extern GLTFAnimationPath const GLTFAnimationPathScale;
+extern GLTFAnimationPath const GLTFAnimationPathWeights;
+
+typedef NSString *GLTFGaussianSplattingKernel NS_TYPED_EXTENSIBLE_ENUM;
+extern GLTFGaussianSplattingKernel const GLTFGaussianSplattingKernelEllipse;
+
+typedef NSString *GLTFGaussianSplattingColorSpace NS_TYPED_EXTENSIBLE_ENUM;
+// We follow the convention that color spaces pair a set of primaries and a white point with an EOTF,
+// so these color spaces both use the primaries and white point of ITU-R Recommendation 709, with a
+// linear transfer function and the sRGB transfer function, respectively. Both are display-referred.
+extern GLTFGaussianSplattingColorSpace const GLTFGaussianSplattingColorSpaceRec709Linear;
+extern GLTFGaussianSplattingColorSpace const GLTFGaussianSplattingColorSpaceRec709sRGB;
+
+typedef NSString *GLTFGaussianSplattingSortingMethod NS_TYPED_EXTENSIBLE_ENUM;
+extern GLTFGaussianSplattingSortingMethod const GLTFGaussianSplattingSortingMethodCameraDistance;
+
+typedef NSString *GLTFGaussianSplattingProjection NS_TYPED_EXTENSIBLE_ENUM;
+extern GLTFGaussianSplattingProjection const GLTFGaussianSplattingProjectionPerspective;
 
 typedef NS_ENUM(NSInteger, GLTFMeshoptCompressionMode) {
     GLTFMeshoptCompressionModeAttributes = 1,
@@ -560,6 +581,14 @@ GLTFKIT2_EXPORT
 
 @end
 
+GLTFKIT2_EXPORT
+@interface GLTFGaussianSplatting : GLTFObject
+@property (nonatomic, copy) GLTFGaussianSplattingKernel kernel;
+@property (nonatomic, copy) GLTFGaussianSplattingColorSpace colorSpace;
+@property (nonatomic, nullable, copy) GLTFGaussianSplattingSortingMethod sortingMethod;
+@property (nonatomic, nullable, copy) GLTFGaussianSplattingProjection projection;
+@end
+
 typedef NSArray<GLTFAttribute *> GLTFMorphTarget;
 
 GLTFKIT2_EXPORT
@@ -576,6 +605,7 @@ GLTFKIT2_EXPORT
 @property (nonatomic, nullable, strong) GLTFAccessor *indices;
 @property (nonatomic, nullable, strong) GLTFMaterial *material;
 @property (nonatomic, assign) GLTFPrimitiveType primitiveType;
+@property (nonatomic, nullable, strong) GLTFGaussianSplatting *gaussianSplatting;
 @property (nonatomic, copy) NSArray<GLTFMorphTarget *> *targets;
 @property (nonatomic, nullable, copy) NSArray<GLTFMaterialMapping *> *materialMappings;
 
