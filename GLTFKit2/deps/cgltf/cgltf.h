@@ -296,6 +296,7 @@ typedef enum cgltf_meshopt_compression_filter {
 	cgltf_meshopt_compression_filter_octahedral,
 	cgltf_meshopt_compression_filter_quaternion,
 	cgltf_meshopt_compression_filter_exponential,
+	cgltf_meshopt_compression_filter_color,
 	cgltf_meshopt_compression_filter_max_enum
 } cgltf_meshopt_compression_filter;
 
@@ -308,6 +309,7 @@ typedef struct cgltf_meshopt_compression
 	cgltf_size count;
 	cgltf_meshopt_compression_mode mode;
 	cgltf_meshopt_compression_filter filter;
+	cgltf_bool is_khr;
 } cgltf_meshopt_compression;
 
 typedef struct cgltf_buffer_view
@@ -596,6 +598,16 @@ typedef struct cgltf_draco_mesh_compression {
 	cgltf_size attributes_count;
 } cgltf_draco_mesh_compression;
 
+typedef struct cgltf_gaussian_splatting {
+    char* kernel;
+    char* color_space;
+    char* sorting_method;
+    char* projection;
+    cgltf_extras extras;
+    cgltf_size extensions_count;
+    cgltf_extension* extensions;
+} cgltf_gaussian_splatting;
+
 typedef struct cgltf_mesh_gpu_instancing {
 	cgltf_attribute* attributes;
 	cgltf_size attributes_count;
@@ -614,6 +626,8 @@ typedef struct cgltf_primitive {
 	cgltf_draco_mesh_compression draco_mesh_compression;
 	cgltf_material_mapping* mappings;
 	cgltf_size mappings_count;
+	cgltf_bool has_gaussian_splatting;
+	cgltf_gaussian_splatting gaussian_splatting;
 	cgltf_size extensions_count;
 	cgltf_extension* extensions;
 } cgltf_primitive;
@@ -1661,8 +1675,8 @@ cgltf_result cgltf_validate(cgltf_data* data)
 			CGLTF_ASSERT_IF((mc->mode == cgltf_meshopt_compression_mode_triangles || mc->mode == cgltf_meshopt_compression_mode_indices) && mc->filter != cgltf_meshopt_compression_filter_none, cgltf_result_invalid_gltf);
 
 			CGLTF_ASSERT_IF(mc->filter == cgltf_meshopt_compression_filter_octahedral && mc->stride != 4 && mc->stride != 8, cgltf_result_invalid_gltf);
-
 			CGLTF_ASSERT_IF(mc->filter == cgltf_meshopt_compression_filter_quaternion && mc->stride != 8, cgltf_result_invalid_gltf);
+			CGLTF_ASSERT_IF(mc->filter == cgltf_meshopt_compression_filter_color && mc->stride != 4 && mc->stride != 8, cgltf_result_invalid_gltf);
 		}
 	}
 
@@ -3137,6 +3151,55 @@ static int cgltf_parse_json_draco_mesh_compression(cgltf_options* options, jsmnt
 	return i;
 }
 
+static int cgltf_parse_json_gaussian_splatting(cgltf_options* options, jsmntok_t const* tokens, int i, const uint8_t* json_chunk, cgltf_gaussian_splatting* out_gaussian_splatting)
+{
+	CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
+
+	int size = tokens[i].size;
+	++i;
+
+	for (int j = 0; j < size; ++j)
+	{
+		CGLTF_CHECK_KEY(tokens[i]);
+
+		if (cgltf_json_strcmp(tokens + i, json_chunk, "kernel") == 0)
+		{
+			i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_gaussian_splatting->kernel);
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "colorSpace") == 0)
+		{
+			i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_gaussian_splatting->color_space);
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "sortingMethod") == 0)
+		{
+			i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_gaussian_splatting->sorting_method);
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "projection") == 0)
+		{
+			i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_gaussian_splatting->projection);
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "extras") == 0)
+		{
+			i = cgltf_parse_json_extras(options, tokens, i + 1, json_chunk, &out_gaussian_splatting->extras);
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "extensions") == 0)
+		{
+			i = cgltf_parse_json_unprocessed_extensions(options, tokens, i, json_chunk, &out_gaussian_splatting->extensions_count, &out_gaussian_splatting->extensions);
+		}
+		else
+		{
+			i = cgltf_skip_json(tokens, i+1);
+		}
+
+		if (i < 0)
+		{
+			return i;
+		}
+	}
+
+	return i;
+}
+
 static int cgltf_parse_json_mesh_gpu_instancing(cgltf_options* options, jsmntok_t const* tokens, int i, const uint8_t* json_chunk, cgltf_mesh_gpu_instancing* out_mesh_gpu_instancing)
 {
 	CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
@@ -3407,6 +3470,11 @@ static int cgltf_parse_json_primitive(cgltf_options* options, jsmntok_t const* t
 				{
 					out_prim->has_draco_mesh_compression = 1;
 					i = cgltf_parse_json_draco_mesh_compression(options, tokens, i + 1, json_chunk, &out_prim->draco_mesh_compression);
+				}
+				else if (cgltf_json_strcmp(tokens+i, json_chunk, "KHR_gaussian_splatting") == 0)
+				{
+					out_prim->has_gaussian_splatting = 1;
+					i = cgltf_parse_json_gaussian_splatting(options, tokens, i + 1, json_chunk, &out_prim->gaussian_splatting);
 				}
 				else if (cgltf_json_strcmp(tokens+i, json_chunk, "KHR_materials_variants") == 0)
 				{
@@ -5118,6 +5186,10 @@ static int cgltf_parse_json_meshopt_compression(cgltf_options* options, jsmntok_
 			{
 				out_meshopt_compression->filter = cgltf_meshopt_compression_filter_exponential;
 			}
+			else if (cgltf_json_strcmp(tokens+i, json_chunk, "COLOR") == 0)
+			{
+				out_meshopt_compression->filter = cgltf_meshopt_compression_filter_color;
+			}
 			++i;
 		}
 		else
@@ -5226,6 +5298,12 @@ static int cgltf_parse_json_buffer_view(cgltf_options* options, jsmntok_t const*
 				if (cgltf_json_strcmp(tokens+i, json_chunk, "EXT_meshopt_compression") == 0)
 				{
 					out_buffer_view->has_meshopt_compression = 1;
+					i = cgltf_parse_json_meshopt_compression(options, tokens, i + 1, json_chunk, &out_buffer_view->meshopt_compression);
+				}
+				else if (cgltf_json_strcmp(tokens+i, json_chunk, "KHR_meshopt_compression") == 0)
+				{
+					out_buffer_view->has_meshopt_compression = 1;
+					out_buffer_view->meshopt_compression.is_khr = 1;
 					i = cgltf_parse_json_meshopt_compression(options, tokens, i + 1, json_chunk, &out_buffer_view->meshopt_compression);
 				}
 				else
